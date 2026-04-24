@@ -1,0 +1,23 @@
+version: "3"
+
+services:
+  # Full app build and push service
+  full-app-build:
+    build:
+      context: ..
+      dockerfile: local-env/production.Dockerfile
+    image: goknown-full:latest
+
+  # Backend build and push service
+  backend-build:
+    build:
+      context: ../backend
+      dockerfile: ../local-env/backend.Dockerfile
+    image: goknown-backend:latest
+
+  # Frontend build and push service
+  frontend-build:
+    build:
+      context: ../frontend
+      dockerfile: ../local-env/frontend.Dockerfile
+    image: goknown-frontend:latest 

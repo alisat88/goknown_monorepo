@@ -1,0 +1,148 @@
+services:
+  # Backend Service
+  backend:
+    container_name: goknown-backend
+    build:
+      context: ../backend
+      dockerfile: ../local-env/backend.Dockerfile
+    ports:
+      - "3333:3333"
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+      - ../backend/ormconfig.js:/app/ormconfig.js
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./backend.env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=root
+      - DB_PASS=${DB_PASS:-your_aiven_password_here}
+      - DB_NAME=defaultdb
+    command: >
+      sh -c " echo 'Starting backend...' && yarn typeorm migration:run && echo 'Migrations complete, building...' && yarn build && echo 'Build complete, starting server...' && yarn start "
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3333/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - goknown-network
+
+  # Frontend Service
+  frontend:
+    container_name: goknown-frontend
+    build:
+      context: ../frontend
+      dockerfile: ../local-env/frontend.Dockerfile
+      args:
+        # React environment variables (embedded at build time)
+        REACT_APP_ENVIRONMENT: ${REACT_APP_ENVIRONMENT:-development}
+        REACT_APP_PRODUCTION_API: ${REACT_APP_PRODUCTION_API:-http://localhost:3333/}
+        REACT_APP_DEVELOPMENT_API: ${REACT_APP_DEVELOPMENT_API:-http://localhost:3333/}
+        REACT_APP_STAGING_API: ${REACT_APP_STAGING_API:-http://localhost:3333/}
+        REACT_APP_BALANCE_API: ${REACT_APP_BALANCE_API:-http://localhost:3333/}
+        REACT_APP_SOCKET_URL: ${REACT_APP_SOCKET_URL:-http://localhost:3333}
+        REACT_APP_BYPASS_SMS_2FA: ${REACT_APP_BYPASS_SMS_2FA:-true}
+        REACT_APP_BYPASS_EMAIL: ${REACT_APP_BYPASS_EMAIL:-true}
+        GENERATE_SOURCEMAP: ${GENERATE_SOURCEMAP:-false}
+        REACT_APP_SHOW_DEBUG: ${REACT_APP_SHOW_DEBUG:-false}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    env_file:
+      - ./frontend.env
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - goknown-network
+
+  # Nginx (reverse proxy)
+  nginx:
+    image: nginx:alpine
+    container_name: goknown-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - goknown-network
+
+  # Redis (used by backend)
+  redis:
+    image: redis:alpine
+    container_name: goknown-redis
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=root
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - goknown-network
+
+  # PostgreSQL (database)
+  postgres:
+    image: postgres:13-alpine
+    container_name: goknown-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=${DB_PASS:-your_aiven_password_here}
+      - POSTGRES_DB=defaultdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U root -d defaultdb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - goknown-network
+
+networks:
+  goknown-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  postgres-data:

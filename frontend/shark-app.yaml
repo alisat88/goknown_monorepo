@@ -1,0 +1,38 @@
+domains:
+- domain: dev.goknown.app
+  type: PRIMARY
+  zone: goknown.app
+envs:
+- key: NODE_ENV
+  scope: RUN_AND_BUILD_TIME
+  value: staging
+name: shark-app
+region: nyc
+static_sites:
+- build_command: yarn build
+  environment_slug: node-js
+  github:
+    branch: development
+    deploy_on_push: true
+    repo: Mind-Web-Solutions/GoKnown_frontend-1
+  name: goknown-frontend-1
+  routes:
+  - path: /
+  - path: /sendtokens
+  - path: /dashboard
+  - path: /confirm-email-denied
+  - path: /confirm-email
+  - path: /digitalassets
+  - path: /reset-password
+  - path: /buytokens
+  - path: /groups
+  - path: /folders
+  - path: /groups/new
+  - path: /folder
+  - path: /digitalassets/new
+  - path: /dataforms
+  - path: /messenger
+  - path: /organizations
+  - path: /changelog
+  - path: /organizations/123abc/edit
+  source_dir: /

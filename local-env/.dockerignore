@@ -1,0 +1,37 @@
+# Git files
+.git
+.gitignore
+
+# Documentation
+*.md
+README.md
+WINDOWS_SETUP.md
+
+# Build scripts
+build-and-push.sh
+build-and-push.bat
+prepare-build.sh
+prepare-build.bat
+
+# Docker files (not needed in build context)
+docker-compose.build.yml
+production.Dockerfile
+
+# Environment files (handled separately)
+*.env
+.env
+
+# SSL certificates (if any)
+nginx/ssl/*.key
+nginx/ssl/*.crt
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+
+
+
+

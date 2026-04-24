@@ -1,0 +1,12 @@
+.popup-class{
+  width: 38em;
+  border-radius: 10px !important;
+}
+
+.title-class{
+  text-transform: capitalize;
+}
+
+.content-class {
+  padding: 0 !important;
+}

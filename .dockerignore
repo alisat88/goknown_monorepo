@@ -1,0 +1,10 @@
+.git
+.gitignore
+.DS_Store
+node_modules
+build
+dist
+*.log
+# Não ignorar local-env e .env
+# local-env
+# .env 

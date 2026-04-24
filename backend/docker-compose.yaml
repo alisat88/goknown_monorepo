@@ -1,0 +1,126 @@
+services:
+  api:
+    container_name: goknown.api
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3333:3333"
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./ormconfig.js:/app/ormconfig.js
+    environment:
+      # Node Configuration
+      - NODE_NUMBER=4
+      - NODE_NAME=NODE4
+      - NODE_UUID=61f17958-39ff-4284-9a80-bb7e4aad1063
+      - NODE_ENV=production
+      - NODES_JSON=[{"name":"NODE1","url":"https://localhost:3333/"}]
+
+      # Application Settings
+      - APP_NAME=goknown
+      - APP_SECRET=${APP_SECRET:-your_app_secret_here}
+      - APP_WEB_URL=http://localhost:3000
+      - APP_API_URL=http://localhost:3333
+      - CHARGE_AMOUNT=-1
+      - ENABLE_CREATE_USER=true
+
+      # Storage Configuration
+      - STORAGE_DRIVER=disk
+      - DO_SPACES_ENDPOINT=sfo3.digitaloceanspaces.com
+      - DO_SPACES_KEY=${DO_SPACES_KEY:-your_api_key_here}
+      - DO_SPACES_SECRET=${DO_SPACES_SECRET:-your_api_key_here}
+      - DO_SPACES_BUCKET=storage-goknown
+      - DO_SPACE_URL=https://storage-goknown.sfo3.digitaloceanspaces.com
+
+      # Email Configuration
+      - MAIL_DRIVER=smtp
+      - MAIL_BYPASS=true
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-your_aws_access_key_id_here}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-your_aws_secret_access_key_here}
+      - AWS_REGION=
+
+      # Two-Factor Authentication
+      - APP_TWO_FACTOR_AUTHENTICATION_APP_NAME=GoKnown
+      - TWOFA_DRIVER=twilio
+      - TWILIO_BYPASS=true
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-your_twilio_account_sid_here}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-your_twilio_auth_token_here}
+      - TWILIO_SERVICE_ID=${TWILIO_SERVICE_ID:-your_twilio_service_id_here}
+
+      # Redis Configuration
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASS=root
+
+      # Database Configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=root
+      - DB_PASS=${DB_PASS:-your_aiven_password_here}
+      - DB_NAME=defaultdb
+      - DATABASE_URL=${DATABASE_URL:-your_database_url_here}
+    command: >
+      yarn typeorm migration:run &&
+      yarn build &&
+      yarn start
+    networks:
+      - goknown-network
+
+  # Nginx Proxy Manager (replaces standard nginx)
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: goknown.nginx-proxy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '8081:81'
+    volumes:
+      - nginx-data:/data
+      - nginx-letsencrypt:/etc/letsencrypt
+    depends_on:
+      - api
+    networks:
+      - goknown-network
+
+  redis:
+    image: redis:alpine
+    container_name: goknown.redis
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=root
+    ports:
+      - "16379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - goknown-network
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: goknown.postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=${DB_PASS:-your_aiven_password_here}
+      - POSTGRES_DB=defaultdb
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - goknown-network
+
+networks:
+  goknown-network:
+    driver: bridge
+
+volumes:
+  nginx-data:
+  nginx-letsencrypt:
+  redis-data:
+  postgres-data:

@@ -1,0 +1,49 @@
+# =========================
+# ENV & SECRETS (CRITICAL)
+# =========================
+.env
+*.env
+local-env/
+.env.local
+.env.development
+.env.production
+
+# =========================
+# NODE
+# =========================
+node_modules/
+yarn.lock
+package-lock.json
+yarn-error.log
+npm-debug.log*
+
+# =========================
+# BUILD FILES
+# =========================
+dist/
+build/
+coverage/
+
+# =========================
+# TEMP FILES
+# =========================
+tmp/*
+!tmp/.gitkeep
+mnt/
+
+# =========================
+# CONFIG FILES (SENSITIVE)
+# =========================
+ormconfig.json
+ormconfig.prod.json
+
+# =========================
+# OS FILES
+# =========================
+.DS_Store
+
+# =========================
+# PYTHON (Streamlit apps)
+# =========================
+__pycache__/
+*.pyc
