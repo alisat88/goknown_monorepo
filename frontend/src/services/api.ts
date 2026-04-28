@@ -28,11 +28,11 @@ class Axios {
     this.api.interceptors.response.use(
       (response: AxiosResponse) => response,
       (error: AxiosError) => {
-       // if (error.response?.status === 403) {
-       //   localStorage.removeItem("@GoKnown:token");
-       //   localStorage.removeItem("@GoKnown:user");
-       //   window.location.href = "/";
-       // }
+        // if (error.response?.status === 403) {
+        //   localStorage.removeItem("@GoKnown:token");
+        //   localStorage.removeItem("@GoKnown:user");
+        //   window.location.href = "/";
+        // }
 
         const errorFormatted = {
           response: {
