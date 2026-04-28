@@ -119,8 +119,10 @@ if (process.env.NODE_NAME === 'NODE1') {
 /**
  * RUN SERVER
  */
-const PORT = process.env.PORT || 3333;
-server.listen(PORT, () => {
-  console.log(`Worker ${process.pid} started on port ${PORT}`);
+const port = Number(process.env.PORT) || 3333;
+const host = process.env.HOST || '0.0.0.0';
+
+server.listen(port, host, () => {
+  console.log(`Worker ${process.pid} running on http://${host}:${port}`);
 });
 // }
