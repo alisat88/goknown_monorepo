@@ -5,8 +5,16 @@ class Axios {
   public api = {} as AxiosInstance;
 
   constructor() {
-    // 🔥 FORCE LOCAL BACKEND (this fixes your login issue)
-    const baseURL = "http://localhost:3333";
+    const environment = process.env.REACT_APP_ENVIRONMENT || "production";
+    const apiURLs: Record<string, string | undefined> = {
+      development: process.env.REACT_APP_DEVELOPMENT_API,
+      staging: process.env.REACT_APP_STAGING_API,
+      production: process.env.REACT_APP_PRODUCTION_API,
+    };
+    const baseURL = (apiURLs[environment] || "http://localhost:3333").replace(
+      /\/$/,
+      ""
+    );
 
     this.api = axios.create({
       baseURL,
