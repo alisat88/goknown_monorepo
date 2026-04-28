@@ -26,6 +26,7 @@ export interface IDL {
   sync_id: string;
   icon_url?: string;
   oldPage?: string;
+  externalUrl?: string;
   flag: string;
 }
 

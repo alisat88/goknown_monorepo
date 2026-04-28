@@ -12,10 +12,6 @@ import wallet from "../assets/wallet.svg";
 import knowncompute from "../assets/KnownCompute.jpg";
 import ZTA from "../assets/ZTA.png";
 
-// 🔥 NEW ICONS (reuse existing ones for now). this will be changed later
-import walletIcon from "../assets/wallet.svg";
-import labIcon from "../assets/laboratory.png";
-
 import { IDL } from "../pages/Organizations/types";
 
 export default [
@@ -104,7 +100,7 @@ export default [
   },
 
   // ============================================
-  // 💳 PAYMENTS APP (NEW)
+  // 💳 ZTA COIN (Payments App)
   // ============================================
   {
     id: uuid(),
@@ -112,22 +108,24 @@ export default [
     name: "ZTA Coin",
     icon: ZTA,
     icon_url: ZTA,
-    route: "/payments",
+    route: "/payments", // ✅ INTERNAL ROUTE
+    externalUrl: "https://zta-coin-org.streamlit.app/",
     flag: "payments",
     roles: "admin",
   },
 
   // ============================================
-  // ⚙️ WORKFLOW APP (NEW)
+  // ⚙️ KNOWNCOMPUTE (Workflow App)
   // ============================================
   {
-  id: uuid(),
-  sync_id: uuid(),
-  name: "KnownCompute",
-  icon: knowncompute,
-  icon_url: knowncompute,
-  route: "/workflow",
-  flag: "workflow",
-  roles: "admin",
-},
+    id: uuid(),
+    sync_id: uuid(),
+    name: "KnownCompute",
+    icon: knowncompute,
+    icon_url: knowncompute,
+    route: "/workflow", // ✅ INTERNAL ROUTE
+    externalUrl: "https://known-compute-ai.streamlit.app/",
+    flag: "workflow",
+    roles: "admin",
+  },
 ] as IDL[];

@@ -52,6 +52,22 @@ const DLs: React.FC<React.PropsWithChildren<IDlsProps>> = ({
         <CardContent>
           {dls?.map((dl, index) => {
             if (dl.roles?.includes(user.role) === false) return null;
+            if (dl.externalUrl) {
+              return (
+                <Card
+                  as="a"
+                  key={index}
+                  href={dl.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img src={dl.icon_url} alt="dls" width="72" />
+                  <p>{dl.name}</p>
+                  {renderUnRead(dl.name)}
+                </Card>
+              );
+            }
+
             return (
               <Card
                 key={index}
