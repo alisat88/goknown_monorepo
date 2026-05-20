@@ -1,0 +1,103 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "My API",
+    "description": "Description",
+    "version": "1.0.0"
+  },
+  "host": "localhost:3000",
+  "basePath": "/",
+  "schemes": ["http"],
+  "paths": {
+    "/session/": {
+      "post": {
+        "summary": "Create a session",
+        "description": "Create a user session by providing email and password.",
+        "tags": ["Sessions"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "required": true
+                  },
+                  "password": {
+                    "type": "string",
+                    "required": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful session creation"
+          },
+          "400": {
+            "description": "Bad request"
+          }
+        }
+      }
+    },
+    "/session/2fa/generate": {
+      "post": {
+        "summary": "Generate Two-Factor Authentication (2FA) code",
+        "description": "Generate a 2FA code for the authenticated user.",
+        "tags": ["Sessions"],
+        "responses": {
+          "200": {
+            "description": "2FA code generated successfully"
+          }
+        }
+      }
+    },
+    "/session/2fa/authenticate": {
+      "post": {
+        "summary": "Authenticate Two-Factor Authentication (2FA) code",
+        "description": "Authenticate a user using a 2FA code.",
+        "tags": ["Sessions"],
+        "responses": {
+          "200": {
+            "description": "2FA authentication successful"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/session/send-sms": {
+      "post": {
+        "summary": "Send SMS for Two-Factor Authentication (2FA)",
+        "description": "Send an SMS for 2FA verification.",
+        "tags": ["Sessions"],
+        "responses": {
+          "200": {
+            "description": "SMS sent successfully"
+          }
+        }
+      }
+    },
+    "/session/verify-sms": {
+      "post": {
+        "summary": "Verify SMS for Two-Factor Authentication (2FA)",
+        "description": "Verify the SMS code for 2FA.",
+        "tags": ["Sessions"],
+        "responses": {
+          "200": {
+            "description": "SMS verification successful"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    }
+  }
+}

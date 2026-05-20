@@ -109,7 +109,7 @@ export default [
     icon: ZTA,
     icon_url: ZTA,
     route: "/payments", // ✅ INTERNAL ROUTE
-    externalUrl: "https://zta-coin-org.streamlit.app/",
+    externalUrl: "https://zta-coin.org",
     flag: "payments",
     roles: "admin",
   },
@@ -124,7 +124,7 @@ export default [
     icon: knowncompute,
     icon_url: knowncompute,
     route: "/workflow", // ✅ INTERNAL ROUTE
-    externalUrl: "https://known-compute-ai.streamlit.app/",
+    externalUrl: "https://knowncompute.ai",
     flag: "workflow",
     roles: "admin",
   },
