@@ -77,7 +77,7 @@ export const organizationsFake = [
 
                 name: "Wallet",
                 icon: wallet,
-                route: "/trasactions",
+                route: "/transactions",
                 flag: "wallet",
               },
               {

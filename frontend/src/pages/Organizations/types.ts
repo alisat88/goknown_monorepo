@@ -20,6 +20,7 @@ export interface IGroupItem {
 export interface IDL {
   id: V4Options;
   name: string;
+  description?: string;
   icon: string;
   route: string;
   roles?: "admin" | "admin" | "buyer" | "seller" | "issuer";

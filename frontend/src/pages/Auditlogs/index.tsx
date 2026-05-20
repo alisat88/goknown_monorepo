@@ -124,7 +124,7 @@ const Auditlogs: React.FC<React.PropsWithChildren<unknown>> = () => {
           filtered_user_syncid: selectedUser?.sync_id,
           offset: offsetRef.current,
           limit: ITEMS_PER_PAGE,
-          logType: logType,
+          logType,
         },
       });
 
@@ -156,14 +156,6 @@ const Auditlogs: React.FC<React.PropsWithChildren<unknown>> = () => {
       loadLogs();
     }
   }, [loadLogs]);
-
-  // Reset and reload when selectedUser changes
-  useEffect(() => {
-    if (selectedUser !== undefined || logs.length === 0) {
-      return;
-    }
-    // This handles the case when user is cleared
-  }, [selectedUser, logs.length]);
 
   return (
     <Container mobileHeight={100} height={100}>

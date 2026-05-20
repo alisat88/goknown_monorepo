@@ -183,7 +183,7 @@ const BuyTokens: React.FC<React.PropsWithChildren<unknown>> = () => {
                   reset();
                   setDisplayNewTokens(user.current_balance.toString());
                   setTimeout(
-                    () => history.push(`${baseNavigationPath}/trasactions`),
+                    () => history.push(`${baseNavigationPath}/transactions`),
                     2800
                   );
                 }),
@@ -254,11 +254,11 @@ const BuyTokens: React.FC<React.PropsWithChildren<unknown>> = () => {
     <Container>
       <Header>
         <HeaderContent>
-          {/* <ButtonBack mobileTitle="Issue Tokens" goTo="/trasactions" /> */}
+          {/* <ButtonBack mobileTitle="Issue Tokens" goTo="/transactions" /> */}
 
           <ButtonBack
             mobileTitle="Issue Tokens"
-            goTo={`${baseNavigationPath}/trasactions`}
+            goTo={`${baseNavigationPath}/transactions`}
           />
         </HeaderContent>
       </Header>

@@ -224,7 +224,7 @@ const SendTokens: React.FC<React.PropsWithChildren<unknown>> = () => {
                   reset();
 
                   setTimeout(
-                    () => history.push(`${baseNavigationPath}/trasactions`),
+                    () => history.push(`${baseNavigationPath}/transactions`),
                     2800
                   );
                 })
@@ -314,10 +314,10 @@ const SendTokens: React.FC<React.PropsWithChildren<unknown>> = () => {
     <Container>
       <Header>
         <HeaderContent>
-          {/* <ButtonBack mobileTitle="Send Tokens" goTo="/trasactions" /> */}
+          {/* <ButtonBack mobileTitle="Send Tokens" goTo="/transactions" /> */}
           <ButtonBack
             mobileTitle="Send Tokens"
-            goTo={`${baseNavigationPath}/trasactions`}
+            goTo={`${baseNavigationPath}/transactions`}
           />
         </HeaderContent>
       </Header>
