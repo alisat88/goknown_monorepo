@@ -98,6 +98,7 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
             <FiLogIn />
             Create an account
           </Link>
+          <Link to="/dashboard">Explore GoKnown</Link>
           <Link to="/privacy-policy" target="_blank" style={{ marginTop: 50 }}>
             Privacy Policy
           </Link>
