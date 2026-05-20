@@ -1,0 +1,16 @@
+node_modules
+
+yarn.lock
+yarn-error.log
+ormconfig.json
+
+coverage
+.env
+dist
+
+
+tmp/*
+!tmp/.gitkeep
+
+mnt
+ormconfig.prod.json
