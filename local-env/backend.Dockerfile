@@ -4,6 +4,9 @@ FROM node:alpine
 # PUBLISH PROJECT INSIDE CONTAINER
 WORKDIR /app
 
+# INSTALL YARN V1 FOR THE EXISTING YARN.LOCK
+RUN npm install -g yarn@1.22.22
+
 # COPY PACKAGE.JSON AND YARN.LOCK to workdir
 COPY package.json yarn.lock ./
 

@@ -28,6 +28,112 @@ The application will be available at:
 - Frontend: http://localhost:3000
 - API Backend: http://localhost:3333
 
+## Local Login Testing
+
+Local login uses the same backend `/sessions` endpoint as the app. The backend
+checks the user email/password with bcrypt, rejects inactive users, and returns a
+JWT signed with `APP_SECRET`. The frontend stores the returned token and user in
+`localStorage` under `@GoKnown:token` and `@GoKnown:user`; private routes such
+as `/dashboard` require that stored user.
+
+### Option A: Create a User from the UI
+
+The existing signup flow works for local development when the backend has:
+
+```env
+ENABLE_CREATE_USER=true
+MAIL_BYPASS=true
+```
+
+With those values set, go to http://localhost:3000/signup, create an account,
+then sign in at http://localhost:3000 and open http://localhost:3000/dashboard.
+
+### Option B: Seed a Repeatable Local User
+
+Use this when you want a known local account for route/sidebar testing:
+
+```bash
+cd backend
+yarn seed:local-user
+```
+
+Default local-only credentials:
+
+```text
+email: local.test@goknown.dev
+password: TestPassword123!
+```
+
+You can override them without editing code:
+
+```bash
+cd backend
+LOCAL_TEST_USER_EMAIL=you@example.test LOCAL_TEST_USER_PASSWORD='another-local-password' yarn seed:local-user
+```
+
+The seed script creates the user as active, uses bcrypt for the password and PIN,
+sets 2FA enabled so normal authentication can issue a JWT, and does not run
+automatically. If your local backend environment has `NODE_ENV=production`, the
+script refuses to run unless you explicitly mark the database as local:
+
+```bash
+cd backend
+ALLOW_LOCAL_USER_SEED=true yarn seed:local-user
+```
+
+For the Docker local environment:
+
+```bash
+cd local-env
+docker-compose up -d postgres redis backend frontend
+docker-compose exec backend sh -c "ALLOW_LOCAL_USER_SEED=true yarn seed:local-user"
+```
+
+Then log in at http://localhost:3000 and navigate to `/dashboard`.
+
+### Manual Local Development Commands
+
+Backend:
+
+```bash
+cd backend
+cp .env.example .env
+yarn install
+yarn typeorm migration:run
+yarn dev:server
+```
+
+Frontend:
+
+```bash
+cd frontend
+cp env.example .env
+yarn install
+yarn start
+```
+
+Required local values:
+
+```env
+# backend
+APP_SECRET=local_dev_secret
+APP_API_URL=http://localhost:3333
+APP_WEB_URL=http://localhost:3000
+ENABLE_CREATE_USER=true
+MAIL_BYPASS=true
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=root
+DB_PASS=your-local-db-password
+DB_NAME=defaultdb
+
+# frontend
+REACT_APP_ENVIRONMENT=development
+REACT_APP_DEVELOPMENT_API=http://localhost:3333/
+REACT_APP_BYPASS_SMS_2FA=true
+REACT_APP_BYPASS_EMAIL=true
+```
+
 ## Windows Compatibility
 
 ### Prerequisites for Windows

@@ -10,7 +10,8 @@
     "build": "babel src --extensions \".js,.ts,\" --out-dir dist --copy-files",
     "dev:server": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/server.ts",
     "dev:queue": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/queue.ts",
-    "typeorm": "ts-node-dev -r tsconfig-paths/register ./node_modules/typeorm/cli.js"
+    "typeorm": "ts-node-dev -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
+    "seed:local-user": "ts-node -r tsconfig-paths/register --transpile-only src/shared/infra/typeorm/seeds/localUser.ts"
   },
   "resolutions": {
     "@babel/core": "7.13.15",
