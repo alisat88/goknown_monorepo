@@ -83,6 +83,10 @@ REACT_APP_DEVELOPMENT_API=http://localhost:3333/
 REACT_APP_STAGING_API=http://localhost:3333/
 REACT_APP_BALANCE_API=http://localhost:3333/
 
+# External App URLs
+REACT_APP_KNOWNCOMPUTE_URL=https://knowncompute.ai
+REACT_APP_ZTA_COIN_URL=https://zta-coin.org
+
 # Build Options
 GENERATE_SOURCEMAP=false
 
@@ -90,6 +94,17 @@ GENERATE_SOURCEMAP=false
 REACT_APP_BYPASS_SMS_2FA=true
 REACT_APP_BYPASS_EMAIL=true
 ```
+
+### External App URL Overrides
+
+The dashboard defaults to the production target domains:
+
+- KnownCompute: `https://knowncompute.ai`
+- ZTA Coin: `https://zta-coin.org`
+
+For local demos while DNS/GoDaddy routing is pending, override these at build
+time with `REACT_APP_KNOWNCOMPUTE_URL` and `REACT_APP_ZTA_COIN_URL`. Do not
+change source code back to Streamlit implementation URLs.
 
 ## Available Scripts
 

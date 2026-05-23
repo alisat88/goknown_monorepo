@@ -1,18 +1,16 @@
 import { useEffect } from "react";
 
+import { KNOWNCOMPUTE_URL } from "../../config/externalApps";
+
 const Workflow = () => {
   useEffect(() => {
-    window.open("https://knowncompute.ai", "_blank", "noopener,noreferrer");
+    window.open(KNOWNCOMPUTE_URL, "_blank", "noopener,noreferrer");
   }, []);
 
   return (
     <div style={{ padding: "20px" }}>
       <h1>Opening Workflow App...</h1>
-      <a
-        href="https://knowncompute.ai"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a href={KNOWNCOMPUTE_URL} target="_blank" rel="noopener noreferrer">
         Open Known Compute
       </a>
     </div>

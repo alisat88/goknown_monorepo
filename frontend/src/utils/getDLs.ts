@@ -11,6 +11,7 @@ import organizations from "../assets/organizations.svg";
 import team from "../assets/team.svg";
 import wallet from "../assets/wallet.svg";
 import ZTA from "../assets/ZTA.png";
+import { KNOWNCOMPUTE_URL, ZTA_COIN_URL } from "../config/externalApps";
 import { IDL } from "../pages/Organizations/types";
 
 export default [
@@ -128,7 +129,7 @@ export default [
     icon: ZTA,
     icon_url: ZTA,
     route: "/payments", // ✅ INTERNAL ROUTE
-    externalUrl: "https://zta-coin.org",
+    externalUrl: ZTA_COIN_URL,
     flag: "payments",
     roles: "admin",
   },
@@ -145,7 +146,7 @@ export default [
     icon: knowncompute,
     icon_url: knowncompute,
     route: "/workflow", // ✅ INTERNAL ROUTE
-    externalUrl: "https://knowncompute.ai",
+    externalUrl: KNOWNCOMPUTE_URL,
     flag: "workflow",
     roles: "admin",
   },
