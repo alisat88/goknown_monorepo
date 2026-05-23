@@ -44,6 +44,12 @@ This is the frontend application for GoKnown, built with React, TypeScript, and 
    yarn start
    ```
 
+4. **Log in locally:**
+   - Start the backend on `http://localhost:3333`.
+   - Create a user from `/signup`, or run `yarn seed:local-user` in the
+     backend package.
+   - Sign in at `http://localhost:3000` and open `/dashboard`.
+
 ## Docker Configuration
 
 ### Dockerfile
@@ -213,4 +219,3 @@ yarn test --watch
 ## License
 
 This project is proprietary software. All rights reserved.
-

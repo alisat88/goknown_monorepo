@@ -51,6 +51,18 @@ This is the backend service for the GoKnown application, built with Node.js, Typ
    yarn dev:server
    ```
 
+5. **Create a local login user (optional):**
+   ```bash
+   yarn seed:local-user
+   ```
+
+   The default local credentials are `local.test@goknown.dev` /
+   `TestPassword123!`. Override them with `LOCAL_TEST_USER_EMAIL` and
+   `LOCAL_TEST_USER_PASSWORD`. If you are using the Docker local environment,
+   run `ALLOW_LOCAL_USER_SEED=true yarn seed:local-user` inside the backend
+   container because that environment runs the built backend with
+   `NODE_ENV=production`.
+
 ## Docker Configuration
 
 ### Dockerfile
