@@ -10,8 +10,23 @@ BACKEND_URL = os.getenv("BACKEND_URL", "https://dappgenius-demo-1.onrender.com")
 
 ALLOWED_USERS = ["Mike", "Connie", "Chuck", "Chand", "Alisa"]
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "goknown2026!"
+
+def get_secret_config(name):
+    value = os.getenv(name)
+    if value:
+        return value.strip()
+
+    try:
+        value = st.secrets.get(name)
+    except Exception:
+        value = None
+
+    return str(value).strip() if value else ""
+
+
+ADMIN_USERNAME = get_secret_config("ZTA_ADMIN_USERNAME")
+ADMIN_PASSWORD = get_secret_config("ZTA_ADMIN_PASSWORD")
+ADMIN_LOGIN_CONFIGURED = bool(ADMIN_USERNAME and ADMIN_PASSWORD)
 
 st.set_page_config(page_title="GoKnown Payment Demo", layout="wide")
 
@@ -339,6 +354,13 @@ if "authenticated" not in st.session_state:
 
 if not st.session_state.authenticated:
     render_topbar("🔐 Admin Login")
+
+    if not ADMIN_LOGIN_CONFIGURED:
+        st.error(
+            "Admin login is not configured. Set ZTA_ADMIN_USERNAME and "
+            "ZTA_ADMIN_PASSWORD before using this app."
+        )
+        st.stop()
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
