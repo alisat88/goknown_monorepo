@@ -7,17 +7,27 @@
     "queue": "node dist/shared/infra/http/queue.js",
     "swagger": "node dist/shared/infra/http/swagger.js",
     "clear:database": "node dist/shared/infra/http/clearDatabase.js",
-    "build": "babel src --extensions \".js,.ts,\" --out-dir dist --copy-files",
+    "build": "babel src --extensions \".js,.ts\" --out-dir dist --copy-files",
     "dev:server": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/server.ts",
     "dev:queue": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/queue.ts",
     "typeorm": "ts-node-dev -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "seed:local-user": "ts-node -r tsconfig-paths/register --transpile-only src/shared/infra/typeorm/seeds/localUser.ts"
+  },
+  "engines": {
+    "node": "22.x"
   },
   "resolutions": {
     "@babel/core": "7.13.15",
     "@babel/preset-env": "7.13.15"
   },
   "dependencies": {
+    "@babel/cli": "^7.12.1",
+    "@babel/core": "^7.12.3",
+    "@babel/plugin-proposal-class-properties": "^7.12.1",
+    "@babel/plugin-proposal-decorators": "^7.12.1",
+    "@babel/plugin-proposal-private-methods": "^7.16.0",
+    "@babel/preset-env": "^7.12.1",
+    "@babel/preset-typescript": "^7.12.1",
     "aws-sdk": "^2.783.0",
     "axios": "^0.21.1",
     "bcryptjs": "^2.4.3",
@@ -49,17 +59,12 @@
     "tsyringe": "^4.3.0",
     "twilio": "^3.71.1",
     "typeorm": "0.2.41",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "babel-plugin-module-resolver": "^4.0.0",
+    "babel-plugin-transform-typescript-metadata": "^0.3.1"
   },
   "devDependencies": {
-    "@babel/cli": "^7.12.1",
-    "@babel/core": "^7.12.3",
     "@babel/node": "^7.12.6",
-    "@babel/plugin-proposal-class-properties": "^7.12.1",
-    "@babel/plugin-proposal-decorators": "^7.12.1",
-    "@babel/plugin-proposal-private-methods": "^7.16.0",
-    "@babel/preset-env": "^7.12.1",
-    "@babel/preset-typescript": "^7.12.1",
     "@types/bcryptjs": "^2.4.2",
     "@types/compression": "^1.7.5",
     "@types/cors": "^2.8.8",
@@ -76,8 +81,6 @@
     "@types/uuid": "^8.3.0",
     "@typescript-eslint/eslint-plugin": "^4.6.0",
     "@typescript-eslint/parser": "^4.6.0",
-    "babel-plugin-module-resolver": "^4.0.0",
-    "babel-plugin-transform-typescript-metadata": "^0.3.1",
     "dotenv-cli": "^11.0.0",
     "eslint": "^7.12.1",
     "eslint-config-prettier": "^6.15.0",
