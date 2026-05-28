@@ -13,10 +13,16 @@ console.log('===========================');
 // Get database name with fallback
 const dbName = process.env.DB_NAME || 'defaultdb';
 
-// Validate required environment variables (except DB_NAME which has fallback)
-if (!process.env.DB_HOST || !process.env.DB_PORT || !process.env.DB_USER || !process.env.DB_PASS) {
+// Validate required environment variables when DATABASE_URL is not provided.
+if (
+  !process.env.DATABASE_URL &&
+  (!process.env.DB_HOST ||
+    !process.env.DB_PORT ||
+    !process.env.DB_USER ||
+    !process.env.DB_PASS)
+) {
   console.error('ERROR: Required database environment variables are missing!');
-  throw new Error('DB_HOST, DB_PORT, DB_USER, and DB_PASS are required');
+  throw new Error('DATABASE_URL or DB_HOST, DB_PORT, DB_USER, and DB_PASS are required');
 }
 
 // Ensure DB_NAME is not empty or just whitespace
@@ -48,6 +54,20 @@ if (!finalDbName || finalDbName.trim() === '') {
 console.log('TypeORM Config - Using database:', finalDbName);
 console.log('TypeORM Config - Connection URL:', connectionUrl.replace(/:[^:@]+@/, ':***@'));
 
+function loadZtaEntities() {
+  try {
+    const { Account } = require('./dist/modules/transactions/infra/typeorm/entities/Account');
+    const { Transaction } = require('./dist/modules/transactions/infra/typeorm/entities/Transaction');
+
+    return [Account, Transaction];
+  } catch (error) {
+    const { Account } = require('./src/modules/transactions/infra/typeorm/entities/Account');
+    const { Transaction } = require('./src/modules/transactions/infra/typeorm/entities/Transaction');
+
+    return [Account, Transaction];
+  }
+}
+
 module.exports = [
   {
     name: 'default',
@@ -55,7 +75,7 @@ module.exports = [
     url: connectionUrl,
     synchronize: false,
     soft: true,
-    entities: ['./dist/modules/**/infra/typeorm/entities/*.js'],
+    entities: loadZtaEntities(),
     migrations: ['./dist/shared/infra/typeorm/migrations/*.js'],
     cli: {
       migrationsDir: './src/shared/infra/typeorm/migrations',
