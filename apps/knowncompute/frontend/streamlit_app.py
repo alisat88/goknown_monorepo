@@ -8,7 +8,8 @@ from pathlib import Path
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8003").rstrip("/")
 REQUEST_TIMEOUT = 20
-KNOWNCOMPUTE_LOGO_PATH = Path.home() / "Desktop/goknown_monorepo/frontend/src/assets/KnownCompute.jpg"
+KNOWNCOMPUTE_ROOT = Path(__file__).resolve().parents[1]
+KNOWNCOMPUTE_LOGO_PATH = KNOWNCOMPUTE_ROOT / "static" / "goknown.png"
 
 THEME = {
     "bg": "#070920",

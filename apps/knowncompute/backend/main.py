@@ -1,13 +1,16 @@
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
-from models import WorkflowModel, WorkflowInstance, TransitionAudit
+import os
 import uuid
 import json
-import pandas as pd
 from io import StringIO
 
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
+import pandas as pd
+
 from database import Base, engine, SessionLocal
+from models import LedgerBlock, WorkflowModel, WorkflowInstance, TransitionAudit
 from registry import register_model, activate_model
 from anomaly import compute_anomaly_score
 
@@ -21,6 +24,30 @@ app = FastAPI(
     title="DappGenius CyberFlow™",
     version="1.0.0",
     description="AI-Governed Workflow Intelligence Engine"
+)
+
+allowed_origins = [
+    "https://knowncompute.ai",
+    "https://www.knowncompute.ai",
+    "https://api.knowncompute.ai",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8501",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8501",
+]
+
+render_frontend_origin = os.getenv("KNOWNCOMPUTE_FRONTEND_ORIGIN")
+if render_frontend_origin:
+    allowed_origins.append(render_frontend_origin.rstrip("/"))
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/health")
@@ -328,3 +355,34 @@ def full_history(db: Session = Depends(get_db)):
         }
         for r in records
     ]
+
+# =====================================================
+# ADMIN
+# =====================================================
+
+@app.post("/admin/soft-reset")
+def soft_reset(db: Session = Depends(get_db)):
+    archived_count = db.query(TransitionAudit)\
+        .filter(TransitionAudit.archived == False)\
+        .update({"archived": True}, synchronize_session=False)
+    db.commit()
+
+    return {"status": "ok", "archived_records": archived_count}
+
+@app.post("/admin/hard-reset")
+def hard_reset(db: Session = Depends(get_db)):
+    deleted_audits = db.query(TransitionAudit).delete(synchronize_session=False)
+    deleted_workflows = db.query(WorkflowInstance).delete(synchronize_session=False)
+    deleted_models = db.query(WorkflowModel).delete(synchronize_session=False)
+    deleted_ledger_blocks = db.query(LedgerBlock).delete(synchronize_session=False)
+    db.commit()
+
+    return {
+        "status": "ok",
+        "deleted": {
+            "transition_audits": deleted_audits,
+            "workflow_instances": deleted_workflows,
+            "workflow_models": deleted_models,
+            "ledger_blocks": deleted_ledger_blocks,
+        },
+    }
