@@ -2,9 +2,7 @@ import 'reflect-metadata';
 import { createConnection, ConnectionOptions } from 'typeorm';
 import 'dotenv/config';
 
-// ✅ Import entities directly
-import { Account } from '../../../modules/transactions/infra/typeorm/entities/Account';
-import { Transaction } from '../../../modules/transactions/infra/typeorm/entities/Transaction';
+import { typeormEntities } from './entities';
 
 // Debug logs
 console.log('>>> TypeORM Connection Variables:');
@@ -28,8 +26,7 @@ const config: ConnectionOptions = {
   synchronize: true,
   logging: ['error', 'schema', 'warn'],
 
-  // ✅ CRITICAL FIX: Explicit entities
-  entities: [Account, Transaction],
+  entities: typeormEntities,
 
   migrations: [
     process.env.NODE_ENV === 'production'
