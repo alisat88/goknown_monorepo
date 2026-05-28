@@ -33,13 +33,13 @@ class MintTokenService {
     }
 
     // 📊 Before state
-    const preBalance = accountService.getBalance(this.SYSTEM_ACCOUNT);
+    const preBalance = await accountService.getBalance(this.SYSTEM_ACCOUNT);
 
     // 💰 Mint tokens → SYSTEM account
-    accountService.credit(this.SYSTEM_ACCOUNT, amount);
+    await accountService.credit(this.SYSTEM_ACCOUNT, amount);
 
     // 📊 After state
-    const postBalance = accountService.getBalance(this.SYSTEM_ACCOUNT);
+    const postBalance = await accountService.getBalance(this.SYSTEM_ACCOUNT);
 
     // ⏱ Timestamp (UTC)
     const timestamp = new Date().toISOString();
@@ -77,7 +77,7 @@ class MintTokenService {
     };
 
     // 📌 Store in GLOBAL ledger
-    ledgerService.record({
+    await ledgerService.record({
       id: transactionId,
       type: transactionType,
       timestamp,
