@@ -5,6 +5,7 @@ import {
   FiDatabase,
   FiEdit,
   FiGrid,
+  FiExternalLink,
   FiMenu,
   FiPower,
   FiSettings,
@@ -30,6 +31,8 @@ import {
 import {
   Container,
   Content,
+  AppLauncherGrid,
+  AppLauncherCard,
   DashboardPanel,
   DashboardShell,
   MainArea,
@@ -117,6 +120,25 @@ const Dashboard: React.FC = () => {
     [history]
   );
 
+  const handleLaunchApp = useCallback(
+    (app: (typeof Defaultdls)[number]) => {
+      if (app.externalUrl) {
+        window.open(app.externalUrl, "_blank", "noopener,noreferrer");
+        setSidebarOpen(false);
+        return;
+      }
+
+      handleGoTo(app.route, app.oldPage);
+    },
+    [handleGoTo]
+  );
+
+  const handleSignOut = useCallback(() => {
+    signOut();
+    setSidebarOpen(false);
+    history.replace("/");
+  }, [history, signOut]);
+
   const isActiveRoute = useCallback(
     (route: string) => {
       if (pathname === "/dashboard" && route === "/digitalassets") return true;
@@ -192,7 +214,7 @@ const Dashboard: React.FC = () => {
               <span>Settings</span>
             </SidebarAction>
 
-            <SidebarAction type="button" onClick={signOut}>
+            <SidebarAction type="button" onClick={handleSignOut}>
               <FiPower />
               <span>Logout</span>
             </SidebarAction>
@@ -203,7 +225,7 @@ const Dashboard: React.FC = () => {
           <TopBar>
             <div>
               <span>{selectedDateAsText}</span>
-              <h1>Digital Assets</h1>
+              <h1>DAppGenius Dashboard</h1>
             </div>
 
             <Profile>
@@ -257,6 +279,36 @@ const Dashboard: React.FC = () => {
                 <FiTrendingUp />
               </MetricCard>
             </MetricsGrid>
+
+            <DashboardPanel>
+              <PanelHeader>
+                <div>
+                  <span>App launcher</span>
+                  <h1>DAppGenius apps and tools</h1>
+                </div>
+              </PanelHeader>
+
+              <AppLauncherGrid>
+                {visibleApps.map((app) => (
+                  <AppLauncherCard
+                    key={app.sync_id}
+                    type="button"
+                    onClick={() => handleLaunchApp(app)}
+                  >
+                    <img src={app.icon_url} alt="" />
+                    <div>
+                      <span>
+                        {app.externalUrl ? "External app" : "Workspace tool"}
+                      </span>
+                      <strong>{app.name}</strong>
+                      <p>{app.description}</p>
+                    </div>
+
+                    {app.externalUrl && <FiExternalLink />}
+                  </AppLauncherCard>
+                ))}
+              </AppLauncherGrid>
+            </DashboardPanel>
 
             <Schedule>
               <DashboardPanel>

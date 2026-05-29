@@ -3,9 +3,6 @@ import React, { createContext, useCallback, useState, useContext } from "react";
 import api from "../services/api";
 import formatValue from "../utils/formatValue";
 
-// Environment variable for SMS verification bypass
-const BYPASS_SMS_2FA = process.env.REACT_APP_BYPASS_SMS_2FA === "true";
-
 interface IConversationItem {
   [conversation_id: string]: number;
 }
@@ -39,7 +36,8 @@ interface ISignInCredentials {
 
 interface IAuthContextData {
   user: IUser;
-  signIn(credentails: ISignInCredentials): Promise<void>;
+  signIn(credentails: ISignInCredentials): Promise<IAuthState>;
+  completeSignIn(authState: IAuthState): void;
   signOut(): void;
   updateUser(user: IUser): void;
   updateCurrentBalance(amount: number | string, calculate: boolean): void;
@@ -47,11 +45,42 @@ interface IAuthContextData {
 
 const AuthContext = createContext<IAuthContextData>({} as IAuthContextData);
 
+const GOKNOWN_STORAGE_PREFIX = "@GoKnown:";
+const ENABLE_DEMO_LOGIN = process.env.REACT_APP_ENABLE_DEMO_LOGIN === "true";
+const DEMO_LOGIN_EMAIL = process.env.REACT_APP_DEMO_LOGIN_EMAIL;
+const DEMO_LOGIN_PASSWORD = process.env.REACT_APP_DEMO_LOGIN_PASSWORD;
+
+function clearGoKnownSessionState() {
+  const clearStorage = (storage: Storage) => {
+    const keys = [];
+
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+
+      if (key?.startsWith(GOKNOWN_STORAGE_PREFIX)) {
+        keys.push(key);
+      }
+    }
+
+    keys.forEach((key) => storage.removeItem(key));
+  };
+
+  clearStorage(localStorage);
+  clearStorage(sessionStorage);
+
+  delete api.defaults.headers.authorization;
+  delete api.defaults.headers.pre_authenticated;
+}
+
 const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
   children,
 }) => {
   // lookup in localStore ig the record contains any data
   const [data, setData] = useState<IAuthState>(() => {
+    if (window.location.pathname === "/") {
+      clearGoKnownSessionState();
+    }
+
     const token = localStorage.getItem("@GoKnown:token");
     const user = localStorage.getItem("@GoKnown:user");
 
@@ -68,6 +97,35 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
 
   const signIn = useCallback(async ({ email, password }: any) => {
     try {
+      if (
+        ENABLE_DEMO_LOGIN &&
+        email?.trim().toLowerCase() ===
+          DEMO_LOGIN_EMAIL?.trim().toLowerCase() &&
+        password === DEMO_LOGIN_PASSWORD
+      ) {
+        // Demo-only frontend access for presenter environments. This is not
+        // production authentication and must stay disabled outside demos.
+        return {
+          token: "demo-local-token",
+          user: {
+            id: "demo-admin",
+            sync_id: "demo-admin",
+            avatar_url: "",
+            name: "Demo Admin",
+            email: DEMO_LOGIN_EMAIL || email,
+            status: "active",
+            role: "admin",
+            unread: 0,
+            conversations: {},
+            current_balance: 0,
+            formattedBalance: formatValue(0),
+            twoFactorAuthentication: true,
+            hasTwoFactorCode: true,
+            hasVerfiedTwoFactorCode: true,
+          },
+        };
+      }
+
       const response = await api.post("sessions", { email, password });
 
       const { token, user } = response.data;
@@ -76,19 +134,12 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
       const updatedUser = {
         ...user,
         status: user.status === "confirm_email" ? "active" : user.status,
-        // If bypass is active, mark SMS verification as completed
-        hasVerfiedTwoFactorCode: BYPASS_SMS_2FA
-          ? true
-          : user.hasVerfiedTwoFactorCode,
+        // Demo verification replaces the old SMS/Twilio-style frontend gate.
+        hasVerfiedTwoFactorCode: true,
         formattedBalance: formatValue(Number(user.current_balance)),
       };
 
-      localStorage.setItem("@GoKnown:token", token);
-      localStorage.setItem("@GoKnown:user", JSON.stringify(updatedUser));
-
-      api.defaults.headers.authorization = `Bearer ${token}`;
-
-      setData({ token, user: updatedUser });
+      return { token, user: updatedUser };
     } catch (error) {
       console.log(error);
       return Promise.reject(error);
@@ -96,7 +147,17 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
     }
   }, []);
 
+  const completeSignIn = useCallback(({ token, user }: IAuthState) => {
+    localStorage.setItem("@GoKnown:token", token);
+    localStorage.setItem("@GoKnown:user", JSON.stringify(user));
+
+    api.defaults.headers.authorization = `Bearer ${token}`;
+
+    setData({ token, user });
+  }, []);
+
   const signOut = useCallback(() => {
+    clearGoKnownSessionState();
     localStorage.removeItem("@GoKnown:token");
     localStorage.removeItem("@GoKnown:user");
     setData({} as IAuthState);
@@ -141,6 +202,7 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
       value={{
         user: data.user,
         signIn,
+        completeSignIn,
         signOut,
         updateUser,
         updateCurrentBalance,

@@ -478,6 +478,99 @@ export const MetricsGrid = styled.section`
   }
 `;
 
+export const AppLauncherGrid = styled.section`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+
+  @media ${device.desktop} {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media ${device.mobileL} {
+    grid-template-columns: 1fr;
+  }
+`;
+
+export const AppLauncherCard = styled.button`
+  min-height: 156px;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 22px;
+  align-items: flex-start;
+  gap: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.68);
+  color: #f8fafc;
+  text-align: left;
+  box-shadow: none;
+  transition: transform 0.2s, background 0.2s, border-color 0.2s,
+    box-shadow 0.2s;
+
+  img {
+    width: 46px;
+    height: 46px;
+    padding: 8px;
+    object-fit: contain;
+    border-radius: 14px;
+    background: rgba(83, 191, 153, 0.13);
+  }
+
+  span {
+    display: block;
+    color: #8be7d7;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    margin-top: 7px;
+    color: #f8fafc;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  p {
+    margin: 9px 0 0;
+    color: #98a8bc;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    color: #8be7d7;
+  }
+
+  &:hover {
+    border-color: rgba(83, 191, 153, 0.42);
+    background: rgba(12, 24, 54, 0.88);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.18);
+    transform: translateY(-2px);
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(103, 232, 249, 0.32);
+    outline-offset: 2px;
+  }
+
+  @media ${device.mobileL} {
+    min-height: 136px;
+    grid-template-columns: 42px minmax(0, 1fr) 20px;
+    padding: 16px;
+
+    img {
+      width: 42px;
+      height: 42px;
+    }
+  }
+`;
+
 export const MetricCard = styled.article`
   min-height: 122px;
   border: 1px solid rgba(83, 191, 153, 0.2);
