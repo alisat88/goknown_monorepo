@@ -91,16 +91,12 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
       // Create account with previously saved data
       await api.post("/users", formData);
 
-      const description =
-        process.env.REACT_APP_BYPASS_EMAIL === "true"
-          ? "Your account has been created. You can now log in."
-          : "You will receive a PIN in your email to activate your account when you log in";
-
       addToast({
         type: "success",
         title: "Account created",
         timeout: 8000,
-        description,
+        description:
+          "You will receive a PIN in your email to activate your account when you log in",
       });
       history.push("/");
     } catch (err: any) {

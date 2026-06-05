@@ -14,9 +14,6 @@ import FinishRegistration from "../pages/FinishRegistration";
 import { TwoFactorSMS } from "../pages/TwoFactorSMS";
 // import { useGuest } from "../hooks/guest";
 
-// Environment variable for SMS verification bypass
-const BYPASS_SMS_2FA = process.env.REACT_APP_BYPASS_SMS_2FA === "true";
-
 interface IRouteProps extends ReactDOMRouteProps {
   isPrivate?: boolean;
   // isGuest?: boolean;
@@ -51,12 +48,7 @@ const Route: React.FC<React.PropsWithChildren<IRouteProps>> = ({
         }
 
         if (!userIsEmpty) {
-          // Check if bypass is active, otherwise apply 2FA verification
-          if (
-            !BYPASS_SMS_2FA &&
-            user.twoFactorAuthentication &&
-            !user.hasVerfiedTwoFactorCode
-          ) {
+          if (user.twoFactorAuthentication && !user.hasVerfiedTwoFactorCode) {
             return <TwoFactorSMS />;
           }
         }

@@ -46,9 +46,6 @@ interface IAuthContextData {
 const AuthContext = createContext<IAuthContextData>({} as IAuthContextData);
 
 const GOKNOWN_STORAGE_PREFIX = "@GoKnown:";
-const ENABLE_DEMO_LOGIN = process.env.REACT_APP_ENABLE_DEMO_LOGIN === "true";
-const DEMO_LOGIN_EMAIL = process.env.REACT_APP_DEMO_LOGIN_EMAIL;
-const DEMO_LOGIN_PASSWORD = process.env.REACT_APP_DEMO_LOGIN_PASSWORD;
 
 function clearGoKnownSessionState() {
   const clearStorage = (storage: Storage) => {
@@ -97,45 +94,12 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
 
   const signIn = useCallback(async ({ email, password }: any) => {
     try {
-      if (
-        ENABLE_DEMO_LOGIN &&
-        email?.trim().toLowerCase() ===
-          DEMO_LOGIN_EMAIL?.trim().toLowerCase() &&
-        password === DEMO_LOGIN_PASSWORD
-      ) {
-        // Demo-only frontend access for presenter environments. This is not
-        // production authentication and must stay disabled outside demos.
-        return {
-          token: "demo-local-token",
-          user: {
-            id: "demo-admin",
-            sync_id: "demo-admin",
-            avatar_url: "",
-            name: "Demo Admin",
-            email: DEMO_LOGIN_EMAIL || email,
-            status: "active",
-            role: "admin",
-            unread: 0,
-            conversations: {},
-            current_balance: 0,
-            formattedBalance: formatValue(0),
-            twoFactorAuthentication: true,
-            hasTwoFactorCode: true,
-            hasVerfiedTwoFactorCode: true,
-          },
-        };
-      }
-
       const response = await api.post("sessions", { email, password });
 
       const { token, user } = response.data;
 
-      // Modifying to auto-confirm email if status is "confirm_email"
       const updatedUser = {
         ...user,
-        status: user.status === "confirm_email" ? "active" : user.status,
-        // Demo verification replaces the old SMS/Twilio-style frontend gate.
-        hasVerfiedTwoFactorCode: true,
         formattedBalance: formatValue(Number(user.current_balance)),
       };
 
