@@ -84,26 +84,37 @@ class VerifyLoginEmailCodeService {
       },
     );
 
-    const current_balance = await this.transactionsRepository.findBalance(
-      user.id,
-    );
+    let current_balance = 0;
+    try {
+      current_balance = await this.transactionsRepository.findBalance(user.id);
+    } catch (error: any) {
+      console.warn(
+        `[auth] current balance lookup failed during login verification for user ${user.sync_id}: ${error?.message || error}`,
+      );
+    }
 
     const assign = Object.assign(user, {
       current_balance,
       hasVerfiedTwoFactorCode: true,
     });
 
-    const auditLogService = container.resolve(CreateAuditLogService);
-    await auditLogService.execute({
-      action: 'login',
-      dapp: 'Authenticate',
-      sync_id: user.sync_id,
-      user_sync_id: user.sync_id,
-      dapp_token: user.id,
-      dapp_token_sync_id: user.sync_id,
-      outcome: 'success',
-      message: user,
-    });
+    try {
+      const auditLogService = container.resolve(CreateAuditLogService);
+      await auditLogService.execute({
+        action: 'login',
+        dapp: 'Authenticate',
+        sync_id: user.sync_id,
+        user_sync_id: user.sync_id,
+        dapp_token: user.id,
+        dapp_token_sync_id: user.sync_id,
+        outcome: 'success',
+        message: user,
+      });
+    } catch (error: any) {
+      console.warn(
+        `[auth] audit log write failed during login verification for user ${user.sync_id}: ${error?.message || error}`,
+      );
+    }
 
     return { user: assign, token };
   }
