@@ -17,7 +17,7 @@ import "./styles.css";
 const API_URL =
   import.meta.env.VITE_ZTA_API_URL ?? "https://dappgenius-demo-1.onrender.com";
 const DAPPGENIUS_DASHBOARD_URL =
-  import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev/dashboard";
+  import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev";
 
 const DEMO_USERS = ["Mike", "Connie", "Chuck", "Chand", "Alisa"] as const;
 const MINT_ISSUER_ACCOUNT = "KN_ISSUER";

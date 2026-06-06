@@ -24,7 +24,7 @@ import "./styles.css";
 const API_URL =
   import.meta.env.VITE_KNOWNCOMPUTE_API_URL ?? "http://127.0.0.1:8003";
 const DAPPGENIUS_DASHBOARD_URL =
-  import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev/dashboard";
+  import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev";
 
 const DOMAINS = ["cybersecurity", "sessions", "transactions", "organizations"];
 
