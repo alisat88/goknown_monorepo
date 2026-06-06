@@ -140,11 +140,21 @@ DO_SPACES_KEY=your-key
 DO_SPACES_SECRET=your-secret
 DO_SPACES_BUCKET=your-bucket
 
-# Email (AWS SES)
-MAIL_DRIVER=ses
-AWS_ACCESS_KEY_ID=your-key
-AWS_SECRET_ACCESS_KEY=your-secret
-AWS_REGION=us-east-1
+# Email
+# Production on Render should use a real transport. SMTP is the primary path:
+MAIL_DRIVER=smtp
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+MAIL_FROM_EMAIL=no-reply@dappgenius.dev
+MAIL_FROM_NAME=DAppGenius
+
+# Optional alternate transport: AWS SES
+# MAIL_DRIVER=ses
+# AWS_ACCESS_KEY_ID=your-key
+# AWS_SECRET_ACCESS_KEY=your-secret
+# AWS_REGION=us-east-1
 
 # Email bypass for local development only.
 # When true, invite/setup links are printed by the production user seed instead

@@ -1,5 +1,5 @@
 interface IMailConfig {
-  driver: 'ethereal' | 'ses';
+  driver: 'ethereal' | 'ses' | 'smtp';
 
   defaults: {
     from: {
@@ -16,7 +16,7 @@ interface IMailConfig {
   };
 }
 
-export default {
+const mailConfig = {
   driver: process.env.MAIL_DRIVER || 'ethereal',
   defaults: {
     from: {
@@ -31,3 +31,41 @@ export default {
     pass: process.env.SMTP_PASS || '',
   },
 } as IMailConfig;
+
+export default mailConfig;
+
+export function validateMailConfig(): void {
+  if (process.env.MAIL_BYPASS === 'true') {
+    return;
+  }
+
+  if (mailConfig.driver === 'smtp') {
+    const missing = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'].filter(
+      key => !process.env[key],
+    );
+
+    if (missing.length > 0) {
+      throw new Error(
+        `SMTP mail is enabled but the following env vars are missing: ${missing.join(
+          ', ',
+        )}.`,
+      );
+    }
+  }
+
+  if (mailConfig.driver === 'ses') {
+    const missing = [
+      'AWS_ACCESS_KEY_ID',
+      'AWS_SECRET_ACCESS_KEY',
+      'AWS_REGION',
+    ].filter(key => !process.env[key]);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `SES mail is enabled but the following env vars are missing: ${missing.join(
+          ', ',
+        )}.`,
+      );
+    }
+  }
+}
