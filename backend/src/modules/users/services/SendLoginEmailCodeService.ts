@@ -1,54 +1,45 @@
 import { injectable, inject } from 'tsyringe';
 import IEmailProvider from '@shared/container/providers/MailProvider/models/IMailProvider';
 import path from 'path';
-import AppError from '@shared/errors/AppError';
 
 interface IRequest {
   email: string;
   name: string;
-  pin: string;
+  code: string;
 }
 
 @injectable()
-class SendWelcomeEmailService {
-  static key: any;
-  static id: any;
+class SendLoginEmailCodeService {
   constructor(
     @inject('MailProvider')
     private mailProvider: IEmailProvider,
   ) {}
 
-  public async execute({ name, email, pin }: IRequest): Promise<void> {
+  public async execute({ name, email, code }: IRequest): Promise<void> {
     const canSendEmail = process.env.MAIL_BYPASS !== 'true';
 
     if (!canSendEmail) {
-      console.log(`DAppGenius email confirmation PIN for ${email}: ${pin}`);
+      console.log(`DAppGenius login code for ${email}: ${code}`);
       return;
     }
 
-    const welecomeTemplate = path.resolve(
-      __dirname,
-      '..',
-      'views',
-      'welcome.hbs',
-    );
+    const template = path.resolve(__dirname, '..', 'views', 'login-code.hbs');
 
     await this.mailProvider.sendMail({
       to: {
         name,
         email,
       },
-      subject: '[DAppGenius] Welcome, complete your registration',
+      subject: '[DAppGenius] Your login code',
       templateData: {
-        file: welecomeTemplate,
+        file: template,
         variables: {
           name: name.split(' ')[0],
-          pin,
-          link: `${process.env.APP_WEB_URL}/confirm-email?email=${email}`,
+          code,
         },
       },
     });
   }
 }
 
-export default SendWelcomeEmailService;
+export default SendLoginEmailCodeService;

@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
-import { FiLogIn, FiMail, FiLock } from "react-icons/fi";
+import { FiArrowLeft, FiLogIn, FiMail, FiLock, FiKey } from "react-icons/fi";
 import { Link, useHistory } from "react-router-dom";
 import * as Yup from "yup";
 
@@ -17,11 +17,13 @@ import { Container, Content, AnimationContainer, Background } from "./styles";
 interface ISignUpFormData {
   email: string;
   password: string;
+  code?: string;
 }
 
 const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
   const [loading, setLoading] = useState(false);
-  const { signIn, completeSignIn, signOut } = useAuth();
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const { signIn, verifyEmailCode, completeSignIn, signOut } = useAuth();
   const { addToast } = useToast();
   const history = useHistory();
 
@@ -36,17 +38,43 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
       try {
         setLoading(true);
         formRef.current?.setErrors({});
-        const schema = Yup.object().shape({
-          email: Yup.string().required().email(),
-          password: Yup.string().required(),
-        });
+        const schema = verificationEmail
+          ? Yup.object().shape({
+              code: Yup.string().required("Login code is required"),
+            })
+          : Yup.object().shape({
+              email: Yup.string().required().email(),
+              password: Yup.string().required(),
+            });
 
         await schema.validate(data, { abortEarly: false });
+
+        if (verificationEmail) {
+          const authState = await verifyEmailCode(
+            verificationEmail,
+            data.code || ""
+          );
+
+          completeSignIn(authState);
+          history.replace("/dashboard");
+          return;
+        }
 
         const authState = await signIn({
           email: data.email,
           password: data.password,
         });
+
+        if ("verificationRequired" in authState) {
+          setVerificationEmail(authState.email);
+          formRef.current?.reset();
+          addToast({
+            type: "info",
+            title: "Check your email",
+            description: "Enter the login code we sent to finish signing in.",
+          });
+          return;
+        }
 
         completeSignIn(authState);
         history.replace("/dashboard");
@@ -62,14 +90,28 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
         addToast({
           type: "error",
           title: "Authentication error",
-          description: err.response.data.error,
+          description:
+            err.response?.data?.error ||
+            "Unable to authenticate. Please try again.",
         });
       } finally {
         setLoading(false);
       }
     },
-    [signIn, completeSignIn, history, addToast]
+    [
+      verificationEmail,
+      signIn,
+      verifyEmailCode,
+      completeSignIn,
+      history,
+      addToast,
+    ]
   );
+
+  const handleBackToPassword = useCallback(() => {
+    setVerificationEmail("");
+    formRef.current?.reset();
+  }, []);
 
   return (
     <Container>
@@ -80,30 +122,53 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
           <Form ref={formRef} onSubmit={handleSubmit} autoComplete="off">
             {/* <h1>Faça seu logon</h1> */}
 
-            <Input
-              name="email"
-              icon={FiMail}
-              placeholder="E-mail"
-              isLoading={loading}
-            />
-            <Input
-              name="password"
-              icon={FiLock}
-              type="password"
-              placeholder="Password"
-              isLoading={loading}
-            />
+            {!verificationEmail ? (
+              <>
+                <Input
+                  name="email"
+                  icon={FiMail}
+                  placeholder="E-mail"
+                  isLoading={loading}
+                />
+                <Input
+                  name="password"
+                  icon={FiLock}
+                  type="password"
+                  placeholder="Password"
+                  isLoading={loading}
+                />
+              </>
+            ) : (
+              <>
+                <p>Check your email for a login code.</p>
+                <Input
+                  name="code"
+                  icon={FiKey}
+                  placeholder="Login code"
+                  isLoading={loading}
+                />
+              </>
+            )}
 
             <Button type="submit" isLoading={loading}>
-              Sign In
+              {verificationEmail ? "Verify code" : "Sign In"}
             </Button>
 
-            <Link to="/forgot-password">Forgot Password?</Link>
+            {verificationEmail ? (
+              <Link to="/" onClick={handleBackToPassword}>
+                <FiArrowLeft />
+                Back to sign in
+              </Link>
+            ) : (
+              <Link to="/forgot-password">Forgot Password?</Link>
+            )}
           </Form>
-          <Link to="/signup">
-            <FiLogIn />
-            Create an account
-          </Link>
+          {!verificationEmail && (
+            <Link to="/signup">
+              <FiLogIn />
+              Create an account
+            </Link>
+          )}
           <Link to="/privacy-policy" target="_blank" style={{ marginTop: 50 }}>
             Privacy Policy
           </Link>

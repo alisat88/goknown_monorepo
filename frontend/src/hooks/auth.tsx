@@ -15,7 +15,7 @@ interface IUser {
   email: string;
   status: string;
   phone?: string;
-  role: "admin" | "buyer" | "seller" | "issuer";
+  role: "admin" | "user" | "buyer" | "seller" | "issuer";
   unread: number;
   conversations?: IConversationItem;
   current_balance: number;
@@ -29,6 +29,11 @@ interface IAuthState {
   user: IUser;
 }
 
+interface ILoginChallenge {
+  verificationRequired: true;
+  email: string;
+}
+
 interface ISignInCredentials {
   email: string;
   password: string;
@@ -36,7 +41,10 @@ interface ISignInCredentials {
 
 interface IAuthContextData {
   user: IUser;
-  signIn(credentails: ISignInCredentials): Promise<IAuthState>;
+  signIn(
+    credentails: ISignInCredentials
+  ): Promise<IAuthState | ILoginChallenge>;
+  verifyEmailCode(email: string, code: string): Promise<IAuthState>;
   completeSignIn(authState: IAuthState): void;
   signOut(): void;
   updateUser(user: IUser): void;
@@ -96,6 +104,10 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
     try {
       const response = await api.post("sessions", { email, password });
 
+      if (response.data.verificationRequired) {
+        return response.data;
+      }
+
       const { token, user } = response.data;
 
       const updatedUser = {
@@ -108,6 +120,27 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
       console.log(error);
       return Promise.reject(error);
       // localStorage.removeItem("@GoKnown:guest_token");
+    }
+  }, []);
+
+  const verifyEmailCode = useCallback(async (email: string, code: string) => {
+    try {
+      const response = await api.post("sessions/verify-email-code", {
+        email,
+        code,
+      });
+
+      const { token, user } = response.data;
+
+      const updatedUser = {
+        ...user,
+        formattedBalance: formatValue(Number(user.current_balance)),
+      };
+
+      return { token, user: updatedUser };
+    } catch (error) {
+      console.log(error);
+      return Promise.reject(error);
     }
   }, []);
 
@@ -166,6 +199,7 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
       value={{
         user: data.user,
         signIn,
+        verifyEmailCode,
         completeSignIn,
         signOut,
         updateUser,

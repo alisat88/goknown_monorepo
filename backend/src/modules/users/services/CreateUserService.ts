@@ -13,7 +13,18 @@ import IPinProvider from '../providers/PinProvider/models/IPinProvider';
 import ITransactionsRepository from '@modules/transactions/repositories/ITransactionsRepository';
 import { EnumStatus } from '@modules/transactions/infra/typeorm/entities/Transaction';
 import CreateFolderService from '@modules/digitalassets/services/CreateFolderService';
-import IConfigsRepository from '@modules/configs/repositories/IConfigsRepository';
+
+function parseEmailList(value?: string): string[] {
+  return (value || '')
+    .split(',')
+    .map(email =>
+      email
+        .trim()
+        .replace(/(\+.*)(?=\@)/, '')
+        .toLocaleLowerCase(),
+    )
+    .filter(Boolean);
+}
 
 interface IRequest {
   name: string;
@@ -38,10 +49,7 @@ class CreateUserService {
 
     @inject('PinProvider')
     private pinProvider: IPinProvider,
-
-    @inject('ConfigsRepository')
-    private configsRepository: IConfigsRepository,
-  ) { }
+  ) {}
 
   public async execute({
     name,
@@ -49,10 +57,30 @@ class CreateUserService {
     password,
     sync_id,
     pin,
-    role = EnumRole.Buyer,
+    role,
   }: IRequest): Promise<any> {
     // eslint-disable-next-line prettier/prettier
-    const unAliasesEmail = email.replace(/(\+.*)(?=\@)/, '').toLocaleLowerCase();
+    const unAliasesEmail = email
+      .replace(/(\+.*)(?=\@)/, '')
+      .toLocaleLowerCase();
+
+    const allowedSignupEmails = parseEmailList(
+      process.env.ALLOWED_SIGNUP_EMAILS,
+    );
+    const adminSignupEmails = parseEmailList(process.env.ADMIN_SIGNUP_EMAILS);
+
+    if (!allowedSignupEmails.includes(unAliasesEmail)) {
+      throw new AppError(
+        'This email is not authorized to create a DAppGenius account.',
+        403,
+      );
+    }
+
+    const userRole = role
+      ? role
+      : adminSignupEmails.includes(unAliasesEmail)
+      ? EnumRole.Admin
+      : EnumRole.User;
 
     // check if user exists find by email
     const checkUserExists = await this.usersRepository.findByEmail(
@@ -71,27 +99,7 @@ class CreateUserService {
     if (!pin) {
       pin = await this.pinProvider.generatePin();
     }
-    console.log('pin=====>', pin);
     const hashedPin = await this.hashProvider.generateHash(pin);
-
-    // get config global settings to create new user enabled
-    const config = await this.configsRepository.findLast();
-
-    const enableCreateUser =
-      process.env.ENABLE_CREATE_USER === 'true'
-        ? true
-        : !!config && config.enableCreateUser
-          ? config.enableCreateUser
-          : false;
-
-    const canSendEmail = process.env.MAIL_BYPASS !== 'true';
-
-    const status =
-      enableCreateUser === true
-        ? canSendEmail
-          ? EnumStatusUser.ConfirmEmail
-          : EnumStatusUser.Active
-        : EnumStatusUser.Inactive;
 
     // create new user
     const user = await this.usersRepository.create({
@@ -100,10 +108,10 @@ class CreateUserService {
       password: hashedPassword,
       pin: hashedPin,
       pin_created_at: new Date(),
-      twoFactorAuthentication: enableCreateUser,
+      twoFactorAuthentication: true,
       sync_id,
-      status,
-      role,
+      status: EnumStatusUser.ConfirmEmail,
+      role: userRole,
     } as User);
 
     // create digital assets folder

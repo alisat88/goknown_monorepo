@@ -1,7 +1,6 @@
 import { api } from '@config/api';
 import nodes from '@config/nodes';
 import CreateFolderService from '@modules/digitalassets/services/CreateFolderService';
-import AuthenticateUserService from '@modules/users/services/AuthenticateUserService';
 import CreateUserService from '@modules/users/services/CreateUserService';
 import ListAllUsersService from '@modules/users/services/ListAllUsersService';
 import SendWelcomeEmailService from '@modules/users/services/SendWelcomeEmailService';
@@ -66,14 +65,6 @@ export default class UsersController {
       // const createCharge = container.resolve(CreateChargeService);
       // await createCharge.execute({ ...chargeBody, user_id: user.sync_id });
 
-      // auth user
-      const authenticateUser = container.resolve(AuthenticateUserService);
-
-      const { _, token } = await authenticateUser.execute({
-        email: email.toLowerCase(),
-        password: password,
-      });
-
       if (request.body.masterNode) {
         // mirror users across nodes
         await Promise.all(
@@ -91,7 +82,7 @@ export default class UsersController {
           request: {
             ...request,
             body: folderBody,
-            headers: { ...request.headers, authorization: `Bearer ${token}` },
+            headers: { ...request.headers },
           } as Request,
           dapp: 'Folder',
           method: 'post',
@@ -109,12 +100,12 @@ export default class UsersController {
         //   dapp: 'Charge',
         //   method: 'post',
         // });
+      }
 
-        // send email
-        if (!ignoreWelcomeEmail) {
-          const sendWelcome = container.resolve(SendWelcomeEmailService);
-          await sendWelcome.execute({ email, name, pin: user.pin });
-        }
+      // send email
+      if (!ignoreWelcomeEmail) {
+        const sendWelcome = container.resolve(SendWelcomeEmailService);
+        await sendWelcome.execute({ email, name, pin: user.pin });
       }
 
       return response.json(classToClass(user));

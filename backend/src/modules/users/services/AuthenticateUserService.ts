@@ -1,18 +1,13 @@
-import { sign } from 'jsonwebtoken';
-
 import { injectable, inject, container } from 'tsyringe';
 
 import AppError from '@shared/errors/AppError';
 
 import User, { EnumStatus } from '../infra/typeorm/entities/User';
 
-import authConfig from '@config/auth';
 import IUsersRepository from '../repositories/IUsersRepository';
 import IHashProvider from '../providers/HashProvider/models/IHashProvider';
-import ITransactionsRepository from '@modules/transactions/repositories/ITransactionsRepository';
-import SendSMSAuthenticationCode from './SendSMSAuthenticationCode';
-import CreateAuditLogService from '@modules/auditlogs/services/CreateAuditLogService';
-import DigitalAsset from '@modules/digitalassets/infra/typeorm/entities/DigitalAsset';
+import IPinProvider from '../providers/PinProvider/models/IPinProvider';
+import SendLoginEmailCodeService from './SendLoginEmailCodeService';
 
 interface IRequest {
   email: string;
@@ -20,8 +15,8 @@ interface IRequest {
 }
 
 interface IResponse {
-  user: User;
-  token: string;
+  verificationRequired: boolean;
+  email: string;
 }
 
 @injectable()
@@ -30,11 +25,11 @@ class AuthenticateUserService {
     @inject('UsersRepository')
     private usersRepository: IUsersRepository,
 
-    @inject('TransactionsRepository')
-    private transactionsRepository: ITransactionsRepository,
-
     @inject('HashProvider')
     private hashProvider: IHashProvider,
+
+    @inject('PinProvider')
+    private pinProvider: IPinProvider,
   ) {}
 
   public async execute({ email, password }: IRequest): Promise<IResponse> {
@@ -73,50 +68,23 @@ class AuthenticateUserService {
       );
     }
 
-    const { secret, expiresIn } = authConfig.jwt;
+    // TODO: add request/IP based rate limiting for login-code generation.
+    const code = await this.pinProvider.generatePin();
+    user.pin = await this.hashProvider.generateHash(code);
+    user.pin_created_at = new Date();
+    await this.usersRepository.save(user);
 
-    const token = sign(
-      {
-        twoFactorAuthentication: user.twoFactorAuthentication,
-        role: user.role,
-      },
-      secret,
-      {
-        subject: user.sync_id,
-        expiresIn,
-      },
-    );
-
-    const current_balance = await this.transactionsRepository.findBalance(
-      user.id,
-    );
-
-    // console.log(current_balance);
-
-    // send sms auth code if user has phone number
-    if (user.phone) {
-      const sendSMSAuthenticationCode = container.resolve(
-        SendSMSAuthenticationCode,
-      );
-      await sendSMSAuthenticationCode.execute({ user_syncid: user.sync_id });
-    }
-
-    const assign = Object.assign(user, { current_balance });
-
-    // Create Audit Log
-    const auditLogService = container.resolve(CreateAuditLogService);
-    await auditLogService.execute({
-      action: 'login',
-      dapp: 'Authenticate',
-      sync_id: user.sync_id,
-      user_sync_id: user.sync_id,
-      dapp_token: user.id,
-      dapp_token_sync_id: user.sync_id,
-      outcome: 'success',
-      message: user,
+    const sendLoginCode = container.resolve(SendLoginEmailCodeService);
+    await sendLoginCode.execute({
+      email: user.email,
+      name: user.name || user.email,
+      code,
     });
 
-    return { user: assign, token };
+    return {
+      verificationRequired: true,
+      email: user.email,
+    };
   }
 }
 

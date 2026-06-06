@@ -116,6 +116,8 @@ APP_SECRET=your-secret-here
 APP_WEB_URL=http://localhost:3000
 APP_API_URL=http://localhost:3333
 GOKNOWN_TEST_ADMIN_PASSWORD=temporary-admin-password-from-secret-store
+ALLOWED_SIGNUP_EMAILS=atiselska@goknown.com,cgardner@enterprise-kc.com,leopoldojacobsen@gmail.com,mharold@goknown.com,cerlanger@goknown.com
+ADMIN_SIGNUP_EMAILS=atiselska@goknown.com
 
 # Database
 DATABASE_URL=postgresql://user:password@host:port/database
@@ -183,6 +185,27 @@ The seed creates or updates:
 source code. Invited users receive setup/reset links and create their own
 passwords. If `MAIL_BYPASS=true`, setup links are printed to stdout for local
 development instead of being emailed.
+
+## Signup and Login Verification
+
+Production signup is controlled by email allowlists:
+
+- `ALLOWED_SIGNUP_EMAILS`: comma-separated lowercase emails allowed to create accounts.
+- `ADMIN_SIGNUP_EMAILS`: comma-separated emails that should receive the `admin` role at signup.
+
+Users not listed in `ALLOWED_SIGNUP_EMAILS` receive a 403 response:
+`This email is not authorized to create a DAppGenius account.`
+
+Successful signup creates a `confirm_email` user and sends an email PIN. When
+`MAIL_BYPASS=true`, the PIN is printed to server logs instead.
+
+Every successful email/password login requires a backend email-code challenge:
+
+1. `POST /sessions` validates email/password and sends or logs a short-lived login code.
+2. `POST /sessions/verify-email-code` accepts `{ email, code }` and returns the JWT/user payload.
+
+Login codes expire after 10 minutes and are cleared after successful use.
+Rate limiting should be added at the edge or middleware layer for both endpoints.
 
 ## API Documentation
 

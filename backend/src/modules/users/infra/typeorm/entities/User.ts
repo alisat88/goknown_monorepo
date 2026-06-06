@@ -74,6 +74,7 @@ class User {
   })
   status: EnumStatus;
 
+  @Exclude()
   @Column({ nullable: true })
   pin: string;
 

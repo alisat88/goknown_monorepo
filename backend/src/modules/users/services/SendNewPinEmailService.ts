@@ -26,7 +26,7 @@ class SendNewPinEmailService {
 
     @inject('MailProvider')
     private mailProvider: IEmailProvider,
-  ) { }
+  ) {}
 
   public async execute({ email, masterNode, pin }: IRequest): Promise<string> {
     // find user to check if exists
@@ -39,18 +39,20 @@ class SendNewPinEmailService {
       pin = await this.pinProvider.generatePin();
     }
 
-    const canSendEmail = process.env.MAIL_BYPASS !== 'true';
-
-    if (!canSendEmail) {
-      throw new AppError('Email settings are not enabled.');
-    }
-
     const hashedNewPint = await this.hashProvider.generateHash(pin);
 
     user.pin = hashedNewPint;
     user.pin_created_at = new Date();
 
     await this.usersRepository.save(user);
+
+    const canSendEmail = process.env.MAIL_BYPASS !== 'true';
+
+    if (!canSendEmail) {
+      console.log(`DAppGenius email confirmation PIN for ${email}: ${pin}`);
+      return pin;
+    }
+
     if (masterNode) {
       const resendpintTemplate = path.resolve(
         __dirname,
@@ -70,7 +72,7 @@ class SendNewPinEmailService {
           variables: {
             name: user.name,
             pin,
-            link: `${process.env.APP_WEB_URL}/confirm-email-denied?email=${user.email}&pin=${pin}`,
+            link: `${process.env.APP_WEB_URL}/confirm-email?email=${user.email}`,
           },
         },
       });

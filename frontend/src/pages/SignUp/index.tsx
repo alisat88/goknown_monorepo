@@ -53,7 +53,9 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
           email: Yup.string()
             .required("E-mail is required")
             .email("Enter a valid e-mail"),
-          password: Yup.string().min(6, "Minimum of 6 characters"),
+          password: Yup.string()
+            .required("Password is required")
+            .min(6, "Minimum of 6 characters"),
         });
 
         await schema.validate(data, { abortEarly: false });
@@ -95,10 +97,11 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
         type: "success",
         title: "Account created",
         timeout: 8000,
-        description:
-          "You will receive a PIN in your email to activate your account when you log in",
+        description: "Check your email for the PIN to activate your account.",
       });
-      history.push("/");
+      history.push(
+        `/confirm-email?email=${encodeURIComponent(formData.email)}`
+      );
     } catch (err: any) {
       addToast({
         type: "error",

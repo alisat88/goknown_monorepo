@@ -62,6 +62,17 @@ sessionsRouter.post(
 );
 
 sessionsRouter.post(
+  '/verify-email-code',
+  celebrate({
+    [Segments.BODY]: {
+      email: Joi.string().email().required(),
+      code: Joi.string().required(),
+    },
+  }),
+  sessionsController.verifyEmailCode,
+);
+
+sessionsRouter.post(
   '/2fa/generate',
   /* #swagger.tags = ['Sessions']
      #swagger.path = '/sessions/2fa/generate'
