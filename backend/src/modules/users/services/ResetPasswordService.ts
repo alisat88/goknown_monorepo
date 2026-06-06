@@ -4,6 +4,7 @@ import IUsersRepository from '../repositories/IUsersRepository';
 import IHashProvider from '../providers/HashProvider/models/IHashProvider';
 import IUsersTokensRepository from '../repositories/IUsersTokensRepository';
 import AppError from '@shared/errors/AppError';
+import { EnumStatus } from '../infra/typeorm/entities/User';
 
 interface IRequest {
   password: string;
@@ -41,6 +42,8 @@ class ResetPasswordService {
     }
 
     user.password = await this.hashProvider.generateHash(password);
+    user.status = EnumStatus.Active;
+    user.twoFactorAuthentication = true;
 
     await this.usersRepository.save(user);
   }

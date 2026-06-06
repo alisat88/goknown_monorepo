@@ -19,6 +19,8 @@ const userController = new UserController();
 const uploadCSVUserController = new UploadCSVUserController();
 const usersRouter = Router();
 
+usersRouter.get('/', userController.index);
+
 usersRouter.put(
   '/:sync_id',
   /* #swagger.path = '/admin/users/{sync_id}'
@@ -42,13 +44,19 @@ usersRouter.put(
       name: Joi.string().allow(''),
       // email: Joi.string().email().required(),
       masterNode: Joi.boolean(),
-      role: Joi.array().valid(
+      role: Joi.string().valid(
         EnumRole.Admin,
+        EnumRole.User,
         EnumRole.Buyer,
         EnumRole.Seller,
         EnumRole.issuer,
       ),
-      status: Joi.array().valid(EnumStatus.Inactive, EnumStatus.Active),
+      status: Joi.string().valid(
+        EnumStatus.Pending,
+        EnumStatus.Inactive,
+        EnumStatus.Active,
+        EnumStatus.ConfirmEmail,
+      ),
     },
   }),
   syncNodeUser,

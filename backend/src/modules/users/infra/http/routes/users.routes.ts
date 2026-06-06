@@ -7,6 +7,7 @@ import UsersController from '../controllers/UsersController';
 import UserAvatarController from '../controllers/UserAvatarController';
 import InviteUsersController from '../controllers/InviteUsersController';
 import ensureAuthenticated from '../middlewares/ensureAuthenticated';
+import ensureAdminAuthenticated from '@modules/admin/infra/http/middlewares/ensureAuthenticated';
 import createSyncIdUser from '../middlewares/createSyncIdUser';
 import { EnumRole } from '../../typeorm/entities/User';
 
@@ -43,7 +44,7 @@ usersRouter.get(
         content: { 'application/json': { schema: { $ref: '#/components/schemas/Exception' } } }
      }
  */
-  ensureAuthenticated,
+  ensureAdminAuthenticated,
   usersController.index,
 );
 
@@ -118,8 +119,6 @@ usersRouter.post(
         email: "johndoe@email.com",
         role: "admin",
         amount: 100,
-        password: 123456,
-        pin: 123456,
       }
     }
     #swagger.responses[201] = {
@@ -143,21 +142,20 @@ usersRouter.post(
     [Segments.BODY]: {
       name: Joi.string().allow(''),
       email: Joi.string().email().required(),
-      role: Joi.array().valid(
+      role: Joi.string().valid(
         EnumRole.Admin,
+        EnumRole.User,
         EnumRole.Buyer,
         EnumRole.Seller,
         EnumRole.issuer,
       ),
 
       amount: Joi.number().allow(''),
-      password: Joi.string(),
-      pin: Joi.string(),
       sync_id: Joi.string(),
       masterNode: Joi.boolean(),
     },
   }),
-  ensureAuthenticated,
+  ensureAdminAuthenticated,
   createSyncIdUser,
   inviteUsersController.create,
 );

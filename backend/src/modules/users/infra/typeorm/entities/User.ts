@@ -17,6 +17,7 @@ import Group from '@modules/groups/infra/typeorm/entities/Group';
 
 export enum EnumRole {
   Admin = 'admin',
+  User = 'user',
   Buyer = 'buyer',
   Seller = 'seller',
   issuer = 'issuer',

@@ -5,7 +5,7 @@ interface IRequest {
   email: string;
   name: string;
   invited_by: string;
-  password: string;
+  setup_link: string;
 }
 
 class SendWelcomeInvitationEmail {
@@ -17,7 +17,7 @@ class SendWelcomeInvitationEmail {
     name = 'User',
     email,
     invited_by,
-    password,
+    setup_link,
   }: IRequest): Promise<void> {
     const welecomeTemplate = path.resolve(
       __dirname,
@@ -37,9 +37,8 @@ class SendWelcomeInvitationEmail {
         variables: {
           name,
           invited_by,
-          password,
           email,
-          link: `${process.env.APP_WEB_URL}`,
+          link: setup_link,
         },
       },
     });

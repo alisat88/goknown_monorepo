@@ -15,11 +15,13 @@ This is the backend service for the GoKnown application, built with Node.js, Typ
 ### Using Docker (Recommended)
 
 1. **Start the application with Docker Compose:**
+
    ```bash
    docker-compose up -d
    ```
 
 2. **Access the API:**
+
    - API: http://localhost:3333
    - Nginx Proxy Manager: http://localhost:8081 (admin interface)
 
@@ -31,27 +33,32 @@ This is the backend service for the GoKnown application, built with Node.js, Typ
 ### Manual Setup
 
 1. **Install dependencies:**
+
    ```bash
    yarn install
    ```
 
 2. **Set up environment variables:**
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 3. **Run database migrations:**
+
    ```bash
    yarn typeorm migration:run
    ```
 
 4. **Start development server:**
+
    ```bash
    yarn dev:server
    ```
 
 5. **Create a local login user (optional):**
+
    ```bash
    yarn seed:local-user
    ```
@@ -66,21 +73,27 @@ This is the backend service for the GoKnown application, built with Node.js, Typ
 ## Docker Configuration
 
 ### Dockerfile
+
 The `Dockerfile` is optimized for production builds:
+
 - Uses Alpine Linux for smaller image size
 - Installs dependencies with `yarn install --frozen-lockfile`
 - Builds the application with `yarn build`
 - Runs the application with `yarn start`
 
 ### Docker Compose
+
 The `docker-compose.yaml` includes:
+
 - **API Service**: Main backend application
 - **PostgreSQL**: Database
 - **Redis**: Cache and session storage
 - **Nginx Proxy Manager**: Reverse proxy with SSL support
 
 ### Windows Compatibility
+
 The Docker configuration has been optimized for Windows:
+
 - Uses forward slashes (/) in paths
 - Removed Unix-specific commands (`sh -c`)
 - Adjusted volume mounts for Windows compatibility
@@ -89,6 +102,7 @@ The Docker configuration has been optimized for Windows:
 ## Environment Variables
 
 ### Required Variables
+
 ```env
 # Node Configuration
 NODE_NUMBER=1
@@ -101,6 +115,7 @@ APP_NAME=goknown
 APP_SECRET=your-secret-here
 APP_WEB_URL=http://localhost:3000
 APP_API_URL=http://localhost:3333
+GOKNOWN_TEST_ADMIN_PASSWORD=temporary-admin-password-from-secret-store
 
 # Database
 DATABASE_URL=postgresql://user:password@host:port/database
@@ -112,6 +127,7 @@ REDIS_PASS=your-redis-password
 ```
 
 ### Optional Variables
+
 ```env
 # Storage (DigitalOcean Spaces)
 STORAGE_DRIVER=digitalocean
@@ -125,6 +141,11 @@ MAIL_DRIVER=ses
 AWS_ACCESS_KEY_ID=your-key
 AWS_SECRET_ACCESS_KEY=your-secret
 AWS_REGION=us-east-1
+
+# Email bypass for local development only.
+# When true, invite/setup links are printed by the production user seed instead
+# of being sent by email.
+MAIL_BYPASS=false
 
 # Two-Factor Authentication (Twilio)
 TWOFA_DRIVER=twilio
@@ -141,26 +162,51 @@ TWILIO_SERVICE_ID=your-service-id
 - `yarn typeorm`: Run TypeORM CLI commands
 - `yarn queue`: Start queue worker
 - `yarn swagger`: Generate Swagger documentation
+- `yarn seed:production-users`: Bootstrap initial production users and setup links
+
+## Production User Bootstrap
+
+Run the production user seed after migrations are applied:
+
+```bash
+GOKNOWN_TEST_ADMIN_PASSWORD="set-from-secret-store" \
+APP_WEB_URL="https://dappgenius.dev" \
+yarn seed:production-users
+```
+
+The seed creates or updates:
+
+- `atiselska@goknown.com` as `admin`, pending setup
+- `admin@goknown.com` as `admin`, active test login
+
+`admin@goknown.com` uses `GOKNOWN_TEST_ADMIN_PASSWORD`; no password is stored in
+source code. Invited users receive setup/reset links and create their own
+passwords. If `MAIL_BYPASS=true`, setup links are printed to stdout for local
+development instead of being emailed.
 
 ## API Documentation
 
 The API documentation is available at:
+
 - Swagger UI: http://localhost:3333/api-docs
 - OpenAPI JSON: http://localhost:3333/swagger.json
 
 ## Database Migrations
 
 ### Run migrations:
+
 ```bash
 yarn typeorm migration:run
 ```
 
 ### Generate new migration:
+
 ```bash
 yarn typeorm migration:generate -n MigrationName
 ```
 
 ### Revert migration:
+
 ```bash
 yarn typeorm migration:revert
 ```
@@ -170,10 +216,12 @@ yarn typeorm migration:revert
 ### Docker Issues
 
 1. **Permission denied errors (Windows):**
+
    - Run Docker Desktop as Administrator
    - Check file sharing settings in Docker Desktop
 
 2. **Build context errors:**
+
    - Ensure you're in the correct directory
    - Check that all paths are correct
 
@@ -184,6 +232,7 @@ yarn typeorm migration:revert
 ### Database Issues
 
 1. **Connection refused:**
+
    - Check if PostgreSQL is running
    - Verify connection string in environment variables
    - Ensure database exists
@@ -205,6 +254,7 @@ yarn typeorm migration:revert
 ### Using Docker
 
 1. **Build the image:**
+
    ```bash
    docker build -t goknown-backend .
    ```

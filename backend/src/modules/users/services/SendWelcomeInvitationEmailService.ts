@@ -7,7 +7,7 @@ interface IRequest {
   email: string;
   name: string;
   invited_by: string;
-  password: string;
+  setup_link: string;
 }
 
 @injectable()
@@ -15,7 +15,7 @@ class SendWelcomeInvitationEmailService {
   constructor(
     @inject('MailProvider')
     private mailProvider: IEmailProvider,
-  ) { }
+  ) {}
 
   public get key(): string {
     return 'WelcomeInvitationEmail';
@@ -25,7 +25,7 @@ class SendWelcomeInvitationEmailService {
     name,
     email,
     invited_by,
-    password,
+    setup_link,
   }: IRequest): Promise<void> {
     const welecomeTemplate = path.resolve(
       __dirname,
@@ -51,9 +51,8 @@ class SendWelcomeInvitationEmailService {
         variables: {
           name: name.split(' ')[0],
           invited_by,
-          password,
           email,
-          link: `${process.env.APP_WEB_URL}`,
+          link: setup_link,
         },
       },
     });

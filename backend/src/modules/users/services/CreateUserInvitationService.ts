@@ -11,16 +11,20 @@ import IHashProvider from '../providers/HashProvider/models/IHashProvider';
 import ITransactionsRepository from '@modules/transactions/repositories/ITransactionsRepository';
 import { EnumStatus } from '@modules/transactions/infra/typeorm/entities/Transaction';
 import CreateFolderService from '@modules/digitalassets/services/CreateFolderService';
-import IConfigsRepository from '@modules/configs/repositories/IConfigsRepository';
+import IUsersTokensRepository from '../repositories/IUsersTokensRepository';
+import { randomBytes } from 'crypto';
 
 interface IRequest {
   email: string;
   sync_id?: string;
-  pin?: string;
-  password?: string;
   role?: EnumRole;
   amount?: number;
   name?: string;
+}
+
+interface IResponse {
+  user: User;
+  setupToken: string;
 }
 
 @injectable()
@@ -35,8 +39,8 @@ class CreateUserInvitationService {
     @inject('HashProvider')
     private hashProvider: IHashProvider,
 
-    @inject('ConfigsRepository')
-    private configsRepository: IConfigsRepository,
+    @inject('UsersTokenRepository')
+    private usersTokensRepository: IUsersTokensRepository,
   ) {}
 
   public async execute({
@@ -44,37 +48,35 @@ class CreateUserInvitationService {
     sync_id,
     amount = 0,
     name = '',
-    password,
-    role = EnumRole.Buyer,
-  }: IRequest): Promise<User> {
+    role = EnumRole.User,
+  }: IRequest): Promise<IResponse> {
+    const normalizedEmail = email
+      .replace(/(\+.*)(?=\@)/, '')
+      .toLocaleLowerCase();
+
     // check if user exists find by email
-    const checkUserExists = await this.usersRepository.findByEmail(email);
+    const checkUserExists = await this.usersRepository.findByEmail(
+      normalizedEmail,
+    );
 
     // if email exists throw error
     if (checkUserExists) {
       throw new AppError('Email address already used');
     }
-    password = !password ? Math.random().toString(36).slice(-8) : password;
 
-    // generate password encrypted
-    const hashedPassword = await this.hashProvider.generateHash(password);
+    const lockedPasswordPlaceholder = randomBytes(32).toString('hex');
+    const hashedPassword = await this.hashProvider.generateHash(
+      lockedPasswordPlaceholder,
+    );
 
-    // get config global settings to create new user enabled
-    const config = await this.configsRepository.findLast();
-
-    const status =
-      !!config && config.enableCreateUser
-        ? EnumStatusUser.Pending
-        : EnumStatusUser.Inactive;
-
-    const twoFactorAuthentication =
-      !!config && config.enableCreateUser ? config.enableCreateUser : false;
+    const status = EnumStatusUser.Pending;
+    const twoFactorAuthentication = true;
     // console.log('status');
     // console.log(status);
     // create new user
     const user = await this.usersRepository.create({
       name,
-      email: email.toLocaleLowerCase(),
+      email: normalizedEmail,
       password: hashedPassword,
       twoFactorAuthentication,
       sync_id,
@@ -116,8 +118,10 @@ class CreateUserInvitationService {
         await this.transactionsRepository.save(transaction);
       }
     }
-    user.password = password;
-    return user;
+
+    const { token } = await this.usersTokensRepository.generate(user.id);
+
+    return { user, setupToken: token };
   }
 }
 

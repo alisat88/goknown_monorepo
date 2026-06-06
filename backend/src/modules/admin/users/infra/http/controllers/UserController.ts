@@ -1,12 +1,23 @@
 import UpdateUserService from '@modules/admin/users/services/UpdateUserService';
+import ListAllUsersService from '@modules/users/services/ListAllUsersService';
 import SyncNodeProvider from '@shared/container/providers/SyncNodeProvider/implementations/SyncNodeProvider';
 import { Request, Response } from 'express';
 import { container } from 'tsyringe';
 
 class UserController {
-  //   async index(request: Request, response: Response) {
-  //     // TODO
-  //   }
+  async index(request: Request, response: Response): Promise<Response> {
+    const { status = '', name = '', limit = 30, offset = 0 } = request.query;
+    const listAllUsers = container.resolve(ListAllUsersService);
+
+    const users = await listAllUsers.execute({
+      status: String(status),
+      name: String(name),
+      limit: Number(limit),
+      offset: Number(offset),
+    });
+
+    return response.json(users);
+  }
 
   //   async create(request: Request, response: Response) {
   //     // TODO

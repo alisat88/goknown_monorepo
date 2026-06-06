@@ -1,10 +1,10 @@
 import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import IStorageProvider from '@shared/container/providers/StorageProvider/models/IStorageProvider';
-import IConfigsRepository from '@modules/configs/repositories/IConfigsRepository';
 import ITransactionsRepository from '@modules/transactions/repositories/ITransactionsRepository';
 import AppError from '@shared/errors/AppError';
 import path from 'path';
 import { container, inject, injectable } from 'tsyringe';
+import { randomBytes } from 'crypto';
 
 import { v5 as uuidv5 } from 'uuid';
 
@@ -19,10 +19,8 @@ import IHashProvider from '@modules/users/providers/HashProvider/models/IHashPro
 import CreateChargeService from '@modules/charges/services/CreateChargeService';
 import { EnumMethod } from '@modules/charges/infra/typeorm/entities/Charge';
 import { EnumStatus } from '@modules/transactions/infra/typeorm/entities/Transaction';
-import Queue from '@shared/infra/http/lib/Queue';
-// import SendWelcomeInvitationEmail from '../jobs/SendWelcomeInvitationEmail';
 import SendWelcomeInvitationEmailService from '@modules/users/services/SendWelcomeInvitationEmailService';
-// import SendWelcomeInvitationEmailJob from '@modules/admin/users/jobs/SendWelcomeInvitationEmail';
+import IUsersTokensRepository from '@modules/users/repositories/IUsersTokensRepository';
 
 type IRequestDTO = {
   filename: string;
@@ -59,11 +57,11 @@ class UploadCSVUserService {
     @inject('HashProvider')
     private hashProvider: IHashProvider,
 
-    @inject('ConfigsRepository')
-    private configsRepository: IConfigsRepository,
-
     @inject('TransactionsRepository')
     private transactionsRepository: ITransactionsRepository,
+
+    @inject('UsersTokenRepository')
+    private usersTokensRepository: IUsersTokensRepository,
   ) {}
 
   async execute({
@@ -122,8 +120,11 @@ class UploadCSVUserService {
         throw new AppError('CSV file must have 100 or less registers.', 401);
       }
 
-      // get config global settings to create new user enabled
-      const config = await this.configsRepository.findLast();
+      if (!process.env.APP_WEB_URL) {
+        throw new AppError(
+          'APP_WEB_URL is required to generate invitation setup links.',
+        );
+      }
 
       // save data on database
 
@@ -140,31 +141,22 @@ class UploadCSVUserService {
           return;
         }
 
-        const password = Math.random().toString(36).slice(-8);
-
-        // generate password encrypted
-        const hashedPassword = await this.hashProvider.generateHash(password);
-
-        const status =
-          !!config && config.enableCreateUser
-            ? EnumStatusUser.Pending
-            : EnumStatusUser.Inactive;
-
-        const twoFactorAuthentication =
-          !!config && config.enableCreateUser ? config.enableCreateUser : false;
+        const lockedPasswordPlaceholder = randomBytes(32).toString('hex');
+        const hashedPassword = await this.hashProvider.generateHash(
+          lockedPasswordPlaceholder,
+        );
 
         const sync_id = uuidv5(email || '', process.env.NODE_UUID || '');
         // create new user
         const newUser = await this.usersRepository.create({
           email: email.toLocaleLowerCase(),
           password: hashedPassword,
-          twoFactorAuthentication,
+          twoFactorAuthentication: true,
           sync_id,
-          status,
+          status: EnumStatusUser.Pending,
           role,
         } as User);
 
-        newUser.password = password;
         newUser.sync_id = sync_id;
 
         if (initial_tokens > 0) {
@@ -192,23 +184,24 @@ class UploadCSVUserService {
           }
         }
 
-        if (masterNode) {
-          // await Queue.add(SendWelcomeInvitationEmail.key, {
-          //   name: newUser.name || 'User',
-          //   email: newUser.email,
-          //   invited_by: adminUser.name,
-          //   password,
-          // });
+        const { token } = await this.usersTokensRepository.generate(newUser.id);
+        const setupLink = `${process.env.APP_WEB_URL.replace(
+          /\/$/,
+          '',
+        )}/reset-password?token=${token}`;
 
+        if (masterNode && process.env.MAIL_BYPASS !== 'true') {
           const sendWelcome = container.resolve(
             SendWelcomeInvitationEmailService,
           );
           await sendWelcome.execute({
             email,
             name: newUser.name || 'User',
-            password: newUser.password,
+            setup_link: setupLink,
             invited_by: adminUser.name,
           });
+        } else if (masterNode) {
+          console.log(`Setup link for ${email}: ${setupLink}`);
         }
         registeredUsers.sussecceful.push({
           email: email,

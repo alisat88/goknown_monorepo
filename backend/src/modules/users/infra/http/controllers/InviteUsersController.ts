@@ -10,22 +10,34 @@ import { container } from 'tsyringe';
 class InviteUsersController {
   public async create(request: Request, response: Response): Promise<Response> {
     try {
-      // const { sync_id } = request.user;
+      const { sync_id: loggedUserSyncId } = request.user;
       // TODO - Dar opcao de enviar nome, role e charge, deixar charge dasativada por padrao
-      const { email, sync_id = '', pin, password } = request.body;
+      const { email, sync_id = '', role, amount, name = '' } = request.body;
 
       const createUser = container.resolve(CreateUserInvitationService);
-      const inviteUser = await createUser.execute({
+      const { user: inviteUser, setupToken } = await createUser.execute({
         email,
         sync_id,
-        pin,
-        password,
+        role,
+        amount,
+        name,
       });
 
       const showProfileService = container.resolve(ShowProfileService);
       const loggeduser = await showProfileService.execute({
-        user_id: sync_id,
+        user_id: loggedUserSyncId,
       });
+
+      if (!process.env.APP_WEB_URL) {
+        return response.status(400).json({
+          error: 'APP_WEB_URL is required to generate invitation setup links.',
+        });
+      }
+
+      const setupLink = `${process.env.APP_WEB_URL.replace(
+        /\/$/,
+        '',
+      )}/reset-password?token=${setupToken}`;
 
       if (request.body.masterNode) {
         // mirror users across nodes
@@ -49,18 +61,6 @@ class InviteUsersController {
           request,
           method: 'post',
         });
-
-        // send email
-        const sendWelcome = container.resolve(
-          SendWelcomeInvitationEmailService,
-        );
-        await sendWelcome.execute({
-          email,
-          name: inviteUser.name,
-          password: inviteUser.password,
-          invited_by: loggeduser.name,
-        });
-
         // mirror users across nodes
         // nodes.map(node =>
         //   axios.post(`${node.url}/users`, {
@@ -68,6 +68,23 @@ class InviteUsersController {
         //   }),
         // );
       }
+
+      if (process.env.MAIL_BYPASS === 'true') {
+        return response.json(
+          classToClass({
+            user: inviteUser,
+            setup_link: setupLink,
+          }),
+        );
+      }
+
+      const sendWelcome = container.resolve(SendWelcomeInvitationEmailService);
+      await sendWelcome.execute({
+        email,
+        name: inviteUser.name || email,
+        setup_link: setupLink,
+        invited_by: loggeduser.name,
+      });
 
       return response.json(classToClass(inviteUser));
     } catch (err) {

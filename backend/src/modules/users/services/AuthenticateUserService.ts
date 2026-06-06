@@ -59,9 +59,9 @@ class AuthenticateUserService {
       throw new AppError('Incorrect email/password combination.', 401);
     }
 
-    if (user.status === EnumStatus.Inactive) {
+    if (user.status !== EnumStatus.Active) {
       throw new AppError(
-        'Access denied 2. Please contact the system admin.',
+        'Access denied. Please verify your account or contact the system admin.',
         401,
       );
     }
