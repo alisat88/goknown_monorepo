@@ -24,4 +24,9 @@ export default interface IUsersRepository {
   findByEmail(email: string): Promise<User | undefined>;
   create(data: ICreateUserDTO): Promise<User>;
   save(user: User): Promise<User>;
+  updateLoginCode(
+    id: string,
+    pin: string,
+    pinCreatedAt: Date,
+  ): Promise<void>;
 }

@@ -70,9 +70,13 @@ class AuthenticateUserService {
 
     // TODO: add request/IP based rate limiting for login-code generation.
     const code = await this.pinProvider.generatePin();
-    user.pin = await this.hashProvider.generateHash(code);
-    user.pin_created_at = new Date();
-    await this.usersRepository.save(user);
+    const hashedCode = await this.hashProvider.generateHash(code);
+    const pinCreatedAt = new Date();
+    await this.usersRepository.updateLoginCode(
+      user.id,
+      hashedCode,
+      pinCreatedAt,
+    );
 
     const sendLoginCode = container.resolve(SendLoginEmailCodeService);
     await sendLoginCode.execute({

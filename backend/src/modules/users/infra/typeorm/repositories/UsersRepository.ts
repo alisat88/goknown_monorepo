@@ -148,6 +148,22 @@ class UsersRepository implements IUsersRepository {
   public async save(user: User): Promise<User> {
     return await this.ormRepository.save(user);
   }
+
+  public async updateLoginCode(
+    id: string,
+    pin: string,
+    pinCreatedAt: Date,
+  ): Promise<void> {
+    await this.ormRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({
+        pin,
+        pin_created_at: pinCreatedAt,
+      })
+      .where('id = :id', { id })
+      .execute();
+  }
 }
 
 export default UsersRepository;
