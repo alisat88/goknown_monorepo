@@ -82,7 +82,7 @@ class User {
   sync_id: string;
 
   @Exclude()
-  @UpdateDateColumn({ type: 'timestamptz', nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   pin_created_at?: Date | null;
 
   @CreateDateColumn()
