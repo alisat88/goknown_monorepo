@@ -23,6 +23,8 @@ import "./styles.css";
 
 const API_URL =
   import.meta.env.VITE_KNOWNCOMPUTE_API_URL ?? "http://127.0.0.1:8003";
+const DAPPGENIUS_DASHBOARD_URL =
+  import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev/dashboard";
 
 const DOMAINS = ["cybersecurity", "sessions", "transactions", "organizations"];
 
@@ -453,6 +455,9 @@ function App() {
             <h2>DAppGenius KnownCompute</h2>
           </div>
           <div className="topbar-actions">
+            <a className="dashboard-link" href={DAPPGENIUS_DASHBOARD_URL}>
+              ← Back to DAppGenius Dashboard
+            </a>
             <StatusPill health={health} error={healthError} />
             <button className="icon-button" onClick={refreshData} disabled={refreshState.loading} title="Refresh data">
               {refreshState.loading ? <Loader2 className="spin" /> : <RefreshCcw />}

@@ -204,6 +204,14 @@ button:disabled {
   backdrop-filter: blur(16px);
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .topbar span,
 .panel-header span,
 .metric-card span,
@@ -240,6 +248,31 @@ button:disabled {
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.dashboard-link {
+  min-height: 44px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(103, 232, 249, 0.34);
+  border-radius: 12px;
+  color: #dffcf4;
+  background: rgba(103, 232, 249, 0.1);
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.dashboard-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(103, 232, 249, 0.52);
+  background: rgba(103, 232, 249, 0.18);
 }
 
 .topbar-status svg {
@@ -549,6 +582,10 @@ button[type="submit"]:not(:disabled):hover,
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbar-actions {
+    justify-content: flex-start;
   }
 
   .topbar h1 {
