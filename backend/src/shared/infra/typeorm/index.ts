@@ -10,15 +10,26 @@ console.log('DB_USER:', process.env.DB_USER);
 console.log('DB_PASS:', process.env.DB_PASS ? '***' : 'NOT SET');
 console.log('DB_NAME:', process.env.DB_NAME);
 
-// Validate required environment variables
-if (!process.env.DB_NAME) {
-  throw new Error('DB_NAME environment variable is not set!');
+function buildConnectionUrl(): string {
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'DATABASE_URL is required in production. Set it to the Render Postgres connection string.',
+    );
+  }
+
+  if (!process.env.DB_NAME) {
+    throw new Error('DB_NAME environment variable is not set!');
+  }
+
+  return `postgresql://${process.env.DB_USER}:${process.env.DB_PASS}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
 }
 
 // Build connection URL
-const connectionUrl = process.env.DATABASE_URL
-  ? process.env.DATABASE_URL
-  : `postgresql://${process.env.DB_USER}:${process.env.DB_PASS}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+const connectionUrl = buildConnectionUrl();
 
 console.log('Attempting connection with URL:', connectionUrl.replace(/:[^:@]+@/, ':***@'));
 

@@ -118,9 +118,11 @@ APP_API_URL=http://localhost:3333
 GOKNOWN_TEST_ADMIN_PASSWORD=temporary-admin-password-from-secret-store
 ALLOWED_SIGNUP_EMAILS=atiselska@goknown.com,cgardner@enterprise-kc.com,leopoldojacobsen@gmail.com,mharold@goknown.com,cerlanger@goknown.com
 ADMIN_SIGNUP_EMAILS=atiselska@goknown.com
+DATABASE_URL=postgresql://user:password@host:port/database
 
 # Database
-DATABASE_URL=postgresql://user:password@host:port/database
+# In production, Render should provide DATABASE_URL. DB_HOST/DB_PORT/DB_USER/DB_PASS
+# are only used for local development fallback.
 
 # Redis
 REDIS_HOST=localhost

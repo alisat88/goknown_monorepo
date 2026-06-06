@@ -1,6 +1,6 @@
 import AppError from '@shared/errors/AppError';
 import { Request, Response, NextFunction } from 'express';
-import { v5 as uuidv5 } from 'uuid';
+import { v4 as uuidv4, v5 as uuidv5, validate as uuidValidate } from 'uuid';
 
 export default async function createSyncIdUser(
   request: Request,
@@ -17,8 +17,11 @@ export default async function createSyncIdUser(
     // generate unic uuid
     // create buffer with user email + timestamp
     const id = `${request.body.email}_${new Date().getTime()}`;
-
-    const uuid = uuidv5(id || '', process.env.NODE_UUID || '');
+    const nodeNamespace = process.env.NODE_UUID;
+    const uuid =
+      nodeNamespace && uuidValidate(nodeNamespace)
+        ? uuidv5(id || '', nodeNamespace)
+        : uuidv4();
 
     request.body.sync_id = uuid;
     request.body.masterNode = true;
