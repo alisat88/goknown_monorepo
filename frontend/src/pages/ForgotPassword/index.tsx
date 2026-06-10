@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import { FiLogIn, FiMail } from "react-icons/fi";
-import { Link, useHistory } from "react-router-dom";
+import { Link } from "react-router-dom";
 import * as Yup from "yup";
 
 import { FormHandles } from "@unform/core";
@@ -23,7 +23,6 @@ const ForgotPassword: React.FC<React.PropsWithChildren<unknown>> = () => {
   const formRef = useRef<FormHandles>(null);
 
   const { addToast } = useToast();
-  const history = useHistory();
 
   const handleSubmit = useCallback(
     async (data: IForgotPasswordFormData) => {
@@ -41,10 +40,9 @@ const ForgotPassword: React.FC<React.PropsWithChildren<unknown>> = () => {
         await api.post("/password/forgot", { email: data.email });
         addToast({
           type: "success",
-          title: "Recovery email has been sent",
-          description: "We sent an email to reset your password.",
+          title: "If the account exists, a recovery email has been sent",
+          description: "Check your email for a link to reset your password.",
         });
-        // history.push('/dashboard');
       } catch (err: any) {
         if (err instanceof Yup.ValidationError) {
           const errors = getValidationErrors(err);

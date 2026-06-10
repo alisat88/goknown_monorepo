@@ -219,6 +219,15 @@ Every successful email/password login requires a backend email-code challenge:
 Login codes expire after 10 minutes and are cleared after successful use.
 Rate limiting should be added at the edge or middleware layer for both endpoints.
 
+### Clear Login-Code State for One User
+
+Use this in Render Shell only when a user is stuck with stale login-code state.
+It does not change the password, account status, role, or any reset tokens.
+
+```bash
+EMAIL="user@example.com" node -e 'const { Client } = require("pg"); const email = (process.env.EMAIL || "").trim().toLowerCase(); if (!email) { throw new Error("EMAIL is required"); } const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }); client.connect().then(async () => { const result = await client.query("UPDATE users SET pin = NULL, pin_created_at = NULL WHERE LOWER(email) = $1 RETURNING email, status, role", [email]); console.log(`Cleared login-code state for ${result.rowCount} user(s).`); result.rows.forEach(row => console.log(`${row.email} status=${row.status} role=${row.role}`)); }).finally(() => client.end());'
+```
+
 ## API Documentation
 
 The API documentation is available at:

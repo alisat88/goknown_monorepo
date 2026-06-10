@@ -2,7 +2,6 @@ import { injectable, inject } from 'tsyringe';
 import IUsersRepository from '../repositories/IUsersRepository';
 import IEmailProvider from '@shared/container/providers/MailProvider/models/IMailProvider';
 import IUsersTokensRepository from '../repositories/IUsersTokensRepository';
-import AppError from '@shared/errors/AppError';
 import path from 'path';
 import nodes from '@config/nodes';
 import { api } from '@config/api';
@@ -32,14 +31,10 @@ class SendForgotPasswordEmailService {
     const user = await this.userRepository.findByEmail(email);
 
     if (!user) {
-      throw new AppError('User does not exists.');
+      return;
     }
 
     const canSendEmail = process.env.MAIL_BYPASS !== 'true';
-
-    if (!canSendEmail) {
-      throw new AppError('Email settings are not enabled.');
-    }
 
     const { token } = await this.usersTokensRepository.generate(
       user.id,
@@ -53,17 +48,27 @@ class SendForgotPasswordEmailService {
       'forgot_password.hbs',
     );
 
+    const appWebUrl = (
+      process.env.APP_WEB_URL || 'https://dappgenius.dev'
+    ).replace(/\/$/, '');
+    const resetLink = `${appWebUrl}/reset-password?token=${token}`;
+    const name = user.name || user.email;
+
+    if (!canSendEmail) {
+      return;
+    }
+
     await this.mailProvider.sendMail({
       to: {
-        name: user.name,
+        name,
         email: user.email,
       },
       subject: '[DAppGenius] Forgot password',
       templateData: {
         file: forgotPasswordtemplate,
         variables: {
-          name: user.name.split(' ')[0],
-          link: `${process.env.APP_WEB_URL}/reset-password?token=${token}`,
+          name: name.split(' ')[0],
+          link: resetLink,
         },
       },
     });

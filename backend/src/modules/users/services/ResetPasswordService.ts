@@ -42,10 +42,15 @@ class ResetPasswordService {
     }
 
     user.password = await this.hashProvider.generateHash(password);
-    user.status = EnumStatus.Active;
+    if (user.status === EnumStatus.Pending) {
+      user.status = EnumStatus.Active;
+    }
     user.twoFactorAuthentication = true;
+    user.pin = null;
+    user.pin_created_at = null;
 
     await this.usersRepository.save(user);
+    await this.usersTokensRepository.deleteByUserId(user.id);
   }
 }
 

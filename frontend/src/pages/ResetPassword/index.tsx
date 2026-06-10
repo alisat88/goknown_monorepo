@@ -27,23 +27,27 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
 
-  const token = location.search.replace("?token=", "");
-
-  if (!token) {
-    throw new Error();
-  }
+  const token = new URLSearchParams(location.search).get("token") || "";
 
   const handleSubmit = useCallback(
     async (data: IResetPasswordFormData) => {
       setLoading(true);
       try {
+        if (!token) {
+          addToast({
+            type: "error",
+            title: "Invalid reset link",
+            description: "Request a new password reset email and try again.",
+          });
+          return;
+        }
+
         formRef.current?.setErrors({});
         const schema = Yup.object().shape({
           password: Yup.string().required(),
-          password_confirmation: Yup.string().oneOf(
-            [Yup.ref("password"), undefined], // SE N RODAR TIRA UNDEFINED
-            "password do not match"
-          ),
+          password_confirmation: Yup.string()
+            .required()
+            .oneOf([Yup.ref("password")], "Passwords do not match"),
         });
 
         await schema.validate(data, { abortEarly: false });
@@ -54,6 +58,12 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
           token,
         });
 
+        addToast({
+          type: "success",
+          title: "Password reset successfully",
+          description:
+            "Sign in with your new password to receive a login code.",
+        });
         history.push("/");
       } catch (err: any) {
         if (err instanceof Yup.ValidationError) {
@@ -83,6 +93,10 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
           <Form ref={formRef} onSubmit={handleSubmit}>
             <h1>Reset password</h1>
 
+            {!token && (
+              <p>This reset link is missing or invalid. Request a new one.</p>
+            )}
+
             <Input
               name="password"
               icon={FiLock}
@@ -99,7 +113,7 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
               isLoading={loading}
             />
 
-            <Button type="submit" isLoading={loading}>
+            <Button type="submit" isLoading={loading} disabled={!token}>
               Reset password
             </Button>
           </Form>
