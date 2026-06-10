@@ -4,6 +4,7 @@ import transferRouter from '@modules/transactions/infra/http/routes/transfer.rou
 import mintRouter from '@modules/transactions/infra/http/routes/mint.routes';
 import transactionsRouter from '@modules/transactions/infra/http/routes/transactions.routes';
 import velocityRouter from '@modules/transactions/infra/http/routes/velocity.routes';
+import ledgerRouter from '@modules/transactions/infra/http/routes/ledger.routes';
 
 import usersRouter from '@modules/users/infra/http/routes/users.routes';
 import pinRouter from '@modules/users/infra/http/routes/pin.routes';
@@ -66,6 +67,7 @@ routes.use('/me/groups', groupsRouter);
  */
 routes.use('/transfer', transferRouter);
 routes.use('/mint', mintRouter);
+routes.use('/ledger', ledgerRouter);
 
 /**
  * 🚀 Analytics (NEW FEATURE)

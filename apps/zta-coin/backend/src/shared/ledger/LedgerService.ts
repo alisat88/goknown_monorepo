@@ -34,7 +34,11 @@ class LedgerService {
    * 📄 Get all transactions
    */
   public async getAll(): Promise<Transaction[]> {
-    return this.getRepo().find();
+    return this.getRepo().find({
+      order: {
+        timestamp: 'DESC',
+      },
+    });
   }
 
   /**

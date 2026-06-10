@@ -1,4 +1,4 @@
-import React, { FormEvent, useMemo, useState } from "react";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import {
   Activity,
@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Menu,
   RadioTower,
+  RefreshCw,
   ShieldCheck,
   WalletCards,
   X,
@@ -39,6 +40,25 @@ type VelocityResponse = {
   txCountLast5min?: number;
   isSuspicious?: boolean;
   [key: string]: unknown;
+};
+
+type LedgerTransaction = {
+  id?: string;
+  transactionId?: string;
+  timestamp?: string;
+  type?: string;
+  eventCode?: string;
+  from?: string | null;
+  to?: string | null;
+  amount?: number;
+  status?: string;
+  note?: string;
+};
+
+type LedgerState = {
+  loading: boolean;
+  error: string;
+  transactions: LedgerTransaction[];
 };
 
 const idleRequest: RequestState = {
@@ -79,6 +99,40 @@ function formatNumber(value: unknown) {
   }).format(value);
 }
 
+function formatAmount(value: unknown) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "0.00 ZTA";
+  return `${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)} ZTA`;
+}
+
+function formatTimestamp(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function shortId(value?: string) {
+  if (!value) return "—";
+  return value.length > 18 ? `${value.slice(0, 10)}...${value.slice(-6)}` : value;
+}
+
+function getTransactionKind(transaction: LedgerTransaction) {
+  return transaction.type === "Mint" || transaction.eventCode === "KN-MNT-000"
+    ? "Mint"
+    : "Transfer";
+}
+
 function RawResponse({ state }: { state: RequestState }) {
   if (state.loading) {
     return <div className="response loading">Waiting for backend response...</div>;
@@ -112,6 +166,11 @@ function App() {
   const [transferState, setTransferState] = useState<RequestState>(idleRequest);
   const [velocityState, setVelocityState] = useState<RequestState>(idleRequest);
   const [healthState, setHealthState] = useState<RequestState>(idleRequest);
+  const [ledgerState, setLedgerState] = useState<LedgerState>({
+    loading: true,
+    error: "",
+    transactions: [],
+  });
 
   const velocity = velocityState.raw as VelocityResponse | null;
   const transferInvalid = transferFrom === transferTo;
@@ -123,6 +182,31 @@ function App() {
       ).length,
     [mintState, transferState, velocityState, healthState],
   );
+
+  async function loadLedger() {
+    setLedgerState((state) => ({ ...state, loading: true, error: "" }));
+
+    try {
+      const raw = await requestJson("/ledger");
+      const transactions = Array.isArray(raw) ? raw : [];
+
+      setLedgerState({
+        loading: false,
+        error: "",
+        transactions: transactions as LedgerTransaction[],
+      });
+    } catch {
+      setLedgerState((state) => ({
+        ...state,
+        loading: false,
+        error: "Ledger is temporarily unavailable. Try refreshing in a moment.",
+      }));
+    }
+  }
+
+  useEffect(() => {
+    loadLedger();
+  }, []);
 
   async function submitMint(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,6 +226,7 @@ function App() {
         error: "",
         raw,
       });
+      await loadLedger();
     } catch (error) {
       setMintState({
         loading: false,
@@ -182,6 +267,7 @@ function App() {
         error: "",
         raw,
       });
+      await loadLedger();
     } catch (error) {
       setTransferState({
         loading: false,
@@ -271,6 +357,10 @@ function App() {
           <a className="nav-item" href="#velocity">
             <Gauge />
             Velocity
+          </a>
+          <a className="nav-item" href="#ledger">
+            <Activity />
+            Ledger
           </a>
           <a className="nav-item" href="#health">
             <RadioTower />
@@ -500,6 +590,90 @@ function App() {
               <RawResponse state={healthState} />
             </section>
           </div>
+
+          <section className="panel ledger-panel" id="ledger">
+            <div className="panel-header ledger-header">
+              <div>
+                <span>Complete token activity</span>
+                <h2>Full Transaction Ledger</h2>
+              </div>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={loadLedger}
+                disabled={ledgerState.loading}
+                aria-label="Refresh transaction ledger"
+                title="Refresh transaction ledger"
+              >
+                <RefreshCw />
+              </button>
+            </div>
+
+            {ledgerState.loading ? (
+              <div className="ledger-state">Loading transaction ledger...</div>
+            ) : ledgerState.error ? (
+              <div className="ledger-state error">{ledgerState.error}</div>
+            ) : ledgerState.transactions.length === 0 ? (
+              <div className="ledger-state">
+                No transactions yet. Mint or transfer ZTA Coin to populate the ledger.
+              </div>
+            ) : (
+              <div className="ledger-table-wrap">
+                <table className="ledger-table">
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Type</th>
+                      <th>Transaction ID</th>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Policy</th>
+                      <th>Note</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledgerState.transactions.map((transaction, index) => {
+                      const kind = getTransactionKind(transaction);
+                      const transactionId =
+                        transaction.transactionId || transaction.id || "";
+
+                      return (
+                        <tr key={transactionId || `${transaction.timestamp}-${index}`}>
+                          <td>{formatTimestamp(transaction.timestamp)}</td>
+                          <td>
+                            <span
+                              className={`type-badge ${
+                                kind === "Mint" ? "mint" : "transfer"
+                              }`}
+                            >
+                              {kind}
+                            </span>
+                          </td>
+                          <td>
+                            <code title={transactionId}>
+                              {shortId(transactionId)}
+                            </code>
+                          </td>
+                          <td>{transaction.from || "—"}</td>
+                          <td>{transaction.to || "—"}</td>
+                          <td>{formatAmount(transaction.amount)}</td>
+                          <td>
+                            <span className="status-badge">
+                              {transaction.status || "Completed"}
+                            </span>
+                          </td>
+                          <td>{transaction.eventCode || "—"}</td>
+                          <td>{transaction.note || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </section>
       </main>
     </div>

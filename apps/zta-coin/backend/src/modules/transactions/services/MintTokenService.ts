@@ -81,6 +81,7 @@ class MintTokenService {
       id: transactionId,
       type: transactionType,
       timestamp,
+      from: user_id,
       to: this.SYSTEM_ACCOUNT,
       amount,
       before: { balance: preBalance },

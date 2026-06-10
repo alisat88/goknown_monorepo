@@ -365,6 +365,38 @@ button:disabled {
   font-size: 22px;
 }
 
+.ledger-header {
+  align-items: center;
+}
+
+.icon-button {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(103, 232, 249, 0.32);
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(103, 232, 249, 0.1);
+  color: var(--cyan);
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.icon-button:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: rgba(103, 232, 249, 0.52);
+  background: rgba(103, 232, 249, 0.18);
+}
+
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+}
+
 form,
 .toolbar {
   display: grid;
@@ -519,6 +551,101 @@ button[type="submit"]:not(:disabled):hover,
   border: 1px solid rgba(248, 113, 113, 0.3);
   background: rgba(248, 113, 113, 0.12);
   color: #fecaca;
+}
+
+.ledger-panel {
+  overflow: hidden;
+}
+
+.ledger-state {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  padding: 18px;
+  background: rgba(2, 6, 23, 0.54);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ledger-state.error {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+}
+
+.ledger-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.54);
+}
+
+.ledger-table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+}
+
+.ledger-table th,
+.ledger-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+.ledger-table th {
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ledger-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ledger-table tbody tr:hover {
+  background: rgba(83, 191, 153, 0.06);
+}
+
+.ledger-table code {
+  color: #dbeafe;
+  font-size: 12px;
+}
+
+.type-badge,
+.status-badge {
+  min-height: 26px;
+  padding: 5px 9px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.type-badge.mint {
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  background: rgba(52, 211, 153, 0.12);
+  color: #bbf7d0;
+}
+
+.type-badge.transfer {
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  background: rgba(103, 232, 249, 0.11);
+  color: #cffafe;
+}
+
+.status-badge {
+  border: 1px solid rgba(52, 211, 153, 0.26);
+  background: rgba(52, 211, 153, 0.1);
+  color: #bbf7d0;
 }
 
 @media (max-width: 1180px) {
