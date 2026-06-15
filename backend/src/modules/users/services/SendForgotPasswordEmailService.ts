@@ -56,7 +56,7 @@ class SendForgotPasswordEmailService {
     const appWebUrl = (
       process.env.APP_WEB_URL || 'https://dappgenius.dev'
     ).replace(/\/$/, '');
-    const resetLink = `${appWebUrl}/reset-password?token=${token}`;
+    const resetLink = `${appWebUrl}/?resetPasswordToken=${token}`;
     const name = user.name || user.email;
 
     if (!canSendEmail) {

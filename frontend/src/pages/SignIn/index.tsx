@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import { FiArrowLeft, FiLogIn, FiMail, FiLock, FiKey } from "react-icons/fi";
-import { Link, useHistory } from "react-router-dom";
+import { Link, useHistory, useLocation } from "react-router-dom";
 import * as Yup from "yup";
 
 import { FormHandles } from "@unform/core";
@@ -26,8 +26,22 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
   const { signIn, verifyEmailCode, completeSignIn, signOut } = useAuth();
   const { addToast } = useToast();
   const history = useHistory();
+  const location = useLocation();
 
   const formRef = useRef<FormHandles>(null);
+
+  useEffect(() => {
+    const resetPasswordToken = new URLSearchParams(location.search).get(
+      "resetPasswordToken"
+    );
+
+    if (resetPasswordToken) {
+      // Open reset links through the root route to avoid static-host direct-route 404s.
+      history.replace(
+        `/reset-password?token=${encodeURIComponent(resetPasswordToken)}`
+      );
+    }
+  }, [history, location.search]);
 
   useEffect(() => {
     signOut();
