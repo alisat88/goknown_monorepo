@@ -35,6 +35,18 @@ interface IRequest {
   role?: EnumRole;
 }
 
+export enum CreateUserResultStatus {
+  Created = 'created',
+  ActiveExists = 'active_exists',
+  ConfirmationResent = 'confirmation_resent',
+}
+
+export interface ICreateUserResult {
+  status: CreateUserResultStatus;
+  user?: User;
+  message?: string;
+}
+
 @injectable()
 class CreateUserService {
   constructor(
@@ -58,7 +70,7 @@ class CreateUserService {
     sync_id,
     pin,
     role,
-  }: IRequest): Promise<any> {
+  }: IRequest): Promise<ICreateUserResult> {
     // eslint-disable-next-line prettier/prettier
     const unAliasesEmail = email
       .replace(/(\+.*)(?=\@)/, '')
@@ -89,7 +101,39 @@ class CreateUserService {
 
     // if email exists throw error
     if (checkUserExists) {
-      throw new AppError('Email address already used');
+      if (checkUserExists.status === EnumStatusUser.Active) {
+        return {
+          status: CreateUserResultStatus.ActiveExists,
+          message: 'This account already exists. Please log in instead.',
+          user: checkUserExists,
+        };
+      }
+
+      if (checkUserExists.status === EnumStatusUser.ConfirmEmail) {
+        if (!pin) {
+          pin = await this.pinProvider.generatePin();
+        }
+
+        checkUserExists.pin = await this.hashProvider.generateHash(pin);
+        checkUserExists.pin_created_at = new Date();
+        checkUserExists.twoFactorAuthentication = true;
+
+        await this.usersRepository.save(checkUserExists);
+
+        checkUserExists.pin = pin;
+
+        return {
+          status: CreateUserResultStatus.ConfirmationResent,
+          message:
+            'Your account already exists but still needs email confirmation. We sent a new confirmation code.',
+          user: checkUserExists,
+        };
+      }
+
+      throw new AppError(
+        'This account cannot be created. Please contact the system admin.',
+        409,
+      );
     }
 
     // generate password encrypted
@@ -149,7 +193,10 @@ class CreateUserService {
     // }
 
     user.pin = pin;
-    return user;
+    return {
+      status: CreateUserResultStatus.Created,
+      user,
+    };
   }
 }
 

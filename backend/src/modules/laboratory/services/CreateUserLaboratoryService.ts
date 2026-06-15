@@ -36,13 +36,18 @@ class CreateUserLaboratoryService {
           const id = `${body.email}_${new Date().getTime()}`;
           const sync_id = uuidv5(id || '', process.env.NODE_UUID || '');
 
-          const user = await createUser.execute({
+          const result = await createUser.execute({
             name: body.name,
             email: body.email,
             password: body.password,
             sync_id,
             pin: body.pin,
           });
+          const { user } = result;
+
+          if (!user) {
+            return;
+          }
 
           console.log('User created:', user.email);
 

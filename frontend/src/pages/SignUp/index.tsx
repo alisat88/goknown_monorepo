@@ -91,7 +91,21 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
       }
 
       // Create account with previously saved data
-      await api.post("/users", formData);
+      const response = await api.post("/users", formData);
+
+      if (response.data?.code === "ACCOUNT_CONFIRMATION_RESENT") {
+        addToast({
+          type: "info",
+          title: "Email confirmation required",
+          timeout: 8000,
+          description:
+            "Your account already exists but still needs email confirmation. We sent a new confirmation code.",
+        });
+        history.push(
+          `/confirm-email?email=${encodeURIComponent(formData.email)}`
+        );
+        return;
+      }
 
       addToast({
         type: "success",
@@ -103,11 +117,21 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
         `/confirm-email?email=${encodeURIComponent(formData.email)}`
       );
     } catch (err: any) {
+      const errorCode = err.response?.data?.code;
+      const errorMessage =
+        errorCode === "ACCOUNT_EXISTS_ACTIVE"
+          ? "This account already exists. Please log in instead."
+          : err.response?.data?.error || err.message;
+
       addToast({
         type: "error",
         title: "Error creating account",
-        description: err.response?.data?.error || err.message,
+        description: errorMessage,
       });
+
+      if (errorCode === "ACCOUNT_EXISTS_ACTIVE") {
+        history.push("/");
+      }
     } finally {
       setLoading(false);
     }
@@ -189,12 +213,11 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
       });
     }, options);
 
-    observer.observe(endMarkerRef.current);
+    const endMarkerElement = endMarkerRef.current;
+    observer.observe(endMarkerElement);
 
     return () => {
-      if (endMarkerRef.current) {
-        observer.unobserve(endMarkerRef.current);
-      }
+      observer.unobserve(endMarkerElement);
     };
   }, [showWelcome]);
 
@@ -252,7 +275,7 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
             </Form>
             <Link to="/">
               <FiArrowLeft />
-              Back to login
+              Already have an account? Log in
             </Link>
             <Link
               to="/privacy-policy"
@@ -413,9 +436,15 @@ const SignUp: React.FC<React.PropsWithChildren<unknown>> = () => {
               {canCreateAccount ? "Create Account" : "Continue reading..."}
             </Button>
 
-            <Link to="/" onClick={() => setShowWelcome(false)}>
+            <Link
+              to="/signup"
+              onClick={(event) => {
+                event.preventDefault();
+                setShowWelcome(false);
+              }}
+            >
               <FiArrowLeft />
-              Back
+              Back to signup
             </Link>
           </AnimationContainer>
         )}

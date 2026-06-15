@@ -54,7 +54,7 @@ class VerifyLoginEmailCodeService {
     const codeExpiresAt = addMinutes(user.pin_created_at, 10);
 
     if (isAfter(Date.now(), codeExpiresAt)) {
-      user.pin = '';
+      user.pin = null;
       user.pin_created_at = null;
       await this.usersRepository.save(user);
       throw new AppError('Invalid or expired login code.', 401);
@@ -66,7 +66,7 @@ class VerifyLoginEmailCodeService {
       throw new AppError('Invalid or expired login code.', 401);
     }
 
-    user.pin = '';
+    user.pin = null;
     user.pin_created_at = null;
     await this.usersRepository.save(user);
 

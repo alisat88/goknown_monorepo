@@ -1,7 +1,9 @@
 import { api } from '@config/api';
 import nodes from '@config/nodes';
 import CreateFolderService from '@modules/digitalassets/services/CreateFolderService';
-import CreateUserService from '@modules/users/services/CreateUserService';
+import CreateUserService, {
+  CreateUserResultStatus,
+} from '@modules/users/services/CreateUserService';
 import ListAllUsersService from '@modules/users/services/ListAllUsersService';
 import SendWelcomeEmailService from '@modules/users/services/SendWelcomeEmailService';
 import UpdateUserService from '@modules/users/services/UpdateUserService';
@@ -40,13 +42,53 @@ export default class UsersController {
       } = request.body;
 
       const createUser = container.resolve(CreateUserService);
-      const user = await createUser.execute({
+      const result = await createUser.execute({
         name,
         email,
         password,
         sync_id,
         pin,
       });
+      const user = result.user;
+
+      if (
+        result.status === CreateUserResultStatus.ActiveExists ||
+        !user
+      ) {
+        return response.status(409).json({
+          code: 'ACCOUNT_EXISTS_ACTIVE',
+          error: result.message,
+        });
+      }
+
+      if (result.status === CreateUserResultStatus.ConfirmationResent) {
+        if (request.body.masterNode) {
+          await Promise.all(
+            nodes.map(node =>
+              api.post(`${node.url}/resend-pin`, {
+                email: user.email,
+                pin: user.pin,
+                masterNode: request.body.masterNode,
+              }),
+            ),
+          );
+        }
+
+        if (!ignoreWelcomeEmail) {
+          const sendWelcome = container.resolve(SendWelcomeEmailService);
+          await sendWelcome.execute({
+            email: user.email,
+            name: user.name || user.email,
+            pin: user.pin,
+          });
+        }
+
+        return response.json({
+          code: 'ACCOUNT_CONFIRMATION_RESENT',
+          message: result.message,
+          user: classToClass(user),
+        });
+      }
 
       const folderBody = {
         name: 'My Personal Folder',
@@ -111,7 +153,7 @@ export default class UsersController {
       return response.json(classToClass(user));
     } catch (err) {
       console.log(err);
-      return response.status(400).json({ error: err.message });
+      return response.status(err.statusCode || 400).json({ error: err.message });
     }
   }
 

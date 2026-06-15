@@ -228,6 +228,17 @@ It does not change the password, account status, role, or any reset tokens.
 EMAIL="user@example.com" node -e 'const { Client } = require("pg"); const email = (process.env.EMAIL || "").trim().toLowerCase(); if (!email) { throw new Error("EMAIL is required"); } const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }); client.connect().then(async () => { const result = await client.query("UPDATE users SET pin = NULL, pin_created_at = NULL WHERE LOWER(email) = $1 RETURNING email, status, role", [email]); console.log(`Cleared login-code state for ${result.rowCount} user(s).`); result.rows.forEach(row => console.log(`${row.email} status=${row.status} role=${row.role}`)); }).finally(() => client.end());'
 ```
 
+### Admin Account Recovery
+
+Use this in Render Shell only after verifying the requester should already have
+access. It never creates users and it preserves role and password hash. Set
+`ACTIVATE=true` only when you intentionally want to move an existing user to
+`active`; otherwise it only clears stale PIN state.
+
+```bash
+EMAIL="user@example.com" ACTIVATE="false" node -e 'const { Client } = require("pg"); const email = (process.env.EMAIL || "").trim().toLowerCase(); const activate = process.env.ACTIVATE === "true"; if (!email) { throw new Error("EMAIL is required"); } const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }); client.connect().then(async () => { const statusSql = activate ? ", status = '\''active'\''" : ""; const result = await client.query(`UPDATE users SET pin = NULL, pin_created_at = NULL${statusSql} WHERE LOWER(email) = $1 RETURNING email, status, role`, [email]); if (result.rowCount !== 1) { throw new Error(`Expected one existing user, updated ${result.rowCount}.`); } const row = result.rows[0]; console.log(`Recovered ${row.email}: status=${row.status} role=${row.role}`); }).finally(() => client.end());'
+```
+
 ## API Documentation
 
 The API documentation is available at:

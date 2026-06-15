@@ -28,7 +28,11 @@ class SendForgotPasswordEmailService {
     masterNode,
     token: newToken,
   }: IRequest): Promise<void> {
-    const user = await this.userRepository.findByEmail(email);
+    const normalizedEmail = email
+      .replace(/(\+.*)(?=\@)/, '')
+      .toLocaleLowerCase();
+
+    const user = await this.userRepository.findByEmail(normalizedEmail);
 
     if (!user) {
       return;
@@ -36,6 +40,7 @@ class SendForgotPasswordEmailService {
 
     const canSendEmail = process.env.MAIL_BYPASS !== 'true';
 
+    await this.usersTokensRepository.deleteByUserId(user.id);
     const { token } = await this.usersTokensRepository.generate(
       user.id,
       newToken,
@@ -77,7 +82,7 @@ class SendForgotPasswordEmailService {
       // mirror users across nodes
       nodes.map(node =>
         api.post(`${node.url}/forgot`, {
-          email,
+          email: user.email,
           masterNode,
           token,
         }),

@@ -5,6 +5,7 @@ import IHashProvider from '../providers/HashProvider/models/IHashProvider';
 import IPinProvider from '../providers/PinProvider/models/IPinProvider';
 import IEmailProvider from '@shared/container/providers/MailProvider/models/IMailProvider';
 import path from 'path';
+import { EnumStatus } from '../infra/typeorm/entities/User';
 
 interface IRequest {
   email: string;
@@ -29,11 +30,19 @@ class SendNewPinEmailService {
   ) {}
 
   public async execute({ email, masterNode, pin }: IRequest): Promise<string> {
+    const normalizedEmail = email
+      .replace(/(\+.*)(?=\@)/, '')
+      .toLocaleLowerCase();
+
     // find user to check if exists
-    const user = await this.usersRepository.findByEmail(email);
+    const user = await this.usersRepository.findByEmail(normalizedEmail);
 
     if (!user) {
       throw new AppError('email does not exists');
+    }
+
+    if (user.status !== EnumStatus.ConfirmEmail) {
+      throw new AppError('This account already exists. Please log in instead.');
     }
     if (!pin) {
       pin = await this.pinProvider.generatePin();
@@ -64,7 +73,7 @@ class SendNewPinEmailService {
       await this.mailProvider.sendMail({
         to: {
           name: user.name,
-          email,
+          email: user.email,
         },
         subject: '[DAppGenius] Resend Pin',
         templateData: {

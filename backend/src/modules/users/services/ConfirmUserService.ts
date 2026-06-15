@@ -20,7 +20,11 @@ class ConfirmUserService {
   ) {}
 
   public async execute({ pin, email }: IRequest): Promise<void> {
-    const user = await this.usersRepository.findByEmail(email);
+    const normalizedEmail = email
+      .replace(/(\+.*)(?=\@)/, '')
+      .toLocaleLowerCase();
+
+    const user = await this.usersRepository.findByEmail(normalizedEmail);
 
     if (!user) {
       throw new AppError('Incorrect email/pin', 401);
@@ -48,9 +52,9 @@ class ConfirmUserService {
 
     user.status = EnumStatus.Active;
     user.pin_created_at = null;
-    user.pin = '';
+    user.pin = null;
 
-    this.usersRepository.save(user);
+    await this.usersRepository.save(user);
   }
 }
 

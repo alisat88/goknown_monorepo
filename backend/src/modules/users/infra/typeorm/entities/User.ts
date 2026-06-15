@@ -76,7 +76,7 @@ class User {
 
   @Exclude()
   @Column({ nullable: true })
-  pin: string;
+  pin: string | null;
 
   @Column({ nullable: true })
   sync_id: string;
