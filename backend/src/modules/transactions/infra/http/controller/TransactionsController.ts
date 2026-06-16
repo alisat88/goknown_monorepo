@@ -1,3 +1,5 @@
+import consensusConfig from '@config/consensus';
+import ExecuteTransactionConsensusService from '@modules/consensus/services/ExecuteTransactionConsensusService';
 import CreateFailedTransactionService from '@modules/transactions/services/CreateFailedTransactionService';
 import CreateTransactionService from '@modules/transactions/services/CreateTransactionService';
 import ListLatestTransactionsService from '@modules/transactions/services/ListLatestTransactionsService';
@@ -45,6 +47,7 @@ class TransactionsController {
     } = request.body;
 
     try {
+      const isMasterNode = request.body.masterNode;
       // init the container for new transaction
       const createTransaction = container.resolve(CreateTransactionService);
       // exec transaction with the required params
@@ -59,7 +62,7 @@ class TransactionsController {
       });
 
       // init container to save transaction on memory
-      if (request.body.masterNode) {
+      if (isMasterNode) {
         delete request.body.masterNode;
 
         const url = organizationId
@@ -95,7 +98,34 @@ class TransactionsController {
         setTimeout(resolve, 500);
       });
 
-      if (transaction.vote) {
+      if (consensusConfig.enabled && isMasterNode) {
+        const executeTransactionConsensus = container.resolve(
+          ExecuteTransactionConsensusService,
+        );
+        const consensusProposal = await executeTransactionConsensus.execute({
+          transactionSyncId: sync_id,
+          amount,
+          fromUserId: user_id,
+          toUserId: to_user_id,
+          organizationId,
+          timestamp,
+        });
+
+        return response.json({
+          ...transaction,
+          consensus: consensusProposal
+            ? {
+                proposalId: consensusProposal.proposal_id,
+                status: consensusProposal.status,
+                approvalCount: consensusProposal.approval_count,
+                rejectionCount: consensusProposal.rejection_count,
+                failureReason: consensusProposal.failure_reason,
+              }
+            : null,
+        });
+      }
+
+      if (!consensusConfig.enabled && transaction.vote) {
         const sendVote = container.resolve(SendVoteService);
 
         // exec vote sending across nodes
@@ -153,7 +183,7 @@ class TransactionsController {
       });
       // save vote on memory
       // send vote across nodes
-      if (failedTransaction.vote) {
+      if (!consensusConfig.enabled && failedTransaction.vote) {
         const sendVote = container.resolve(SendVoteService);
 
         // execute the vote sending

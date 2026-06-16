@@ -17,17 +17,20 @@ import '@shared/container';
 import uploadConfig from '@config/upload';
 import AppError from '@shared/errors/AppError';
 import SocketServer from './socketIO';
+import { validateConsensusConfig } from '@config/consensus';
 // import swaggerUi from 'swagger-ui-express';
 // import swaggerFile from '../../../swagger_output.json';
 
 // Check if environment variables are defined
 console.log('>>> Server Variables:');
-console.log('DATABASE_URL:', process.env.DATABASE_URL);
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? '***SET***' : 'NOT SET');
 console.log('DB_HOST:', process.env.DB_HOST);
 console.log('DB_PORT:', process.env.DB_PORT);
 console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_PASS:', process.env.DB_PASS);
+console.log('DB_PASS:', process.env.DB_PASS ? '***SET***' : 'NOT SET');
 // console.log('DB_NAME:', process.env.DB_NAME?.replace(/#/g, ''));
+
+validateConsensusConfig();
 
 /**
  * CLUSTERING SETUP

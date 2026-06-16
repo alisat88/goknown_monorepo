@@ -219,6 +219,72 @@ Every successful email/password login requires a backend email-code challenge:
 Login codes expire after 10 minutes and are cleared after successful use.
 Rate limiting should be added at the edge or middleware layer for both endpoints.
 
+## BFT-Inspired Transaction Consensus
+
+DAppGenius supports an optional durable, node-to-node quorum layer for token
+transfer approval. Enable it only for clustered deployments:
+
+```bash
+BFT_CONSENSUS_ENABLED=true
+BFT_NODE_NAME=node-a
+BFT_NODE_URL=https://node-a.example.com
+BFT_CLUSTER_NODES=node-a:https://node-a.example.com,node-b:https://node-b.example.com,node-c:https://node-c.example.com
+BFT_NODE_SHARED_SECRET="set-from-secret-store"
+BFT_QUORUM_SIZE=2
+BFT_REQUEST_TIMEOUT_MS=5000
+BFT_MAX_MESSAGE_AGE_SECONDS=300
+```
+
+The existing node mirroring configuration is still required so peer nodes have
+local transaction rows to finalize:
+
+```bash
+NODES_JSON='[{"name":"node-a","url":"https://node-a.example.com"},{"name":"node-b","url":"https://node-b.example.com"},{"name":"node-c","url":"https://node-c.example.com"}]'
+NODE_NAME=node-a
+```
+
+For local development, leave `BFT_CONSENSUS_ENABLED=false` or unset. The legacy
+transaction mirror plus `/votes` behavior remains active when consensus is not
+enabled.
+
+This is BFT-inspired 2-of-3 quorum consensus, not formal PBFT. Formal PBFT
+tolerance of one Byzantine node requires `3f + 1` replicas, which means four
+nodes for `f=1`. With three configured nodes, DAppGenius requires two matching
+votes for the same deterministic proposal hash before finalizing a transaction.
+
+Consensus flow when enabled:
+
+1. The originating node creates the usual local pending transaction rows.
+2. Existing node sync mirrors those pending rows to peer DAppGenius nodes.
+3. The originating node creates a durable proposal in `consensus_proposals`.
+4. The local node records its own validation vote in `consensus_votes`.
+5. The originating node sends `POST /consensus/proposals` to peer nodes using
+   HMAC headers: `x-bft-node-name`, `x-bft-timestamp`, `x-bft-signature`.
+6. Peer nodes verify the HMAC, validate the deterministic payload, store their
+   proposal/vote, and return a signed vote response.
+7. Each node broadcasts its own vote to `POST /consensus/votes` so every node
+   can store the same durable vote set and finalize its mirrored rows.
+8. Two approvals mark the transaction `approved`; two rejections mark it
+   `unapproved`. If quorum is not reached before timeout, the transaction
+   remains `pending` and the proposal records a failure reason.
+
+HMAC signing uses `BFT_NODE_SHARED_SECRET` and covers node name, timestamp,
+HTTP path/action, and a deterministic SHA-256 body hash. Consensus endpoints do
+not use normal user JWTs and should not be exposed as public client APIs.
+
+Inspect consensus state in Render Shell:
+
+```bash
+psql "$DATABASE_URL" -c "SELECT proposal_id, transaction_sync_id, status, approval_count, rejection_count, failure_reason, created_at, finalized_at FROM consensus_proposals ORDER BY created_at DESC LIMIT 20;"
+psql "$DATABASE_URL" -c "SELECT proposal_id, node_name, vote, reason, payload_hash, created_at FROM consensus_votes ORDER BY created_at DESC LIMIT 50;"
+```
+
+Safe recovery for a pending consensus item should be deliberate. First inspect
+the proposal and votes. If a transaction should remain pending for retry, do not
+change transaction rows. If an operator decides the transaction must be rejected,
+set the proposal status to `failed` or `rejected` and use the existing
+transaction recovery process to reconcile the paired transaction rows.
+
 ### Clear Login-Code State for One User
 
 Use this in Render Shell only when a user is stuck with stale login-code state.

@@ -67,6 +67,12 @@ import CurrenciesRepository from '@modules/transactions/infra/typeorm/repositori
 import IAuditLogsRepository from '@modules/auditlogs/repositories/IAuditLogsRepository';
 import AuditLogsRepository from '@modules/auditlogs/infra/typeorm/repositories/AuditLogsRepository';
 
+import IConsensusProposalsRepository from '@modules/consensus/repositories/IConsensusProposalsRepository';
+import ConsensusProposalsRepository from '@modules/consensus/infra/typeorm/repositories/ConsensusProposalsRepository';
+
+import IConsensusVotesRepository from '@modules/consensus/repositories/IConsensusVotesRepository';
+import ConsensusVotesRepository from '@modules/consensus/infra/typeorm/repositories/ConsensusVotesRepository';
+
 container.registerSingleton<IUsersRepository>(
   'UsersRepository',
   UsersRepository,
@@ -167,4 +173,14 @@ container.registerSingleton<ICurrenciesRepository>(
 container.registerSingleton<IAuditLogsRepository>(
   'AuditLogsRepository',
   AuditLogsRepository,
+);
+
+container.registerSingleton<IConsensusProposalsRepository>(
+  'ConsensusProposalsRepository',
+  ConsensusProposalsRepository,
+);
+
+container.registerSingleton<IConsensusVotesRepository>(
+  'ConsensusVotesRepository',
+  ConsensusVotesRepository,
 );

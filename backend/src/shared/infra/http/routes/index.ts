@@ -22,6 +22,7 @@ import dlsRouter from '@modules/dls/infra/http/routes/dls.routes';
 import adminRouter from '@modules/admin/infra/http/routes/admin.routes';
 import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.routes';
 import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
+import consensusRouter from '@modules/consensus/infra/http/routes/consensus.routes';
 import paymentsRouter from "./payments.routes";
 
 const routes = Router();
@@ -48,6 +49,8 @@ routes.use('/password', passwordRouter);
 routes.use('/profile', profileRouter);
 
 routes.use('/votes', votesRouter);
+
+routes.use('/consensus', consensusRouter);
 
 routes.use('/conversations', conversationsRouter);
 

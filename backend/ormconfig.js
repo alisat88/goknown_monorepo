@@ -2,7 +2,7 @@ require('dotenv/config');
 
 // Debug: Log all DB environment variables
 console.log('=== TypeORM Config Debug ===');
-console.log('DATABASE_URL:', process.env.DATABASE_URL || 'NOT SET');
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? '***SET***' : 'NOT SET');
 console.log('DB_HOST:', process.env.DB_HOST || 'NOT SET');
 console.log('DB_PORT:', process.env.DB_PORT || 'NOT SET');
 console.log('DB_USER:', process.env.DB_USER || 'NOT SET');
