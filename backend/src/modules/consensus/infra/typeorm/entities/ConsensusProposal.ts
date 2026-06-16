@@ -33,7 +33,10 @@ class ConsensusProposal {
   @Column()
   originating_node: string;
 
-  @Column({ default: EnumConsensusProposalStatus.Pending })
+  @Column({
+    type: 'varchar',
+    default: EnumConsensusProposalStatus.Pending,
+  })
   status: EnumConsensusProposalStatus;
 
   @Column({ default: 0 })

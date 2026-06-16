@@ -25,7 +25,9 @@ class ConsensusVote {
   @Column()
   node_name: string;
 
-  @Column()
+  @Column({
+    type: 'varchar',
+  })
   vote: EnumConsensusVote;
 
   @Column({ nullable: true })
