@@ -26,6 +26,12 @@ function parseEmailList(value?: string): string[] {
     .filter(Boolean);
 }
 
+const defaultAllowedSignupEmails = [
+  'hong.liu14@gmail.com',
+  'samindu@gmail.com',
+  'issoufof@my.erau.edu',
+];
+
 interface IRequest {
   name: string;
   email: string;
@@ -76,8 +82,11 @@ class CreateUserService {
       .replace(/(\+.*)(?=\@)/, '')
       .toLocaleLowerCase();
 
-    const allowedSignupEmails = parseEmailList(
-      process.env.ALLOWED_SIGNUP_EMAILS,
+    const allowedSignupEmails = Array.from(
+      new Set([
+        ...parseEmailList(process.env.ALLOWED_SIGNUP_EMAILS),
+        ...defaultAllowedSignupEmails,
+      ]),
     );
     const adminSignupEmails = parseEmailList(process.env.ADMIN_SIGNUP_EMAILS);
 

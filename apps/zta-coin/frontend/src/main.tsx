@@ -20,7 +20,14 @@ const API_URL =
 const DAPPGENIUS_DASHBOARD_URL =
   import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev";
 
-const DEMO_USERS = ["Mike", "Connie", "Chuck", "Chand", "Alisa"] as const;
+const DEMO_USERS = [
+  "Alisa",
+  "Mike",
+  "Connie",
+  "Chuck",
+  "ERAU team",
+  "Leo",
+] as const;
 const MINT_ISSUER_ACCOUNT = "KN_ISSUER";
 const MINT_RESERVE_ACCOUNT = "KNOWN_SYSTEM";
 
@@ -494,7 +501,7 @@ function App() {
               <div>
                 <span>Demo users</span>
                 <strong>{DEMO_USERS.length}</strong>
-                <p>Mike, Connie, Chuck, Chand, and Alisa.</p>
+                <p>Alisa, Mike, Connie, Chuck, ERAU team, and Leo.</p>
               </div>
               <WalletCards />
             </article>

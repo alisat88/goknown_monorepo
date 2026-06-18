@@ -23,6 +23,8 @@ const balances: Record<string, number> = {
   Mike: 1000,
   Connie: 1000,
   Chuck: 1000,
+  "ERAU team": 1000,
+  Leo: 1000,
 };
 
 // 📊 simple transaction tracking
@@ -31,6 +33,8 @@ const transactions: Record<string, number[]> = {
   Mike: [],
   Connie: [],
   Chuck: [],
+  "ERAU team": [],
+  Leo: [],
 };
 
 // =======================
