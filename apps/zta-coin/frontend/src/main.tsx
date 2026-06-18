@@ -61,6 +61,18 @@ type LedgerState = {
   transactions: LedgerTransaction[];
 };
 
+type TransferConsensus = {
+  proposalId?: string;
+  status?: string;
+  approvalCount?: number;
+  rejectionCount?: number;
+};
+
+type TransferResponse = {
+  consensus?: TransferConsensus;
+  [key: string]: unknown;
+};
+
 const idleRequest: RequestState = {
   loading: false,
   success: "",
@@ -131,6 +143,76 @@ function getTransactionKind(transaction: LedgerTransaction) {
   return transaction.type === "Mint" || transaction.eventCode === "KN-MNT-000"
     ? "Mint"
     : "Transfer";
+}
+
+function getTransferResponse(raw: unknown): TransferResponse | null {
+  return typeof raw === "object" && raw !== null ? (raw as TransferResponse) : null;
+}
+
+function formatConsensusStatus(status?: string) {
+  if (!status) return "Unknown";
+
+  return status
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .join(" ");
+}
+
+function TransferConsensusPanel({ state }: { state: RequestState }) {
+  if (!state.success || state.error || state.loading) return null;
+
+  const response = getTransferResponse(state.raw);
+  const consensus = response?.consensus;
+
+  if (!consensus) {
+    return (
+      <div className="consensus-card muted">
+        Consensus details not returned for this transfer.
+      </div>
+    );
+  }
+
+  const approvalCount =
+    typeof consensus.approvalCount === "number" ? consensus.approvalCount : 0;
+  const rejectionCount =
+    typeof consensus.rejectionCount === "number" ? consensus.rejectionCount : 0;
+  const statusLabel = formatConsensusStatus(consensus.status);
+  const headline =
+    statusLabel === "Approved"
+      ? `Approved by ${approvalCount}/3 nodes`
+      : statusLabel;
+
+  return (
+    <div className="consensus-card">
+      <div className="consensus-header">
+        <ShieldCheck />
+        <div>
+          <span>BFT Consensus</span>
+          <strong>{headline}</strong>
+        </div>
+      </div>
+      <p>Proposal finalized through the three-node quorum layer.</p>
+      <dl className="consensus-details">
+        <div>
+          <dt>Status</dt>
+          <dd>{statusLabel}</dd>
+        </div>
+        <div>
+          <dt>Approval count</dt>
+          <dd>{approvalCount}</dd>
+        </div>
+        <div>
+          <dt>Rejection count</dt>
+          <dd>{rejectionCount}</dd>
+        </div>
+        <div className="proposal-id">
+          <dt>Proposal ID</dt>
+          <dd>{consensus.proposalId || "Not returned"}</dd>
+        </div>
+      </dl>
+    </div>
+  );
 }
 
 function RawResponse({ state }: { state: RequestState }) {
@@ -518,6 +600,7 @@ function App() {
                   {transferState.loading ? "Transferring..." : "Transfer tokens"}
                 </button>
               </form>
+              <TransferConsensusPanel state={transferState} />
               <RawResponse state={transferState} />
             </section>
           </div>
