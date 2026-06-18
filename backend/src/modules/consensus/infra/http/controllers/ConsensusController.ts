@@ -10,6 +10,7 @@ import SignNodeMessageService from '@modules/consensus/services/SignNodeMessageS
 import SubmitConsensusVoteService from '@modules/consensus/services/SubmitConsensusVoteService';
 import ValidateConsensusProposalService from '@modules/consensus/services/ValidateConsensusProposalService';
 import VerifyNodeSignatureService from '@modules/consensus/services/VerifyNodeSignatureService';
+import IConsensusProposalsRepository from '@modules/consensus/repositories/IConsensusProposalsRepository';
 
 class ConsensusController {
   public async createProposal(
@@ -97,7 +98,7 @@ class ConsensusController {
       );
       await finalizeProposal.execute({
         proposalId,
-        finalizeTransaction: true,
+        finalizeTransaction: payload.action !== 'payments.transfer',
       });
 
       response.set(signer.buildHeaders('/consensus/proposals:response', voteResponse));
@@ -153,9 +154,14 @@ class ConsensusController {
       const finalizeProposal = container.resolve(
         FinalizeConsensusProposalService,
       );
+      const proposalsRepository =
+        container.resolve<IConsensusProposalsRepository>(
+          'ConsensusProposalsRepository',
+        );
+      const proposal = await proposalsRepository.findByProposalId(proposalId);
       await finalizeProposal.execute({
         proposalId,
-        finalizeTransaction: true,
+        finalizeTransaction: proposal?.payload?.action !== 'payments.transfer',
       });
 
       const body = { ok: true };

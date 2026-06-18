@@ -38,6 +38,26 @@ class ValidateConsensusProposalService {
         throw new AppError('Consensus payload hash mismatch.');
       }
 
+      if ((payload as any).action === 'payments.transfer') {
+        if (
+          !payload.proposalId ||
+          !payload.transactionSyncId ||
+          !(payload as any).from_user ||
+          !(payload as any).to_user
+        ) {
+          throw new AppError('Consensus payment payload is missing required fields.');
+        }
+
+        if (
+          !Number.isFinite(Number(payload.amount)) ||
+          Number(payload.amount) <= 0
+        ) {
+          throw new AppError('Payment transfer amount must be greater than 0.');
+        }
+
+        return { approved: true };
+      }
+
       if (
         !payload.proposalId ||
         !payload.transactionSyncId ||
