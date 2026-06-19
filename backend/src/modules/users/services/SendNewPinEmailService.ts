@@ -31,6 +31,7 @@ class SendNewPinEmailService {
 
   public async execute({ email, masterNode, pin }: IRequest): Promise<string> {
     const normalizedEmail = email
+      .trim()
       .replace(/(\+.*)(?=\@)/, '')
       .toLocaleLowerCase();
 
@@ -62,30 +63,28 @@ class SendNewPinEmailService {
       return pin;
     }
 
-    if (masterNode) {
-      const resendpintTemplate = path.resolve(
-        __dirname,
-        '..',
-        'views',
-        'resendpin.hbs',
-      );
+    const resendpintTemplate = path.resolve(
+      __dirname,
+      '..',
+      'views',
+      'resendpin.hbs',
+    );
 
-      await this.mailProvider.sendMail({
-        to: {
+    await this.mailProvider.sendMail({
+      to: {
+        name: user.name,
+        email: user.email,
+      },
+      subject: '[DAppGenius] Resend Pin',
+      templateData: {
+        file: resendpintTemplate,
+        variables: {
           name: user.name,
-          email: user.email,
+          pin,
+          link: `${process.env.APP_WEB_URL}/confirm-email?email=${user.email}`,
         },
-        subject: '[DAppGenius] Resend Pin',
-        templateData: {
-          file: resendpintTemplate,
-          variables: {
-            name: user.name,
-            pin,
-            link: `${process.env.APP_WEB_URL}/confirm-email?email=${user.email}`,
-          },
-        },
-      });
-    }
+      },
+    });
 
     return pin;
   }

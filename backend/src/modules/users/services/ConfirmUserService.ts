@@ -21,6 +21,7 @@ class ConfirmUserService {
 
   public async execute({ pin, email }: IRequest): Promise<void> {
     const normalizedEmail = email
+      .trim()
       .replace(/(\+.*)(?=\@)/, '')
       .toLocaleLowerCase();
 

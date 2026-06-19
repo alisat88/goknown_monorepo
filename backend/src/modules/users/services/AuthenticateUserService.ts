@@ -34,6 +34,7 @@ class AuthenticateUserService {
 
   public async execute({ email, password }: IRequest): Promise<IResponse> {
     const unAliasesEmail = email
+      .trim()
       .replace(/(\+.*)(?=\@)/, '')
       .toLocaleLowerCase();
 

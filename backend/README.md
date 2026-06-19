@@ -219,6 +219,22 @@ Every successful email/password login requires a backend email-code challenge:
 Login codes expire after 10 minutes and are cleared after successful use.
 Rate limiting should be added at the edge or middleware layer for both endpoints.
 
+### Render Shell Signup Diagnostic
+
+To inspect a signup without exposing secrets, run this from the backend service
+shell with `EMAIL` set to the user you are checking:
+
+```bash
+EMAIL="user@example.com" node -e "const {Client}=require('pg'); const email=(process.env.EMAIL||'').trim().toLowerCase(); const activate=process.env.ACTIVATE==='true'; if(!email){throw new Error('Set EMAIL first');} (async()=>{const client=new Client({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}}); await client.connect(); if(activate){await client.query(\"update users set status='active', pin=null, pin_created_at=null, updated_at=now() where lower(email)=$1 and status='confirm_email'\",[email]);} const {rows}=await client.query(\"select email,status,role,(pin is not null) as pin_present,pin_created_at,created_at,updated_at from users where lower(email)=$1\",[email]); console.table(rows); await client.end();})().catch(error=>{console.error(error.message); process.exit(1);});"
+```
+
+Set `ACTIVATE=true` only when you explicitly want to recover a stuck
+`confirm_email` demo user:
+
+```bash
+EMAIL="user@example.com" ACTIVATE=true node -e "const {Client}=require('pg'); const email=(process.env.EMAIL||'').trim().toLowerCase(); const activate=process.env.ACTIVATE==='true'; if(!email){throw new Error('Set EMAIL first');} (async()=>{const client=new Client({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false}}); await client.connect(); if(activate){await client.query(\"update users set status='active', pin=null, pin_created_at=null, updated_at=now() where lower(email)=$1 and status='confirm_email'\",[email]);} const {rows}=await client.query(\"select email,status,role,(pin is not null) as pin_present,pin_created_at,created_at,updated_at from users where lower(email)=$1\",[email]); console.table(rows); await client.end();})().catch(error=>{console.error(error.message); process.exit(1);});"
+```
+
 ## BFT-Inspired Transaction Consensus
 
 DAppGenius supports an optional durable, node-to-node quorum layer for token

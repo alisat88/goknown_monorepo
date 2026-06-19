@@ -35,6 +35,7 @@ class VerifyLoginEmailCodeService {
 
   public async execute({ email, code }: IRequest): Promise<IResponse> {
     const normalizedEmail = email
+      .trim()
       .replace(/(\+.*)(?=\@)/, '')
       .toLocaleLowerCase();
 

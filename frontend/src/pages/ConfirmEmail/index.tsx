@@ -41,14 +41,15 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
   const { addToast } = useToast();
   const history = useHistory();
   const formRef = useRef<FormHandles>(null);
+  const hasAuthenticatedUser = Boolean(user?.sync_id);
 
   const nameHello = useMemo(() => {
-    return user ? user.name : "";
-  }, [user]);
+    return hasAuthenticatedUser ? user.name : "";
+  }, [hasAuthenticatedUser, user]);
 
   const email = useMemo(
-    () => user.email || paramEmail,
-    [paramEmail, user.email]
+    () => (hasAuthenticatedUser ? user?.email : paramEmail),
+    [hasAuthenticatedUser, paramEmail, user?.email]
   );
 
   const handleSubmit = useCallback(
@@ -65,41 +66,55 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
           });
           return;
         }
+        if (!email) {
+          setError(true);
+          addToast({
+            type: "error",
+            title: "Error",
+            description: "Email is required to confirm this account.",
+          });
+          return;
+        }
+
         const data = {
-          email: email?.replace(" ", "+"),
+          email: email.trim().replace(/\s/g, "+"),
           pin: code,
         };
         await api.put("/confirm-email", data);
 
-        if (user) {
+        if (hasAuthenticatedUser) {
           updateUser({ ...user, status: "active" });
           addToast({
             type: "success",
             title: "Welcome",
             description: "Your account has been activated!",
           });
-          history.push("/configure");
+          history.replace("/dashboard");
           return;
         }
 
+        signOut();
         addToast({
           type: "success",
           title: "Account activation",
-          description: "Now you can signin on DAppGenius App",
+          description:
+            "Account created. Please sign in with your email and password.",
         });
-        history.push("/");
+        history.replace("/signin");
       } catch (err: any) {
         addToast({
           type: "error",
           title: "Error",
-          description: err.response.data.error,
+          description:
+            err.response?.data?.error ||
+            "Unable to confirm this account. Please try again.",
         });
         setError(true);
       } finally {
         setLoading(false);
       }
     },
-    [addToast, email, history, updateUser, user]
+    [addToast, email, hasAuthenticatedUser, history, signOut, updateUser, user]
   );
 
   useEffect(() => {
@@ -116,7 +131,7 @@ const SignIn: React.FC<React.PropsWithChildren<unknown>> = () => {
       setLoading(true);
       try {
         await api.post("/resend-pin", {
-          email: email?.replace(" ", "+"),
+          email: email?.trim().replace(/\s/g, "+"),
         });
         addToast({
           type: "info",

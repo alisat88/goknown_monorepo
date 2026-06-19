@@ -147,7 +147,11 @@ export default class UsersController {
       // send email
       if (!ignoreWelcomeEmail) {
         const sendWelcome = container.resolve(SendWelcomeEmailService);
-        await sendWelcome.execute({ email, name, pin: user.pin });
+        await sendWelcome.execute({
+          email: user.email,
+          name: user.name || user.email,
+          pin: user.pin,
+        });
       }
 
       return response.json(classToClass(user));
