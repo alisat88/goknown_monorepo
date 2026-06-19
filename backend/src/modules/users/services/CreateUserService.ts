@@ -79,6 +79,7 @@ class CreateUserService {
   }: IRequest): Promise<ICreateUserResult> {
     // eslint-disable-next-line prettier/prettier
     const unAliasesEmail = email
+      .trim()
       .replace(/(\+.*)(?=\@)/, '')
       .toLocaleLowerCase();
 

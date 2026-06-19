@@ -82,7 +82,7 @@ const AuthProvider: React.FC<React.PropsWithChildren<unknown>> = ({
 }) => {
   // lookup in localStore ig the record contains any data
   const [data, setData] = useState<IAuthState>(() => {
-    if (window.location.pathname === "/") {
+    if (["/", "/signin"].includes(window.location.pathname)) {
       clearGoKnownSessionState();
     }
 
