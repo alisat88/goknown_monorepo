@@ -2,6 +2,7 @@ import { v4 as uuid } from "uuid";
 
 import auditlogs from "../assets/auditlogs.svg";
 import chat from "../assets/chat.svg";
+import dappbuilder from "../assets/dappbuilder.png";
 import dataforms from "../assets/dataforms.svg";
 import group from "../assets/group.svg";
 import knowncompute from "../assets/KnownCompute.jpg";
@@ -11,7 +12,11 @@ import organizations from "../assets/organizations.svg";
 import team from "../assets/team.svg";
 import wallet from "../assets/wallet.svg";
 import ZTA from "../assets/ZTA.png";
-import { KNOWNCOMPUTE_URL, ZTA_COIN_URL } from "../config/externalApps";
+import {
+  DAPP_BUILDER_URL,
+  KNOWNCOMPUTE_URL,
+  ZTA_COIN_URL,
+} from "../config/externalApps";
 import { IDL } from "../pages/Organizations/types";
 
 export default [
@@ -148,6 +153,23 @@ export default [
     route: "/workflow", // ✅ INTERNAL ROUTE
     externalUrl: KNOWNCOMPUTE_URL,
     flag: "workflow",
+    roles: "admin",
+  },
+
+  // ============================================
+  // 🧩 DAPP BUILDER (dApp Studio)
+  // ============================================
+  {
+    id: uuid(),
+    sync_id: uuid(),
+    name: "DApp Builder",
+    description:
+      "Design, assemble, and preview decentralized applications using templates, reusable API components, and a visual workflow builder.",
+    icon: dappbuilder,
+    icon_url: dappbuilder,
+    route: "/dapp-builder", // ✅ INTERNAL ROUTE (placeholder — app is separately deployed)
+    externalUrl: DAPP_BUILDER_URL,
+    flag: "dapp_builder",
     roles: "admin",
   },
 ] as IDL[];

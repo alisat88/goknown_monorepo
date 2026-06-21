@@ -16,3 +16,8 @@ export const ZTA_COIN_URL = configuredUrl(
   process.env.REACT_APP_ZTA_COIN_URL,
   "https://zta-coin.org"
 );
+
+export const DAPP_BUILDER_URL = configuredUrl(
+  process.env.REACT_APP_DAPP_BUILDER_URL,
+  "http://localhost:5173"
+);
