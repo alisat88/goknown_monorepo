@@ -170,6 +170,5 @@ export default [
     route: "/dapp-builder", // ✅ INTERNAL ROUTE (placeholder — app is separately deployed)
     externalUrl: DAPP_BUILDER_URL,
     flag: "dapp_builder",
-    roles: "admin",
   },
 ] as IDL[];
