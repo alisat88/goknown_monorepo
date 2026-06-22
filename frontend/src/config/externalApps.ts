@@ -19,5 +19,5 @@ export const ZTA_COIN_URL = configuredUrl(
 
 export const DAPP_BUILDER_URL = configuredUrl(
   process.env.REACT_APP_DAPP_BUILDER_URL,
-  "http://localhost:5173"
+  "https://app-builder-sqqz.onrender.com"
 );
