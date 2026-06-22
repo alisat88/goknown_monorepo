@@ -1,51 +1,10 @@
 import React from 'react';
 import { Template, WorkflowBlock } from '../types';
+import { buildConfig } from '../lib/buildConfig';
 
 interface Props {
   selectedTemplate: Template | null;
   workflowSteps: WorkflowBlock[];
-}
-
-interface DAppConfig {
-  dappName: string;
-  template: string;
-  permissionModel: string;
-  apis: string[];
-  workflow: string[];
-}
-
-function buildConfig(template: Template | null, steps: WorkflowBlock[]): DAppConfig {
-  if (!template) {
-    return {
-      dappName: 'Untitled dApp',
-      template: 'none',
-      permissionModel: 'role-based',
-      apis: [],
-      workflow: steps.map((s) => s.id),
-    };
-  }
-  const extraApis = steps
-    .map((s) => s.apiId)
-    .filter((id): id is string => !!id && !template.apiIds.includes(id));
-  return {
-    dappName: templateDisplayName(template.id),
-    template: template.id,
-    permissionModel: template.permissionModel,
-    apis: [...template.apiIds, ...extraApis],
-    workflow: steps.map((s) => s.id),
-  };
-}
-
-function templateDisplayName(id: string) {
-  const names: Record<string, string> = {
-    'token-dashboard': 'Token Rewards Portal',
-    'nft-mint': 'NFT Collection Launch',
-    'dao-voting': 'DAO Voting Demo',
-    'escrow-payment': 'Escrow Payment Flow',
-    'ledger-app': 'Aviation Ledger App',
-    'permissioned-workflow': 'Internal Workflow App',
-  };
-  return names[id] ?? id;
 }
 
 function JsonLine({ line }: { line: string }) {

@@ -9,9 +9,10 @@ import {
   Shield,
   Monitor,
   Zap,
+  BookOpen,
 } from 'lucide-react';
 import { Template, WorkflowBlock, TabId } from '../types';
-import { TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS } from '../data';
+import { TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS } from '../data';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ApiComponentLibrary } from './ApiComponentLibrary';
 import { WorkflowBuilder } from './WorkflowBuilder';
@@ -20,8 +21,11 @@ import { CodeGenerationPreview } from './CodeGenerationPreview';
 import { PermissioningPanel } from './PermissioningPanel';
 import { DAppPreview } from './DAppPreview';
 import { DemoFlowPanel } from './DemoFlowPanel';
+import { InstructionsPage } from './InstructionsPage';
+import { CreateDAppWizard } from './CreateDAppWizard';
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
+  { id: 'instructions', label: 'How It Works', icon: BookOpen },
   { id: 'dashboard', label: 'My dApps', icon: LayoutDashboard },
   { id: 'templates', label: 'Templates', icon: Library },
   { id: 'apis', label: 'API Components', icon: Plug },
@@ -41,11 +45,7 @@ function statusClass(status: string) {
   return 'status-badge--draft';
 }
 
-function DashboardPane({
-  selectedTemplate,
-}: {
-  selectedTemplate: Template | null;
-}) {
+function DashboardPane({ selectedTemplate }: { selectedTemplate: Template | null }) {
   return (
     <div className="pane">
       <div className="pane-header">
@@ -88,10 +88,24 @@ function DashboardPane({
 }
 
 export function BuilderDashboard() {
-  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabId>('instructions');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowBlock[]>([]);
   const [demoStarted, setDemoStarted] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [apiKey, setApiKey] = useState(
+    (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? ''
+  );
+
+  const handleUseTemplate = (t: Template) => {
+    const defaultBlockIds = TEMPLATE_DEFAULT_BLOCKS[t.id] ?? [];
+    const blocks = WORKFLOW_BLOCKS.filter((b) => defaultBlockIds.includes(b.id));
+    setSelectedTemplate(t);
+    setWorkflowSteps(blocks);
+    setWizardStep(1);
+    setWizardOpen(true);
+  };
 
   const handleStartChuckDemo = () => {
     const ledgerTemplate = TEMPLATES.find((t) => t.id === 'ledger-app')!;
@@ -105,6 +119,19 @@ export function BuilderDashboard() {
 
   return (
     <div className="builder">
+      {wizardOpen && selectedTemplate && (
+        <CreateDAppWizard
+          template={selectedTemplate}
+          workflowSteps={workflowSteps}
+          onWorkflowChange={setWorkflowSteps}
+          wizardStep={wizardStep}
+          onStepChange={setWizardStep}
+          apiKey={apiKey}
+          onApiKeyChange={setApiKey}
+          onClose={() => { setWizardOpen(false); setWizardStep(1); }}
+        />
+      )}
+
       <div className="builder-tabs" role="tablist" aria-label="Builder sections">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -124,6 +151,9 @@ export function BuilderDashboard() {
       </div>
 
       <div role="tabpanel">
+        {activeTab === 'instructions' && (
+          <InstructionsPage onNavigate={setActiveTab} />
+        )}
         {activeTab === 'dashboard' && (
           <DashboardPane selectedTemplate={selectedTemplate} />
         )}
@@ -131,6 +161,7 @@ export function BuilderDashboard() {
           <TemplateLibrary
             selectedTemplate={selectedTemplate}
             onSelectTemplate={setSelectedTemplate}
+            onUseTemplate={handleUseTemplate}
           />
         )}
         {activeTab === 'apis' && <ApiComponentLibrary />}
@@ -151,6 +182,8 @@ export function BuilderDashboard() {
           <CodeGenerationPreview
             selectedTemplate={selectedTemplate}
             workflowSteps={workflowSteps}
+            apiKey={apiKey}
+            onApiKeyChange={setApiKey}
           />
         )}
         {activeTab === 'permissions' && <PermissioningPanel />}

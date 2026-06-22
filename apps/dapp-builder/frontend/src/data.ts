@@ -149,6 +149,15 @@ export const WORKFLOW_BLOCKS: WorkflowBlock[] = [
   { id: 'save-result', label: 'Save result', apiId: 'workflow' },
 ];
 
+export const TEMPLATE_DEFAULT_BLOCKS: Record<string, string[]> = {
+  'token-dashboard': ['authenticate-user', 'connect-wallet', 'read-ledger-entries'],
+  'nft-mint': ['authenticate-user', 'connect-wallet', 'submit-transaction'],
+  'dao-voting': ['authenticate-user', 'check-dapp-permission', 'trigger-bft-quorum'],
+  'escrow-payment': ['authenticate-user', 'connect-wallet', 'submit-transaction', 'trigger-bft-quorum'],
+  'ledger-app': ['authenticate-user', 'check-dapp-permission', 'read-ledger-entries'],
+  'permissioned-workflow': ['authenticate-user', 'check-dapp-permission', 'generate-notification', 'save-result'],
+};
+
 export const DEMO_PROJECTS: DAppProject[] = [
   { id: 'aviation-ledger', name: 'Aviation Ledger App', status: 'Draft', templateId: 'ledger-app' },
   { id: 'token-rewards', name: 'Token Rewards Portal', status: 'Preview', templateId: 'token-dashboard' },
