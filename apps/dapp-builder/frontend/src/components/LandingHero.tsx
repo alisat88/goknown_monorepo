@@ -1,12 +1,15 @@
+// LandingHero is not used as the app entry point — the builder loads directly.
+// Kept here in case a marketing/landing page is needed in a future version.
+
 import React from 'react';
 import {
   Boxes,
-  CircleDotDashed,
-  Contact,
+  // CircleDotDashed,   // "Currently in development" pill — removed
+  // Contact,            // "Launching soon" CTA — removed
   Cpu,
   Hexagon,
   Layers3,
-  Rocket,
+  // Rocket,             // "Enter Builder" button — removed
   ShieldCheck,
   WalletCards,
 } from 'lucide-react';
@@ -41,33 +44,32 @@ const features = [
 ];
 
 interface Props {
-  onEnterBuilder: () => void;
+  onEnterBuilder?: () => void; // no longer needed as an entry gate; kept for potential future use
 }
 
-export function LandingHero({ onEnterBuilder }: Props) {
+export function LandingHero(_props: Props) {
   return (
     <>
       <section id="home" className="hero">
         <div className="hero-copy">
-          <div className="status-pill">
-            <CircleDotDashed size={16} />
-            <span>Currently in development</span>
-          </div>
+          {/* "Currently in development" status pill removed */}
           <h1>DApp Builder</h1>
           <p className="tagline">Build decentralized applications with confidence.</p>
           <p className="description">
-            A focused platform experience is taking shape for teams that want to design, assemble,
-            and launch decentralized applications with cleaner workflows and stronger foundations.
+            A focused platform experience for teams that want to design, assemble, and launch
+            decentralized applications with cleaner workflows and stronger foundations.
           </p>
+          {/*
           <div className="hero-actions" aria-label="Launch actions">
             <button className="enter-builder-btn" onClick={onEnterBuilder}>
               <Rocket size={18} />
               Enter Builder
             </button>
             <a className="secondary-action" href="#features">
-              Explore teasers
+              Explore features
             </a>
           </div>
+          */}
         </div>
 
         <div className="logo-stage" aria-label="DApp Builder logo">
@@ -81,17 +83,16 @@ export function LandingHero({ onEnterBuilder }: Props) {
 
       <section id="about" className="about">
         <div>
-          <p className="section-kicker">Coming Soon</p>
           <h2>A builder experience for decentralized products.</h2>
         </div>
         <p>
-          DApp Builder is planned as a practical workspace for shaping decentralized application
-          concepts into real product foundations. This placeholder is frontend-only while the
-          platform direction, launch timeline, and final deployment details are finalized.
+          DApp Builder is a practical workspace for shaping decentralized application concepts into
+          real product foundations — templates, workflow blocks, API components, and AI-assisted
+          code generation in one place.
         </p>
       </section>
 
-      <section id="features" className="features" aria-label="Feature teasers">
+      <section id="features" className="features" aria-label="Features">
         {features.map((feature) => {
           const Icon = feature.icon;
           return (
@@ -106,26 +107,10 @@ export function LandingHero({ onEnterBuilder }: Props) {
         })}
       </section>
 
-      <section id="contact" className="cta">
-        <div>
-          <p className="section-kicker">Early Access</p>
-          <h2>Interested in early access?</h2>
-          <p>
-            Contact the DApp Builder team for demo updates and launch information as the product
-            moves toward release.
-          </p>
-        </div>
-        <div className="cta-card">
-          <Contact size={26} />
-          <strong>Launching soon</strong>
-          <span>No production URL has been set yet.</span>
-        </div>
-      </section>
-
-      <footer>
-        <span>DApp Builder placeholder app</span>
-        <span>Built for demo preview only</span>
-      </footer>
+      {/*
+        Contact / early-access CTA section removed — no longer a pre-launch teaser.
+        Footer placeholder copy removed.
+      */}
     </>
   );
 }
