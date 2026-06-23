@@ -67,7 +67,7 @@ function DaoVotingPortal() {
       <div className="preview-proposal">
         <h4 className="preview-proposal-title">Proposal #14 — Increase quorum threshold to 67%</h4>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0, lineHeight: 1.6 }}>
-          This proposal adjusts the minimum quorum required for BFT consensus on governance votes from 51% to 67% to improve security.
+          This proposal adjusts the minimum quorum required for kBFT™ consensus on governance votes from 51% to 67% to improve security.
         </p>
         <div className="preview-vote-btns">
           <span className="preview-placeholder-btn" style={{ color: '#7ee87e' }}>✓ Vote For</span>
@@ -128,7 +128,7 @@ function LedgerApp() {
           <th>Timestamp</th>
           <th>Action</th>
           <th>Actor</th>
-          <th>BFT Hash</th>
+          <th>kBFT™ Hash</th>
         </tr>
       </thead>
       <tbody>

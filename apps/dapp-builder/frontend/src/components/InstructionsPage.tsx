@@ -11,8 +11,8 @@ const templateOneLiner: Record<string, string> = {
   'token-dashboard': 'Balance display, transfer form, and transaction history for fungible tokens.',
   'nft-mint': 'Mint button, metadata form, and collection preview for NFT issuance.',
   'dao-voting': 'Proposal cards, vote buttons, and quorum tracker for on-chain governance.',
-  'escrow-payment': 'Sender/receiver fields, conditional release, and BFT-verified settlement.',
-  'ledger-app': 'Immutable transaction table with BFT badges and filter/export controls.',
+  'escrow-payment': 'Sender/receiver fields, conditional release, and kBFT™-verified settlement.',
+  'ledger-app': 'Immutable transaction table with kBFT™ badges and filter/export controls.',
   'permissioned-workflow': 'Role-gated workflow steps, approval queue, and notification hooks.',
   'custom': 'Full blank canvas — choose any APIs and workflow blocks to generate a completely custom dApp.',
 };
@@ -77,7 +77,7 @@ export function InstructionsPage({ onNavigate }: Props) {
       <div className="instructions-api-note">
         <strong style={{ color: '#dff4ff' }}>Service layer:</strong> Generated code uses the
         Reusable API Component library as its service layer — each workflow block maps to a
-        typed call to one of the eight microservice APIs (Identity, Wallet, Ledger, BFT,
+        typed call to one of the eight microservice APIs (Identity, Wallet, Ledger, kBFT™,
         Permissions, Notifications, Workflow Orchestration, Smart Contract Adapter).{' '}
         <button
           className="instructions-link-btn"

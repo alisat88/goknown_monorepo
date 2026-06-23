@@ -34,7 +34,7 @@ export const TEMPLATES: Template[] = [
   {
     id: 'escrow-payment',
     name: 'Escrow / Payment App',
-    description: 'Multi-party escrow with conditional release, audit trail, and BFT-verified settlement.',
+    description: 'Multi-party escrow with conditional release, audit trail, and kBFT™-verified settlement.',
     suggestedUseCase: 'Marketplace payments, freelance contracts, multi-sig workflows',
     includedComponents: ['Sender/receiver fields', 'Payment status', 'Release trigger', 'Audit log'],
     status: 'Mock template',
@@ -44,9 +44,9 @@ export const TEMPLATES: Template[] = [
   {
     id: 'ledger-app',
     name: 'Ledger / Transaction History',
-    description: 'Immutable ledger viewer with filtering, export, and BFT-verified entry integrity.',
+    description: 'Immutable ledger viewer with filtering, export, and kBFT™-verified entry integrity.',
     suggestedUseCase: 'Aviation records, supply chain, financial audit, compliance logs',
-    includedComponents: ['Transaction table', 'Filter panel', 'BFT badge', 'Export button'],
+    includedComponents: ['Transaction table', 'Filter panel', 'kBFT™ badge', 'Export button'],
     status: 'Mock template',
     apiIds: ['identity', 'ledger', 'permissions'],
     permissionModel: 'role-based',
@@ -95,15 +95,15 @@ export const API_COMPONENTS: ApiComponent[] = [
   {
     id: 'ledger',
     name: 'Ledger API',
-    purpose: 'Read and write immutable ledger entries with BFT-verified integrity proofs.',
+    purpose: 'Read and write immutable ledger entries with kBFT™-verified integrity proofs.',
     endpoint: '/api/ledger/entries',
-    inputOutput: 'Input: dApp ID, filters → Output: entries[], BFT proof hash',
+    inputOutput: 'Input: dApp ID, filters → Output: entries[], kBFT™ proof hash',
     securityNote: 'Requires dApp permission',
     securityLevel: 'dapp',
   },
   {
     id: 'bft',
-    name: 'BFT Transaction API',
+    name: 'kBFT™ Transaction API',
     purpose: 'Submit transactions for Byzantine Fault Tolerant consensus and quorum verification.',
     endpoint: '/api/bft/submit',
     inputOutput: 'Input: tx payload → Output: quorum result, consensus hash',
@@ -154,7 +154,7 @@ export const WORKFLOW_BLOCKS: WorkflowBlock[] = [
   { id: 'connect-wallet', label: 'Connect wallet placeholder', apiId: 'wallet' },
   { id: 'read-ledger-entries', label: 'Read ledger entries', apiId: 'ledger' },
   { id: 'submit-transaction', label: 'Submit transaction', apiId: 'ledger' },
-  { id: 'trigger-bft-quorum', label: 'Trigger BFT quorum', apiId: 'bft' },
+  { id: 'trigger-bft-quorum', label: 'Trigger kBFT™ quorum', apiId: 'bft' },
   { id: 'generate-notification', label: 'Generate notification', apiId: 'notifications' },
   { id: 'save-result', label: 'Save result', apiId: 'workflow' },
 ];
