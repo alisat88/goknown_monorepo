@@ -47,7 +47,7 @@ export function CreateDAppWizard({
   onApiKeyChange,
   onClose,
 }: Props) {
-  const [dappName, setDappName] = useState(`My ${template.name}`);
+  const [dappName, setDappName] = useState(template.id === 'custom' ? '' : `My ${template.name}`);
   const [generating, setGenerating] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
@@ -120,15 +120,25 @@ export function CreateDAppWizard({
           {/* Step 1 — Name */}
           {wizardStep === 1 && (
             <div className="wizard-step-content">
-              <div className="wizard-template-reminder">
-                <strong>{template.name}</strong>
-                <p>{template.description}</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
-                  {template.includedComponents.map((c) => (
-                    <span key={c} className="component-chip">{c}</span>
-                  ))}
+              {template.id === 'custom' ? (
+                <div className="wizard-template-reminder wizard-template-reminder--scratch">
+                  <strong>Building from scratch</strong>
+                  <p>
+                    You're building from scratch. Name your dApp and then choose whichever
+                    workflow blocks fit your use case.
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="wizard-template-reminder">
+                  <strong>{template.name}</strong>
+                  <p>{template.description}</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+                    {template.includedComponents.map((c) => (
+                      <span key={c} className="component-chip">{c}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="wizard-field">
                 <label className="wizard-field-label" htmlFor="wizard-dapp-name">
@@ -140,7 +150,7 @@ export function CreateDAppWizard({
                   type="text"
                   value={dappName}
                   onChange={(e) => setDappName(e.target.value)}
-                  placeholder="e.g. Aviation Ledger App"
+                  placeholder={template.id === 'custom' ? 'Give your dApp a name…' : 'e.g. Aviation Ledger App'}
                   autoFocus
                 />
                 <div className="wizard-field-hint">
@@ -153,6 +163,11 @@ export function CreateDAppWizard({
           {/* Step 2 — Workflow */}
           {wizardStep === 2 && (
             <div className="wizard-step-content">
+              {template.id === 'custom' && (
+                <div className="wizard-scratch-hint">
+                  This is your blank canvas. Add any workflow blocks you need — there's no wrong starting point.
+                </div>
+              )}
               <WorkflowBuilder
                 workflowSteps={workflowSteps}
                 onWorkflowChange={onWorkflowChange}
@@ -267,7 +282,7 @@ export function CreateDAppWizard({
             <button
               className="wizard-nav-btn wizard-nav-btn--next"
               onClick={() => onStepChange((wizardStep + 1) as 2 | 3)}
-              disabled={wizardStep === 2 && workflowSteps.length === 0}
+              disabled={wizardStep === 2 && workflowSteps.length === 0 && template.id !== 'custom'}
             >
               {wizardStep === 1 ? 'Next: Build Workflow' : 'Next: Generate Code'}
               <ArrowRight size={15} />

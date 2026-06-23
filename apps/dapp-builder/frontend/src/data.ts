@@ -61,6 +61,16 @@ export const TEMPLATES: Template[] = [
     apiIds: ['identity', 'permissions', 'workflow', 'notifications'],
     permissionModel: 'role-based',
   },
+  {
+    id: 'custom',
+    name: 'Build from Scratch',
+    description: 'Start with a blank canvas — pick your own APIs, define your own workflow, and generate a fully custom dApp.',
+    suggestedUseCase: "Any dApp that doesn't fit a standard pattern",
+    includedComponents: ['Your choice of API components', 'Custom workflow blocks'],
+    status: 'Custom',
+    apiIds: [],
+    permissionModel: 'role-based',
+  },
 ];
 
 export const API_COMPONENTS: ApiComponent[] = [
@@ -156,6 +166,7 @@ export const TEMPLATE_DEFAULT_BLOCKS: Record<string, string[]> = {
   'escrow-payment': ['authenticate-user', 'connect-wallet', 'submit-transaction', 'trigger-bft-quorum'],
   'ledger-app': ['authenticate-user', 'check-dapp-permission', 'read-ledger-entries'],
   'permissioned-workflow': ['authenticate-user', 'check-dapp-permission', 'generate-notification', 'save-result'],
+  'custom': [],
 };
 
 export const DEMO_PROJECTS: DAppProject[] = [

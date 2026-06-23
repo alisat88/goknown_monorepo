@@ -1,4 +1,4 @@
-export type TemplateStatus = 'Mock template' | 'Coming soon';
+export type TemplateStatus = 'Mock template' | 'Coming soon' | 'Custom';
 export type SecurityLevel = 'auth' | 'dapp' | 'readonly' | 'admin';
 export type ProjectStatus = 'Draft' | 'Preview' | 'Ready for API mapping' | 'Permission review';
 export type TabId =

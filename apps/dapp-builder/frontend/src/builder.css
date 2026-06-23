@@ -1111,6 +1111,44 @@
   transform: translateY(-1px);
 }
 
+/* ── CUSTOM / SCRATCH STATUS BADGE ─────────────────────────────────── */
+
+.status-badge--custom {
+  background: linear-gradient(135deg, rgba(27, 125, 255, 0.22), rgba(109, 64, 255, 0.22));
+  color: #9eb8ff;
+  border: 1px solid rgba(109, 64, 255, 0.45);
+}
+
+/* ── SCRATCH CARD ─────────────────────────────────── */
+
+.template-card--scratch {
+  border-style: dashed;
+  border-color: rgba(38, 184, 255, 0.35);
+  background: rgba(38, 184, 255, 0.025);
+}
+.template-card--scratch:hover {
+  border-color: rgba(38, 184, 255, 0.6);
+  background: rgba(38, 184, 255, 0.05);
+}
+.template-card--scratch.selected {
+  border-color: rgba(38, 184, 255, 0.8);
+  background: rgba(38, 184, 255, 0.07);
+}
+
+.scratch-plus-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--blue), var(--indigo));
+  color: #fff;
+  margin-right: 7px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 /* ── USE TEMPLATE BUTTON ─────────────────────────────────── */
 
 .use-template-btn {
@@ -1133,6 +1171,17 @@
   background: rgba(38, 184, 255, 0.14);
   border-color: rgba(38, 184, 255, 0.65);
   color: #8cf4ff;
+}
+
+.use-template-btn--scratch {
+  background: linear-gradient(135deg, rgba(27, 125, 255, 0.1), rgba(109, 64, 255, 0.1));
+  border-color: rgba(109, 64, 255, 0.45);
+  color: #a8c0ff;
+}
+.use-template-btn--scratch:hover {
+  background: linear-gradient(135deg, rgba(27, 125, 255, 0.18), rgba(109, 64, 255, 0.18));
+  border-color: rgba(109, 64, 255, 0.7);
+  color: #c4d6ff;
 }
 
 /* ── INSTRUCTIONS PAGE ─────────────────────────────────── */
@@ -1389,6 +1438,22 @@
   font-size: 0.84rem;
   line-height: 1.5;
   margin: 0;
+}
+
+.wizard-template-reminder--scratch {
+  border-color: rgba(109, 64, 255, 0.35);
+  background: linear-gradient(135deg, rgba(27, 125, 255, 0.05), rgba(109, 64, 255, 0.05));
+}
+
+.wizard-scratch-hint {
+  padding: 12px 16px;
+  border: 1px dashed rgba(38, 184, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(38, 184, 255, 0.04);
+  color: #a8c8e8;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  font-style: italic;
 }
 
 .wizard-field {

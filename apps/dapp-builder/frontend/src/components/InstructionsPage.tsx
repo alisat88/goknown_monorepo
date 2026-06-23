@@ -14,6 +14,7 @@ const templateOneLiner: Record<string, string> = {
   'escrow-payment': 'Sender/receiver fields, conditional release, and BFT-verified settlement.',
   'ledger-app': 'Immutable transaction table with BFT badges and filter/export controls.',
   'permissioned-workflow': 'Role-gated workflow steps, approval queue, and notification hooks.',
+  'custom': 'Full blank canvas — choose any APIs and workflow blocks to generate a completely custom dApp.',
 };
 
 const flowSteps = [
@@ -66,7 +67,7 @@ export function InstructionsPage({ onNavigate }: Props) {
           <div key={t.id} className="instructions-template-row">
             <div className="instructions-template-name">{t.name}</div>
             <div className="instructions-template-line">{templateOneLiner[t.id] ?? t.description}</div>
-            <span className={`status-badge ${t.status === 'Mock template' ? 'status-badge--mock' : 'status-badge--soon'}`}>
+            <span className={`status-badge ${t.status === 'Mock template' ? 'status-badge--mock' : t.status === 'Custom' ? 'status-badge--custom' : 'status-badge--soon'}`}>
               {t.status}
             </span>
           </div>

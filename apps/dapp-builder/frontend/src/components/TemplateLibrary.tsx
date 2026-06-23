@@ -1,12 +1,18 @@
 import React from 'react';
-import { CheckCircle } from 'lucide-react';
-import { Template } from '../types';
+import { CheckCircle, Plus } from 'lucide-react';
+import { Template, TemplateStatus } from '../types';
 import { TEMPLATES } from '../data';
 
 interface Props {
   selectedTemplate: Template | null;
   onSelectTemplate: (t: Template) => void;
   onUseTemplate?: (t: Template) => void;
+}
+
+function badgeClass(status: TemplateStatus): string {
+  if (status === 'Custom') return 'status-badge--custom';
+  if (status === 'Coming soon') return 'status-badge--soon';
+  return 'status-badge--mock';
 }
 
 export function TemplateLibrary({ selectedTemplate, onSelectTemplate, onUseTemplate }: Props) {
@@ -25,10 +31,11 @@ export function TemplateLibrary({ selectedTemplate, onSelectTemplate, onUseTempl
         {TEMPLATES.map((t) => {
           const isSelected = selectedTemplate?.id === t.id;
           const isAvailable = t.status !== 'Coming soon';
+          const isScratch = t.id === 'custom';
           return (
             <div
               key={t.id}
-              className={`template-card${isSelected ? ' selected' : ''}`}
+              className={`template-card${isSelected ? ' selected' : ''}${isScratch ? ' template-card--scratch' : ''}`}
               onClick={() => isAvailable && onSelectTemplate(t)}
               role="button"
               aria-pressed={isSelected}
@@ -36,8 +43,15 @@ export function TemplateLibrary({ selectedTemplate, onSelectTemplate, onUseTempl
               onKeyDown={(e) => e.key === 'Enter' && isAvailable && onSelectTemplate(t)}
             >
               <div className="template-card-header">
-                <h3 className="template-card-name">{t.name}</h3>
-                <span className={`status-badge ${isAvailable ? 'status-badge--mock' : 'status-badge--soon'}`}>
+                <h3 className="template-card-name">
+                  {isScratch && (
+                    <span className="scratch-plus-icon">
+                      <Plus size={14} />
+                    </span>
+                  )}
+                  {t.name}
+                </h3>
+                <span className={`status-badge ${badgeClass(t.status)}`}>
                   {t.status}
                 </span>
               </div>
@@ -69,10 +83,10 @@ export function TemplateLibrary({ selectedTemplate, onSelectTemplate, onUseTempl
 
               {onUseTemplate && isAvailable && (
                 <button
-                  className="use-template-btn"
+                  className={`use-template-btn${isScratch ? ' use-template-btn--scratch' : ''}`}
                   onClick={(e) => { e.stopPropagation(); onUseTemplate(t); }}
                 >
-                  Use this template →
+                  {isScratch ? '+ Start from scratch →' : 'Use this template →'}
                 </button>
               )}
             </div>
