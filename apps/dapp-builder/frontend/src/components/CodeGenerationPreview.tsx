@@ -44,7 +44,6 @@ export function CodeGenerationPreview({
 }: Props) {
   const [userPrompt, setUserPrompt] = useState('');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
   const [genError, setGenError] = useState<string | null>(null);
@@ -53,12 +52,9 @@ export function CodeGenerationPreview({
   const [localKey, setLocalKey] = useState(apiKey);
 
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
-      const url = blobUrlRef.current;
-      if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
     };
   }, []);
@@ -79,7 +75,6 @@ export function CodeGenerationPreview({
     setGenerating(true);
     setGenError(null);
     setGeneratedCode(null);
-    setBlobUrl(null);
     setSavedConfirmation(null);
     setLoadingMsg(LOADING_MESSAGES[0]);
 
@@ -101,12 +96,6 @@ export function CodeGenerationPreview({
         key
       );
 
-      console.log('[DAppBuilder] Generated HTML preview (first 300 chars):', html.slice(0, 300));
-      const oldUrl = blobUrlRef.current;
-      const newUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-      blobUrlRef.current = newUrl;
-      setBlobUrl(newUrl);
-      if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 1000);
       setGeneratedCode(html);
 
       // Auto-save to library immediately after successful generation
@@ -152,10 +141,6 @@ export function CodeGenerationPreview({
   };
 
   const handleRegenerate = () => {
-    const url = blobUrlRef.current;
-    if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
-    blobUrlRef.current = null;
-    setBlobUrl(null);
     setGeneratedCode(null);
     setGenError(null);
     setSavedConfirmation(null);
@@ -266,7 +251,7 @@ export function CodeGenerationPreview({
       )}
 
       {/* Generated output */}
-      {generatedCode && blobUrl && (
+      {generatedCode && (
         <div className="wizard-code-output" style={{ marginTop: '24px' }}>
           {/* Live iframe preview */}
           <div className="codegen-iframe-section">
@@ -274,18 +259,21 @@ export function CodeGenerationPreview({
               <span className="code-block-label">Live Preview</span>
               <button
                 className="open-newtab-btn"
-                onClick={() => window.open(blobUrl, '_blank')}
+                onClick={() => {
+                  const url = URL.createObjectURL(new Blob([generatedCode], { type: 'text/html' }));
+                  window.open(url, '_blank');
+                  setTimeout(() => URL.revokeObjectURL(url), 10000);
+                }}
               >
                 <ExternalLink size={13} />
                 Open in new tab
               </button>
             </div>
             <iframe
-              src={blobUrl}
+              srcDoc={generatedCode}
               className="codegen-iframe"
               title={`${config.dappName} live preview`}
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-              onLoad={() => console.log('[DAppBuilder] iframe loaded:', blobUrl?.slice(0, 60))}
+              sandbox="allow-scripts allow-popups allow-forms allow-modals"
               style={{ width: '100%', minHeight: '500px', border: 'none', borderRadius: '8px' }}
             />
           </div>

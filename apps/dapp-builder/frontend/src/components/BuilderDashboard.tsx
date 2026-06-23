@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   Library,
@@ -62,18 +62,6 @@ function formatDate(iso: string): string {
 }
 
 function PreviewModal({ app, onClose }: { app: SavedDApp; onClose: () => void }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const blobRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!app.generatedCode) return;
-    const blob = new Blob([app.generatedCode], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    blobRef.current = url;
-    setBlobUrl(url);
-    return () => { if (blobRef.current) URL.revokeObjectURL(blobRef.current); };
-  }, [app.generatedCode]);
-
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
   }, [onClose]);
@@ -91,8 +79,15 @@ function PreviewModal({ app, onClose }: { app: SavedDApp; onClose: () => void })
             <div className="wizard-header-title">{app.dappName}</div>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {blobUrl && (
-              <button className="open-newtab-btn" onClick={() => window.open(blobUrl, '_blank')}>
+            {app.generatedCode && (
+              <button
+                className="open-newtab-btn"
+                onClick={() => {
+                  const url = URL.createObjectURL(new Blob([app.generatedCode], { type: 'text/html' }));
+                  window.open(url, '_blank');
+                  setTimeout(() => URL.revokeObjectURL(url), 10000);
+                }}
+              >
                 <ExternalLink size={13} />
                 Open in new tab
               </button>
@@ -103,13 +98,12 @@ function PreviewModal({ app, onClose }: { app: SavedDApp; onClose: () => void })
           </div>
         </div>
         <div className="preview-modal-body">
-          {blobUrl ? (
+          {app.generatedCode ? (
             <iframe
-              src={blobUrl}
+              srcDoc={app.generatedCode}
               className="codegen-iframe codegen-iframe--modal"
               title={`${app.dappName} live preview`}
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-              onLoad={() => console.log('[DAppBuilder] iframe loaded:', blobUrl?.slice(0, 60))}
+              sandbox="allow-scripts allow-popups allow-forms allow-modals"
               style={{ width: '100%', border: 'none' }}
             />
           ) : (

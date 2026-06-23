@@ -85,20 +85,15 @@ export function CreateDAppWizard({
   const [generatedCode, setGeneratedCode] = useState<string | null>(
     editingApp?.generatedCode || null
   );
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [localKey, setLocalKey] = useState(apiKey);
   const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
 
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
 
-  // Revoke blob URL on unmount — delay so any in-flight iframe load can finish
   useEffect(() => {
     return () => {
-      const url = blobUrlRef.current;
-      if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
     };
   }, []);
@@ -162,7 +157,6 @@ export function CreateDAppWizard({
     setGenerating(true);
     setGenError(null);
     setGeneratedCode(null);
-    setBlobUrl(null);
     setSavedConfirmation(null);
     setLoadingMsg(LOADING_MESSAGES[0]);
 
@@ -184,14 +178,6 @@ export function CreateDAppWizard({
         key
       );
 
-      // Build blob URL for iframe — set new URL first, then defer old URL revocation
-      // so any previously loading iframe finishes before we free the resource
-      console.log('[DAppBuilder] Generated HTML preview (first 300 chars):', html.slice(0, 300));
-      const oldUrl = blobUrlRef.current;
-      const newUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-      blobUrlRef.current = newUrl;
-      setBlobUrl(newUrl);
-      if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 1000);
       setGeneratedCode(html);
 
       // Auto-save immediately after successful generation
@@ -211,11 +197,6 @@ export function CreateDAppWizard({
   };
 
   const handleRegenerate = () => {
-    // Defer revocation so the iframe isn't killed mid-load if user clicks quickly
-    const url = blobUrlRef.current;
-    if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
-    blobUrlRef.current = null;
-    setBlobUrl(null);
     setGeneratedCode(null);
     setGenError(null);
     setSavedConfirmation(null);
@@ -407,7 +388,7 @@ export function CreateDAppWizard({
               )}
 
               {/* Generated output */}
-              {generatedCode && blobUrl && (
+              {generatedCode && (
                 <div className="wizard-code-output">
                   {/* Live iframe preview */}
                   <div className="codegen-iframe-section">
@@ -415,18 +396,21 @@ export function CreateDAppWizard({
                       <span className="code-block-label">Live Preview</span>
                       <button
                         className="open-newtab-btn"
-                        onClick={() => window.open(blobUrl, '_blank')}
+                        onClick={() => {
+                          const url = URL.createObjectURL(new Blob([generatedCode], { type: 'text/html' }));
+                          window.open(url, '_blank');
+                          setTimeout(() => URL.revokeObjectURL(url), 10000);
+                        }}
                       >
                         <ExternalLink size={13} />
                         Open in new tab
                       </button>
                     </div>
                     <iframe
-                      src={blobUrl}
+                      srcDoc={generatedCode}
                       className="codegen-iframe"
                       title={`${config.dappName} live preview`}
-                      sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-                      onLoad={() => console.log('[DAppBuilder] iframe loaded:', blobUrl?.slice(0, 60))}
+                      sandbox="allow-scripts allow-popups allow-forms allow-modals"
                       style={{ width: '100%', minHeight: '500px', border: 'none', borderRadius: '8px' }}
                     />
                   </div>
