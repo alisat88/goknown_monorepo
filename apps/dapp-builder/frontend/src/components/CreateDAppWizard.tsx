@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, ArrowRight, Sparkles, Copy, Check, Loader } from 'lucide-react';
-import { Template, WorkflowBlock } from '../types';
+import { X, ArrowRight, Sparkles, Copy, Check, Loader, Save, BookMarked } from 'lucide-react';
+import { Template, WorkflowBlock, SavedDApp } from '../types';
 import { buildConfig } from '../lib/buildConfig';
 import { generateDAppCode } from '../lib/generateCode';
+import { saveApp, updateApp } from '../services/storage';
 import { WorkflowBuilder } from './WorkflowBuilder';
 
 interface Props {
@@ -14,6 +15,9 @@ interface Props {
   apiKey: string;
   onApiKeyChange: (key: string) => void;
   onClose: () => void;
+  editingApp?: SavedDApp;
+  onSaveApp?: () => void;
+  onGoToLibrary?: () => void;
 }
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
@@ -46,15 +50,22 @@ export function CreateDAppWizard({
   apiKey,
   onApiKeyChange,
   onClose,
+  editingApp,
+  onSaveApp,
+  onGoToLibrary,
 }: Props) {
-  const [dappName, setDappName] = useState(template.id === 'custom' ? '' : `My ${template.name}`);
+  const [dappName, setDappName] = useState(
+    editingApp?.dappName ?? (template.id === 'custom' ? '' : `My ${template.name}`)
+  );
   const [generating, setGenerating] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(
+    editingApp?.generatedCode || null
+  );
   const [genError, setGenError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [localKey, setLocalKey] = useState(apiKey);
+  const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
 
-  // Keep localKey in sync if parent apiKey changes externally
   useEffect(() => { setLocalKey(apiKey); }, [apiKey]);
 
   const handleKeyChange = (k: string) => {
@@ -62,7 +73,6 @@ export function CreateDAppWizard({
     onApiKeyChange(k);
   };
 
-  // Close on Escape
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
   }, [onClose]);
@@ -97,13 +107,66 @@ export function CreateDAppWizard({
 
   const config = buildConfig(template, workflowSteps, dappName);
 
+  const persistApp = (isDraft: boolean, code: string | null): SavedDApp => {
+    const now = new Date().toISOString();
+    if (editingApp) {
+      const updated: SavedDApp = {
+        ...editingApp,
+        dappName: dappName || 'Untitled dApp',
+        template: config.template,
+        permissionModel: config.permissionModel,
+        apis: config.apis,
+        workflow: config.workflow,
+        generatedCode: isDraft ? editingApp.generatedCode : (code ?? editingApp.generatedCode),
+        updatedAt: now,
+        status: isDraft ? editingApp.status : 'Preview',
+      };
+      updateApp(editingApp.id, updated);
+      return updated;
+    } else {
+      const newApp: SavedDApp = {
+        id: crypto.randomUUID(),
+        dappName: dappName || 'Untitled dApp',
+        template: config.template,
+        permissionModel: config.permissionModel,
+        apis: config.apis,
+        workflow: config.workflow,
+        generatedCode: isDraft ? '' : (code ?? ''),
+        createdAt: now,
+        updatedAt: now,
+        sharedWith: [],
+        status: isDraft ? 'Draft' : 'Preview',
+      };
+      saveApp(newApp);
+      return newApp;
+    }
+  };
+
+  const handleSaveDraft = () => {
+    const app = persistApp(true, null);
+    onSaveApp?.();
+    setSavedConfirmation(app.dappName);
+    setTimeout(() => {
+      setSavedConfirmation(null);
+      onClose();
+    }, 1500);
+  };
+
+  const handleSaveToLibrary = () => {
+    const app = persistApp(false, generatedCode);
+    onSaveApp?.();
+    setSavedConfirmation(app.dappName);
+  };
+
   return (
     <div className="wizard-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="wizard-modal" role="dialog" aria-modal="true" aria-label="Create dApp wizard">
         {/* Header */}
         <div className="wizard-header">
           <div>
-            <div className="wizard-header-kicker">Create dApp — {template.name}</div>
+            <div className="wizard-header-kicker">
+              {editingApp ? 'Edit dApp' : 'Create dApp'} — {template.name}
+            </div>
             <div className="wizard-header-title">{STEP_LABELS[wizardStep]}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -255,14 +318,28 @@ export function CreateDAppWizard({
                     </button>
                   </div>
                   <pre className="wizard-code-pre">{generatedCode}</pre>
-                  <button
-                    className="wizard-generate-btn"
-                    style={{ marginTop: '14px', background: 'rgba(38,184,255,0.06)' }}
-                    onClick={() => { setGeneratedCode(null); setGenError(null); }}
-                  >
-                    <Sparkles size={14} />
-                    Regenerate
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
+                    <button
+                      className="wizard-generate-btn"
+                      style={{ background: 'rgba(38,184,255,0.06)' }}
+                      onClick={() => { setGeneratedCode(null); setGenError(null); setSavedConfirmation(null); }}
+                    >
+                      <Sparkles size={14} />
+                      Regenerate
+                    </button>
+                    {!savedConfirmation && (
+                      <button className="wizard-save-btn" onClick={handleSaveToLibrary}>
+                        <BookMarked size={14} />
+                        Save to My Library
+                      </button>
+                    )}
+                  </div>
+
+                  {savedConfirmation && (
+                    <div className="save-toast">
+                      ✓ <strong>{savedConfirmation}</strong> saved to your library
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -271,22 +348,45 @@ export function CreateDAppWizard({
 
         {/* Footer nav */}
         <div className="wizard-footer">
-          <button
-            className="wizard-nav-btn wizard-nav-btn--back"
-            onClick={() => wizardStep > 1 ? onStepChange((wizardStep - 1) as 1 | 2 | 3) : onClose()}
-          >
-            {wizardStep === 1 ? 'Cancel' : '← Back'}
-          </button>
-
-          {wizardStep < 3 && (
+          {savedConfirmation && wizardStep === 3 ? (
             <button
               className="wizard-nav-btn wizard-nav-btn--next"
-              onClick={() => onStepChange((wizardStep + 1) as 2 | 3)}
-              disabled={wizardStep === 2 && workflowSteps.length === 0 && template.id !== 'custom'}
+              onClick={onGoToLibrary ?? onClose}
+              style={{ marginLeft: 'auto' }}
             >
-              {wizardStep === 1 ? 'Next: Build Workflow' : 'Next: Generate Code'}
-              <ArrowRight size={15} />
+              Go to My Library →
             </button>
+          ) : (
+            <>
+              <button
+                className="wizard-nav-btn wizard-nav-btn--back"
+                onClick={() => wizardStep > 1 ? onStepChange((wizardStep - 1) as 1 | 2 | 3) : onClose()}
+              >
+                {wizardStep === 1 ? 'Cancel' : '← Back'}
+              </button>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {wizardStep < 3 && (
+                  <button
+                    className="wizard-nav-btn wizard-nav-btn--save-draft"
+                    onClick={handleSaveDraft}
+                  >
+                    <Save size={13} />
+                    Save as Draft
+                  </button>
+                )}
+                {wizardStep < 3 && (
+                  <button
+                    className="wizard-nav-btn wizard-nav-btn--next"
+                    onClick={() => onStepChange((wizardStep + 1) as 2 | 3)}
+                    disabled={wizardStep === 2 && workflowSteps.length === 0 && template.id !== 'custom'}
+                  >
+                    {wizardStep === 1 ? 'Next: Build Workflow' : 'Next: Generate Code'}
+                    <ArrowRight size={15} />
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

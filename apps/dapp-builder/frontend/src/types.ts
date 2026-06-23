@@ -46,3 +46,17 @@ export interface DAppProject {
   status: ProjectStatus;
   templateId: string;
 }
+
+export interface SavedDApp {
+  id: string;
+  dappName: string;
+  template: string;
+  permissionModel: string;
+  apis: string[];
+  workflow: string[];
+  generatedCode: string;
+  createdAt: string;
+  updatedAt: string;
+  sharedWith: string[];
+  status: ProjectStatus;
+}

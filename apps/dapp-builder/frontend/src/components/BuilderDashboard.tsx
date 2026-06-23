@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Library,
@@ -10,9 +10,14 @@ import {
   Monitor,
   Zap,
   BookOpen,
+  Trash2,
+  Share2,
+  FolderOpen,
+  Users,
 } from 'lucide-react';
-import { Template, WorkflowBlock, TabId } from '../types';
+import { Template, WorkflowBlock, TabId, SavedDApp } from '../types';
 import { TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS } from '../data';
+import { loadSavedApps, deleteApp, seedDemoApps } from '../services/storage';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ApiComponentLibrary } from './ApiComponentLibrary';
 import { WorkflowBuilder } from './WorkflowBuilder';
@@ -23,6 +28,7 @@ import { DAppPreview } from './DAppPreview';
 import { DemoFlowPanel } from './DemoFlowPanel';
 import { InstructionsPage } from './InstructionsPage';
 import { CreateDAppWizard } from './CreateDAppWizard';
+import { SharePanel } from './SharePanel';
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'instructions', label: 'How It Works', icon: BookOpen },
@@ -45,7 +51,25 @@ function statusClass(status: string) {
   return 'status-badge--draft';
 }
 
-function DashboardPane({ selectedTemplate }: { selectedTemplate: Template | null }) {
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
+interface DashboardPaneProps {
+  savedApps: SavedDApp[];
+  onOpen: (app: SavedDApp) => void;
+  onDelete: (id: string) => void;
+  onAppUpdated: (updated: SavedDApp) => void;
+  onCreateNew: () => void;
+}
+
+function DashboardPane({ savedApps, onOpen, onDelete, onAppUpdated, onCreateNew }: DashboardPaneProps) {
+  const [sharingAppId, setSharingAppId] = useState<string | null>(null);
+
   return (
     <div className="pane">
       <div className="pane-header">
@@ -58,31 +82,68 @@ function DashboardPane({ selectedTemplate }: { selectedTemplate: Template | null
       </div>
 
       <div className="project-grid">
-        {DEMO_PROJECTS.map((project) => (
-          <div key={project.id} className="project-card">
-            <div className="project-card-name">{project.name}</div>
-            <div className="project-card-meta">
-              Template:{' '}
-              {TEMPLATES.find((t) => t.id === project.templateId)?.name ?? project.templateId}
+        {savedApps.map((app) => (
+          <div key={app.id} className="saved-app-card">
+            <div className="saved-app-card-top">
+              <div>
+                <div className="saved-app-name">{app.dappName}</div>
+                <div className="saved-app-meta">
+                  <span>{TEMPLATES.find((t) => t.id === app.template)?.name ?? app.template}</span>
+                  <span className="saved-app-date">· {formatDate(app.createdAt)}</span>
+                </div>
+              </div>
+              <span className={`status-badge ${statusClass(app.status)}`}>{app.status}</span>
             </div>
-            <span className={`status-badge ${statusClass(project.status)}`}>
-              {project.status}
-            </span>
+
+            {app.sharedWith.length > 0 && (
+              <div className="shared-badge">
+                <Users size={11} />
+                Shared with {app.sharedWith.length}
+              </div>
+            )}
+
+            <div className="saved-app-actions">
+              <button
+                className="saved-app-action-btn saved-app-action-btn--open"
+                onClick={() => onOpen(app)}
+              >
+                <FolderOpen size={13} />
+                Open
+              </button>
+              <button
+                className="saved-app-action-btn saved-app-action-btn--share"
+                onClick={() => setSharingAppId(sharingAppId === app.id ? null : app.id)}
+              >
+                <Share2 size={13} />
+                Share
+              </button>
+              <button
+                className="saved-app-action-btn saved-app-action-btn--delete"
+                onClick={() => onDelete(app.id)}
+              >
+                <Trash2 size={13} />
+                Delete
+              </button>
+            </div>
+
+            {sharingAppId === app.id && (
+              <SharePanel
+                app={app}
+                onUpdated={(updated) => {
+                  onAppUpdated(updated);
+                }}
+                onClose={() => setSharingAppId(null)}
+              />
+            )}
           </div>
         ))}
-        <div className="create-card">
+
+        <div className="create-card" onClick={onCreateNew} role="button" tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && onCreateNew()}>
           <span className="create-card-plus">+</span>
           <span>Create New dApp</span>
         </div>
       </div>
-
-      {selectedTemplate && (
-        <div className="active-template-notice">
-          Active template:{' '}
-          <strong>{selectedTemplate.name}</strong> — workflow config will use this
-          template's APIs and permission model.
-        </div>
-      )}
     </div>
   );
 }
@@ -94,17 +155,84 @@ export function BuilderDashboard() {
   const [demoStarted, setDemoStarted] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [editingApp, setEditingApp] = useState<SavedDApp | null>(null);
+  const [savedApps, setSavedApps] = useState<SavedDApp[]>([]);
   const [apiKey, setApiKey] = useState(
     (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? ''
   );
+
+  // Seed demo apps on first ever load, then hydrate state.
+  // TODO (production): Replace with GET /api/dapps
+  useEffect(() => {
+    const demoSeed: SavedDApp[] = DEMO_PROJECTS.map((p) => {
+      const tmpl = TEMPLATES.find((t) => t.id === p.templateId);
+      const defaultBlockIds = TEMPLATE_DEFAULT_BLOCKS[p.templateId] ?? [];
+      const workflowIds = WORKFLOW_BLOCKS
+        .filter((b) => defaultBlockIds.includes(b.id))
+        .map((b) => b.id);
+      return {
+        id: p.id,
+        dappName: p.name,
+        template: p.templateId,
+        permissionModel: tmpl?.permissionModel ?? 'role-based',
+        apis: tmpl?.apiIds ?? [],
+        workflow: workflowIds,
+        generatedCode: '',
+        createdAt: '2026-06-15T00:00:00.000Z',
+        updatedAt: '2026-06-15T00:00:00.000Z',
+        sharedWith: [],
+        status: p.status,
+      };
+    });
+    seedDemoApps(demoSeed);
+    setSavedApps(loadSavedApps());
+  }, []);
+
+  const reloadApps = () => setSavedApps(loadSavedApps());
 
   const handleUseTemplate = (t: Template) => {
     const defaultBlockIds = TEMPLATE_DEFAULT_BLOCKS[t.id] ?? [];
     const blocks = WORKFLOW_BLOCKS.filter((b) => defaultBlockIds.includes(b.id));
     setSelectedTemplate(t);
     setWorkflowSteps(blocks);
+    setEditingApp(null);
     setWizardStep(1);
     setWizardOpen(true);
+  };
+
+  const handleOpenSavedApp = (app: SavedDApp) => {
+    const tmpl =
+      TEMPLATES.find((t) => t.id === app.template) ??
+      TEMPLATES.find((t) => t.id === 'custom')!;
+    const blocks = WORKFLOW_BLOCKS.filter((b) => app.workflow.includes(b.id));
+    setSelectedTemplate(tmpl);
+    setWorkflowSteps(blocks);
+    setEditingApp(app);
+    setWizardStep(1);
+    setWizardOpen(true);
+  };
+
+  const handleDeleteApp = (id: string) => {
+    deleteApp(id);
+    reloadApps();
+  };
+
+  const handleSaveApp = () => {
+    reloadApps();
+  };
+
+  const handleGoToLibrary = () => {
+    setWizardOpen(false);
+    setWizardStep(1);
+    setEditingApp(null);
+    setActiveTab('dashboard');
+    reloadApps();
+  };
+
+  const handleCloseWizard = () => {
+    setWizardOpen(false);
+    setWizardStep(1);
+    setEditingApp(null);
   };
 
   const handleStartChuckDemo = () => {
@@ -128,7 +256,10 @@ export function BuilderDashboard() {
           onStepChange={setWizardStep}
           apiKey={apiKey}
           onApiKeyChange={setApiKey}
-          onClose={() => { setWizardOpen(false); setWizardStep(1); }}
+          onClose={handleCloseWizard}
+          editingApp={editingApp ?? undefined}
+          onSaveApp={handleSaveApp}
+          onGoToLibrary={handleGoToLibrary}
         />
       )}
 
@@ -155,7 +286,15 @@ export function BuilderDashboard() {
           <InstructionsPage onNavigate={setActiveTab} />
         )}
         {activeTab === 'dashboard' && (
-          <DashboardPane selectedTemplate={selectedTemplate} />
+          <DashboardPane
+            savedApps={savedApps}
+            onOpen={handleOpenSavedApp}
+            onDelete={handleDeleteApp}
+            onAppUpdated={(updated) => {
+              setSavedApps((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+            }}
+            onCreateNew={() => setActiveTab('templates')}
+          />
         )}
         {activeTab === 'templates' && (
           <TemplateLibrary

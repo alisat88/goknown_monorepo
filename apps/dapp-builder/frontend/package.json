@@ -6,18 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.1.4",
-    "typescript": "^5.3.3",
+    "lucide-react": "^0.468.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.468.0"
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.56",
-    "@types/react-dom": "^18.2.19"
+    "@types/react-dom": "^18.2.19",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.9"
   }
 }
