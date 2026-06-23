@@ -1,10 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { X, ArrowRight, Sparkles, Copy, Check, Loader, Save, BookMarked } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp } from '../types';
 import { buildConfig } from '../lib/buildConfig';
 import { generateDAppCode } from '../lib/generateCode';
 import { saveApp, updateApp } from '../services/storage';
 import { WorkflowBuilder } from './WorkflowBuilder';
+
+const LOADING_MESSAGES = [
+  'Generating your dApp...',
+  'Wiring up the workflow blocks...',
+  'Connecting API services...',
+  'Almost there...',
+];
+
+function classifyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  const status = msg.split(':')[0];
+  if (status === '401') return 'Invalid API key — check your key and try again';
+  if (status === '429') return 'Rate limit reached — wait a moment and try again';
+  if (
+    msg.toLowerCase().includes('failed to fetch') ||
+    msg.toLowerCase().includes('networkerror') ||
+    msg.toLowerCase().includes('network error')
+  ) {
+    return 'Network error — check your connection and try again';
+  }
+  return msg.includes(':') ? msg.split(':').slice(1).join(':').trim() || msg : msg;
+}
 
 interface Props {
   template: Template;
@@ -57,14 +79,28 @@ export function CreateDAppWizard({
   const [dappName, setDappName] = useState(
     editingApp?.dappName ?? (template.id === 'custom' ? '' : `My ${template.name}`)
   );
+  const [userPrompt, setUserPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
   const [generatedCode, setGeneratedCode] = useState<string | null>(
     editingApp?.generatedCode || null
   );
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [localKey, setLocalKey] = useState(apiKey);
   const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
+
+  const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
+
+  // Revoke blob URL on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
+    };
+  }, []);
 
   useEffect(() => { setLocalKey(apiKey); }, [apiKey]);
 
@@ -80,30 +116,6 @@ export function CreateDAppWizard({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
-
-  const handleGenerate = async () => {
-    const key = localKey.trim();
-    if (!key) return;
-    setGenerating(true);
-    setGenError(null);
-    setGeneratedCode(null);
-    try {
-      const code = await generateDAppCode(template, workflowSteps, dappName, key);
-      setGeneratedCode(code);
-    } catch (err) {
-      setGenError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleCopy = () => {
-    if (!generatedCode) return;
-    navigator.clipboard.writeText(generatedCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   const config = buildConfig(template, workflowSteps, dappName);
 
@@ -142,6 +154,78 @@ export function CreateDAppWizard({
     }
   };
 
+  const handleGenerate = async () => {
+    const key = localKey.trim();
+    if (!key) return;
+
+    setGenerating(true);
+    setGenError(null);
+    setGeneratedCode(null);
+    setBlobUrl(null);
+    setSavedConfirmation(null);
+    setLoadingMsg(LOADING_MESSAGES[0]);
+
+    let msgIdx = 0;
+    loadingIntervalRef.current = setInterval(() => {
+      msgIdx = (msgIdx + 1) % LOADING_MESSAGES.length;
+      setLoadingMsg(LOADING_MESSAGES[msgIdx]);
+    }, 2000);
+
+    try {
+      const html = await generateDAppCode(
+        {
+          dappName: config.dappName,
+          template: config.template,
+          apis: config.apis,
+          workflow: config.workflow,
+          userPrompt,
+        },
+        key
+      );
+
+      // Build blob URL for iframe
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      blobUrlRef.current = url;
+      setBlobUrl(url);
+      setGeneratedCode(html);
+
+      // Auto-save immediately after successful generation
+      // TODO (production): Replace with POST /api/dapps
+      const saved = persistApp(false, html);
+      onSaveApp?.();
+      setSavedConfirmation(saved.dappName);
+    } catch (err) {
+      setGenError(classifyError(err));
+    } finally {
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = null;
+      }
+      setGenerating(false);
+    }
+  };
+
+  const handleRegenerate = () => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+    setBlobUrl(null);
+    setGeneratedCode(null);
+    setGenError(null);
+    setSavedConfirmation(null);
+  };
+
+  const handleCopy = () => {
+    if (!generatedCode) return;
+    navigator.clipboard.writeText(generatedCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const handleSaveDraft = () => {
     const app = persistApp(true, null);
     onSaveApp?.();
@@ -150,12 +234,6 @@ export function CreateDAppWizard({
       setSavedConfirmation(null);
       onClose();
     }, 1500);
-  };
-
-  const handleSaveToLibrary = () => {
-    const app = persistApp(false, generatedCode);
-    onSaveApp?.();
-    setSavedConfirmation(app.dappName);
   };
 
   return (
@@ -253,6 +331,23 @@ export function CreateDAppWizard({
                 </pre>
               </div>
 
+              {/* Custom prompt — shown before generation */}
+              {!generatedCode && (
+                <div className="codegen-prompt-field">
+                  <label className="wizard-field-label" htmlFor="wizard-user-prompt">
+                    Describe what you want your dApp to do (optional)
+                  </label>
+                  <textarea
+                    id="wizard-user-prompt"
+                    className="codegen-prompt-textarea"
+                    rows={4}
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    placeholder="e.g. Show a live token balance, allow the user to submit a transfer request, display a transaction history table with filters"
+                  />
+                </div>
+              )}
+
               {/* API key input */}
               {!localKey.trim() && (
                 <div className="api-key-input-wrap">
@@ -284,7 +379,7 @@ export function CreateDAppWizard({
                   {generating ? (
                     <>
                       <Loader size={15} className="spin" />
-                      Generating your dApp code…
+                      {loadingMsg}
                     </>
                   ) : (
                     <>
@@ -308,38 +403,54 @@ export function CreateDAppWizard({
                 </div>
               )}
 
-              {/* Generated code */}
-              {generatedCode && (
+              {/* Generated output */}
+              {generatedCode && blobUrl && (
                 <div className="wizard-code-output">
-                  <div className="wizard-code-header">
-                    <span className="code-block-label">Generated TypeScript / React</span>
+                  {/* Live iframe preview */}
+                  <div className="codegen-iframe-section">
+                    <div className="codegen-iframe-header">
+                      <span className="code-block-label">Live Preview</span>
+                      <button
+                        className="open-newtab-btn"
+                        onClick={() => window.open(blobUrl, '_blank')}
+                      >
+                        <ExternalLink size={13} />
+                        Open in new tab
+                      </button>
+                    </div>
+                    <iframe
+                      src={blobUrl}
+                      className="codegen-iframe"
+                      title={`${config.dappName} live preview`}
+                      sandbox="allow-scripts allow-same-origin"
+                    />
+                  </div>
+
+                  {/* Auto-save confirmation */}
+                  {savedConfirmation && (
+                    <div className="save-toast" style={{ marginTop: '12px' }}>
+                      ✓ Saved to My Library as <strong>{savedConfirmation}</strong>
+                    </div>
+                  )}
+
+                  {/* Code panel */}
+                  <div className="wizard-code-header" style={{ marginTop: '20px' }}>
+                    <span className="code-block-label">Generated HTML</span>
                     <button className="wizard-copy-btn" onClick={handleCopy}>
                       {copied ? <><Check size={13} /> Copied ✓</> : <><Copy size={13} /> Copy code</>}
                     </button>
                   </div>
                   <pre className="wizard-code-pre">{generatedCode}</pre>
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
-                    <button
-                      className="wizard-generate-btn"
-                      style={{ background: 'rgba(38,184,255,0.06)' }}
-                      onClick={() => { setGeneratedCode(null); setGenError(null); setSavedConfirmation(null); }}
-                    >
-                      <Sparkles size={14} />
-                      Regenerate
-                    </button>
-                    {!savedConfirmation && (
-                      <button className="wizard-save-btn" onClick={handleSaveToLibrary}>
-                        <BookMarked size={14} />
-                        Save to My Library
-                      </button>
-                    )}
-                  </div>
 
-                  {savedConfirmation && (
-                    <div className="save-toast">
-                      ✓ <strong>{savedConfirmation}</strong> saved to your library
-                    </div>
-                  )}
+                  {/* Regenerate */}
+                  <button
+                    className="wizard-generate-btn"
+                    style={{ marginTop: '14px', background: 'rgba(38,184,255,0.06)' }}
+                    onClick={handleRegenerate}
+                  >
+                    <Sparkles size={14} />
+                    Regenerate
+                  </button>
                 </div>
               )}
             </div>

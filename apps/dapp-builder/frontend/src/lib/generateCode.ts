@@ -1,36 +1,52 @@
-import { Template, WorkflowBlock } from '../types';
 import { API_COMPONENTS } from '../data';
-import { buildConfig } from './buildConfig';
+
+export interface GenerationConfig {
+  dappName: string;
+  template: string;
+  apis: string[];      // API IDs from buildConfig — resolved to descriptions internally
+  workflow: string[];
+  userPrompt: string;
+}
+
+const SYSTEM_PROMPT = `You are a dApp frontend code generator. Generate a single self-contained HTML file with embedded CSS and JavaScript that implements the dApp described. Requirements:
+(1) No external dependencies except a CDN-hosted React/ReactDOM via unpkg, or a plain vanilla JS implementation — pick whichever fits better.
+(2) Working UI with real interactivity — buttons do things, forms submit, state updates visibly.
+(3) Stub the API service calls as async functions that log to console and return realistic mock data so the UI behaves as if connected.
+(4) Include the dApp name as the page title and a visible header.
+(5) Use a dark blue / Web3 color scheme matching #26b8ff, #4ee5ff, #1a1f3c as the palette.
+(6) Return ONLY the HTML — no explanation, no markdown fences, no preamble.`;
+
+function buildUserPrompt(config: GenerationConfig): string {
+  const apiDetails = config.apis
+    .map((id) => {
+      const api = API_COMPONENTS.find((a) => a.id === id);
+      return api
+        ? `${api.name} (${api.endpoint}): ${api.purpose}`
+        : id;
+    })
+    .join(', ');
+
+  const lines = [
+    `Build a dApp called "${config.dappName}" using the "${config.template}" pattern.`,
+    `Selected API services: ${apiDetails || 'none'}, each with stub implementations.`,
+    `Workflow steps in order: ${config.workflow.join(' → ') || 'none'}.`,
+  ];
+
+  if (config.userPrompt.trim()) {
+    lines.push(`Additional requirements from the builder: ${config.userPrompt.trim()}`);
+  }
+
+  lines.push(
+    'Make the UI fully interactive — include real state, working button handlers, and visible feedback for every user action.'
+  );
+
+  return lines.join('\n');
+}
 
 export async function generateDAppCode(
-  template: Template | null,
-  workflowSteps: WorkflowBlock[],
-  dappName: string,
+  config: GenerationConfig,
   apiKey: string
 ): Promise<string> {
-  const config = buildConfig(template, workflowSteps, dappName || undefined);
-
-  const apiDescriptions = config.apis
-    .map((apiId) => {
-      const api = API_COMPONENTS.find((a) => a.id === apiId);
-      return api ? `${api.name} (${api.endpoint}): ${api.purpose}` : apiId;
-    })
-    .join('\n  - ');
-
-  const userPrompt = `Generate a React TypeScript dApp called "${config.dappName}" using the "${config.template}" template.
-
-It should use these API services:
-  - ${apiDescriptions || 'No APIs specified'}
-
-The workflow is: ${config.workflow.join(' → ') || 'No steps defined'}
-
-Include:
-- A main App component with basic routing
-- Service call stubs for each API (matching the endpoints above)
-- Basic UI components for the ${config.template} template type
-- TypeScript interfaces for the data shapes
-- Inline comments explaining each section`;
-
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -42,17 +58,24 @@ Include:
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 4000,
-      system:
-        "You are a dApp code generator. Generate clean, production-ready TypeScript/React code for the dApp described in the user's config. Return only the code — no explanation, no markdown fences.",
-      messages: [{ role: 'user', content: userPrompt }],
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: buildUserPrompt(config) }],
     }),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err.error?.message ?? `HTTP ${response.status}`);
+    // Prefix with HTTP status so call sites can classify the error
+    throw new Error(`${response.status}:${err.error?.message ?? 'API request failed'}`);
   }
 
   const data = await response.json() as { content: Array<{ type: string; text: string }> };
-  return data.content[0].text;
+  let html = data.content[0].text.trim();
+
+  // Strip markdown fences if the model still wraps output despite instructions
+  if (html.startsWith('```')) {
+    html = html.replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/i, '');
+  }
+
+  return html;
 }

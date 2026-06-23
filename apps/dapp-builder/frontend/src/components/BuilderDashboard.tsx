@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard,
   Library,
@@ -14,6 +14,8 @@ import {
   Share2,
   FolderOpen,
   Users,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import { Template, WorkflowBlock, TabId, SavedDApp } from '../types';
 import { TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS } from '../data';
@@ -59,15 +61,76 @@ function formatDate(iso: string): string {
   }
 }
 
+function PreviewModal({ app, onClose }: { app: SavedDApp; onClose: () => void }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const blobRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!app.generatedCode) return;
+    const blob = new Blob([app.generatedCode], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    blobRef.current = url;
+    setBlobUrl(url);
+    return () => { if (blobRef.current) URL.revokeObjectURL(blobRef.current); };
+  }, [app.generatedCode]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+  }, [onClose]);
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  return (
+    <div className="wizard-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="preview-modal" role="dialog" aria-modal="true" aria-label={`${app.dappName} preview`}>
+        <div className="preview-modal-header">
+          <div>
+            <div className="wizard-header-kicker">Live Preview</div>
+            <div className="wizard-header-title">{app.dappName}</div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {blobUrl && (
+              <button className="open-newtab-btn" onClick={() => window.open(blobUrl, '_blank')}>
+                <ExternalLink size={13} />
+                Open in new tab
+              </button>
+            )}
+            <button className="wizard-close-btn" onClick={onClose} aria-label="Close preview">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+        <div className="preview-modal-body">
+          {blobUrl ? (
+            <iframe
+              src={blobUrl}
+              className="codegen-iframe codegen-iframe--modal"
+              title={`${app.dappName} live preview`}
+              sandbox="allow-scripts allow-same-origin"
+            />
+          ) : (
+            <div className="preview-modal-empty">
+              No generated code for this dApp yet. Open it and run Generate Code first.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface DashboardPaneProps {
   savedApps: SavedDApp[];
   onOpen: (app: SavedDApp) => void;
   onDelete: (id: string) => void;
   onAppUpdated: (updated: SavedDApp) => void;
   onCreateNew: () => void;
+  onPreview: (app: SavedDApp) => void;
 }
 
-function DashboardPane({ savedApps, onOpen, onDelete, onAppUpdated, onCreateNew }: DashboardPaneProps) {
+function DashboardPane({ savedApps, onOpen, onDelete, onAppUpdated, onCreateNew, onPreview }: DashboardPaneProps) {
   const [sharingAppId, setSharingAppId] = useState<string | null>(null);
 
   return (
@@ -110,6 +173,15 @@ function DashboardPane({ savedApps, onOpen, onDelete, onAppUpdated, onCreateNew 
                 <FolderOpen size={13} />
                 Open
               </button>
+              {app.generatedCode && (
+                <button
+                  className="saved-app-action-btn saved-app-action-btn--preview"
+                  onClick={() => onPreview(app)}
+                >
+                  <Monitor size={13} />
+                  Preview
+                </button>
+              )}
               <button
                 className="saved-app-action-btn saved-app-action-btn--share"
                 onClick={() => setSharingAppId(sharingAppId === app.id ? null : app.id)}
@@ -160,6 +232,7 @@ export function BuilderDashboard() {
   const [apiKey, setApiKey] = useState(
     (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? ''
   );
+  const [previewApp, setPreviewApp] = useState<SavedDApp | null>(null);
 
   // Seed demo apps on first ever load, then hydrate state.
   // TODO (production): Replace with GET /api/dapps
@@ -247,6 +320,10 @@ export function BuilderDashboard() {
 
   return (
     <div className="builder">
+      {previewApp && (
+        <PreviewModal app={previewApp} onClose={() => setPreviewApp(null)} />
+      )}
+
       {wizardOpen && selectedTemplate && (
         <CreateDAppWizard
           template={selectedTemplate}
@@ -290,6 +367,7 @@ export function BuilderDashboard() {
             savedApps={savedApps}
             onOpen={handleOpenSavedApp}
             onDelete={handleDeleteApp}
+            onPreview={(app) => setPreviewApp(app)}
             onAppUpdated={(updated) => {
               setSavedApps((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
             }}
@@ -323,6 +401,7 @@ export function BuilderDashboard() {
             workflowSteps={workflowSteps}
             apiKey={apiKey}
             onApiKeyChange={setApiKey}
+            onSaveApp={handleSaveApp}
           />
         )}
         {activeTab === 'permissions' && <PermissioningPanel />}
