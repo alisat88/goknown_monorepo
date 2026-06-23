@@ -94,10 +94,11 @@ export function CreateDAppWizard({
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
-  // Revoke blob URL on unmount to avoid memory leaks
+  // Revoke blob URL on unmount — delay so any in-flight iframe load can finish
   useEffect(() => {
     return () => {
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      const url = blobUrlRef.current;
+      if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
     };
   }, []);
@@ -183,12 +184,14 @@ export function CreateDAppWizard({
         key
       );
 
-      // Build blob URL for iframe
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      blobUrlRef.current = url;
-      setBlobUrl(url);
+      // Build blob URL for iframe — set new URL first, then defer old URL revocation
+      // so any previously loading iframe finishes before we free the resource
+      console.log('[DAppBuilder] Generated HTML preview (first 300 chars):', html.slice(0, 300));
+      const oldUrl = blobUrlRef.current;
+      const newUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      blobUrlRef.current = newUrl;
+      setBlobUrl(newUrl);
+      if (oldUrl) setTimeout(() => URL.revokeObjectURL(oldUrl), 1000);
       setGeneratedCode(html);
 
       // Auto-save immediately after successful generation
@@ -208,10 +211,10 @@ export function CreateDAppWizard({
   };
 
   const handleRegenerate = () => {
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
+    // Defer revocation so the iframe isn't killed mid-load if user clicks quickly
+    const url = blobUrlRef.current;
+    if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+    blobUrlRef.current = null;
     setBlobUrl(null);
     setGeneratedCode(null);
     setGenError(null);
@@ -422,7 +425,9 @@ export function CreateDAppWizard({
                       src={blobUrl}
                       className="codegen-iframe"
                       title={`${config.dappName} live preview`}
-                      sandbox="allow-scripts allow-same-origin"
+                      sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+                      onLoad={() => console.log('[DAppBuilder] iframe loaded:', blobUrl?.slice(0, 60))}
+                      style={{ width: '100%', minHeight: '500px', border: 'none', borderRadius: '8px' }}
                     />
                   </div>
 

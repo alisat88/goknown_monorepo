@@ -70,11 +70,14 @@ export async function generateDAppCode(
   }
 
   const data = await response.json() as { content: Array<{ type: string; text: string }> };
-  let html = data.content[0].text.trim();
+  const raw = data.content[0].text;
 
-  // Strip markdown fences if the model still wraps output despite instructions
+  // Strip markdown fences — handles ```html, ```HTML, ```tsx, ``` with/without trailing spaces
+  let html = raw.replace(/^```[a-zA-Z]*\n?/, '').trim();
+  html = html.replace(/\n?```$/, '').trim();
+  // Edge case: model wrapped twice — strip again
   if (html.startsWith('```')) {
-    html = html.replace(/^```[a-z]*\n?/i, '').replace(/\n?```\s*$/i, '');
+    html = html.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
   }
 
   return html;

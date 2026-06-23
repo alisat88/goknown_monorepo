@@ -108,7 +108,9 @@ function PreviewModal({ app, onClose }: { app: SavedDApp; onClose: () => void })
               src={blobUrl}
               className="codegen-iframe codegen-iframe--modal"
               title={`${app.dappName} live preview`}
-              sandbox="allow-scripts allow-same-origin"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+              onLoad={() => console.log('[DAppBuilder] iframe loaded:', blobUrl?.slice(0, 60))}
+              style={{ width: '100%', border: 'none' }}
             />
           ) : (
             <div className="preview-modal-empty">
