@@ -2044,6 +2044,501 @@
   text-align: center;
 }
 
+/* ── DEMO USER SELECTOR BAR ─────────────────────── */
+
+.demo-user-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px;
+  background: rgba(5, 14, 34, 0.7);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.demo-user-label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.demo-user-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.demo-user-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.demo-user-btn:hover {
+  border-color: rgba(78, 229, 255, 0.4);
+  color: var(--cyan);
+  background: rgba(78, 229, 255, 0.06);
+}
+
+.demo-user-btn.active {
+  background: rgba(38, 184, 255, 0.15);
+  border-color: var(--blue);
+  color: #dff4ff;
+  font-weight: 600;
+}
+
+/* ── LIBRARY SECTIONS (My Apps / Shared with Me) ── */
+
+.library-section {
+  margin-bottom: 28px;
+}
+
+.library-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  padding-left: 2px;
+}
+
+.library-empty {
+  padding: 36px 24px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.project-grid--create-only {
+  margin-top: 0;
+}
+
+/* ── SAVED APP CARD EXTRAS ────────────────────────── */
+
+.saved-app-badges-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  min-height: 20px;
+}
+
+.generated-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(126, 232, 126, 0.12);
+  color: #7ee87e;
+  border: 1px solid rgba(126, 232, 126, 0.25);
+}
+
+/* ── SHARED ROLE BADGES ───────────────────────────── */
+
+.shared-role-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.shared-role-badge--viewer {
+  background: rgba(78, 229, 255, 0.1);
+  color: var(--cyan);
+  border: 1px solid rgba(78, 229, 255, 0.25);
+}
+
+.shared-role-badge--builder {
+  background: rgba(38, 184, 255, 0.12);
+  color: #69c8ff;
+  border: 1px solid rgba(38, 184, 255, 0.3);
+}
+
+.shared-role-badge--reviewer {
+  background: rgba(255, 200, 60, 0.1);
+  color: #ffc83c;
+  border: 1px solid rgba(255, 200, 60, 0.25);
+}
+
+/* ── SHARE PANEL EXTRAS ───────────────────────────── */
+
+.share-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.share-role-select {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(5, 14, 34, 0.8);
+  color: #c4daf5;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234ee5ff' opacity='.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+.share-send-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.share-send-btn:hover { opacity: 0.88; }
+
+.share-feedback {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+}
+
+.share-feedback--success {
+  background: rgba(126, 232, 126, 0.1);
+  color: #7ee87e;
+  border: 1px solid rgba(126, 232, 126, 0.25);
+}
+
+.share-feedback--error {
+  background: rgba(255, 100, 80, 0.1);
+  color: #ff9580;
+  border: 1px solid rgba(255, 100, 80, 0.25);
+}
+
+/* ── DAPP PREVIEW PAGE (full overlay) ─────────────── */
+
+.dapp-preview-page {
+  position: relative;
+  width: 92vw;
+  max-width: 1280px;
+  height: 92vh;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 10, 0.7);
+}
+
+.dapp-preview-page-header {
+  flex-shrink: 0;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(5, 14, 34, 0.5);
+}
+
+.dapp-preview-page-nav {
+  display: flex;
+  gap: 10px;
+}
+
+.dapp-preview-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(38, 184, 255, 0.1);
+  color: var(--cyan);
+  font-size: 0.78rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dapp-preview-back-btn:hover {
+  background: rgba(38, 184, 255, 0.18);
+  border-color: rgba(78, 229, 255, 0.4);
+}
+
+.dapp-preview-back-btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--line);
+}
+
+.dapp-preview-back-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #c4daf5;
+}
+
+.dapp-preview-page-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dapp-preview-page-title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.dapp-preview-page-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #dff4ff;
+  line-height: 1.3;
+}
+
+.dapp-preview-page-template {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.dapp-preview-page-badges {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.dapp-preview-badge {
+  display: inline-block;
+  font-size: 0.71rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dapp-preview-badge--mode {
+  background: rgba(38, 184, 255, 0.12);
+  color: var(--cyan);
+  border: 1px solid rgba(38, 184, 255, 0.3);
+}
+
+.dapp-preview-badge--built {
+  background: rgba(126, 232, 126, 0.1);
+  color: #7ee87e;
+  border: 1px solid rgba(126, 232, 126, 0.25);
+}
+
+.dapp-preview-badge--role {
+  border: 1px solid transparent;
+}
+
+.dapp-preview-badge--role-owner {
+  background: rgba(255, 200, 60, 0.12);
+  color: #ffc83c;
+  border-color: rgba(255, 200, 60, 0.3);
+}
+
+.dapp-preview-badge--role-viewer {
+  background: rgba(78, 229, 255, 0.1);
+  color: var(--cyan);
+  border-color: rgba(78, 229, 255, 0.25);
+}
+
+.dapp-preview-badge--role-builder {
+  background: rgba(38, 184, 255, 0.12);
+  color: #69c8ff;
+  border-color: rgba(38, 184, 255, 0.3);
+}
+
+.dapp-preview-badge--role-reviewer {
+  background: rgba(255, 200, 60, 0.1);
+  color: #ffc83c;
+  border-color: rgba(255, 200, 60, 0.25);
+}
+
+.dapp-preview-page-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.dapp-preview-page-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.dapp-preview-meta-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.dapp-preview-mock-url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dapp-preview-mock-url-path {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  color: var(--cyan);
+  background: rgba(78, 229, 255, 0.07);
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(78, 229, 255, 0.15);
+}
+
+.dapp-preview-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dapp-preview-copy-btn:hover {
+  border-color: rgba(78, 229, 255, 0.3);
+  color: var(--cyan);
+}
+
+.dapp-preview-workflow-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.dapp-preview-workflow-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dapp-preview-workflow-step {
+  font-size: 0.76rem;
+  color: #c4daf5;
+  background: rgba(38, 184, 255, 0.07);
+  border: 1px solid var(--line);
+  padding: 2px 9px;
+  border-radius: 6px;
+}
+
+.dapp-preview-workflow-sep {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.dapp-preview-shared-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dapp-preview-shared-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dapp-preview-shared-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #c4daf5;
+}
+
+.dapp-preview-page-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dapp-preview-iframe {
+  flex: 1;
+  width: 100%;
+  border: none;
+  min-height: 0;
+}
+
+.dapp-preview-mockup-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dapp-preview-mockup-note {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  background: rgba(38, 184, 255, 0.05);
+  border: 1px solid rgba(38, 184, 255, 0.12);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.dapp-preview-mockup-frame {
+  flex: 1;
+}
+
 /* ── RESPONSIVE ─────────────────────────────────── */
 
 @media (max-width: 980px) {

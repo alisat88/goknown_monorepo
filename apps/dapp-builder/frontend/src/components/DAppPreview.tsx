@@ -168,6 +168,32 @@ function PermissionedWorkflow() {
   );
 }
 
+export const TEMPLATE_PREVIEW_TITLES: Record<string, string> = {
+  'token-dashboard': 'Token Rewards Portal',
+  'nft-mint': 'NFT Collection Launch',
+  'dao-voting': 'DAO Voting Portal',
+  'escrow-payment': 'Escrow Payment Flow',
+  'ledger-app': 'Aviation Ledger App',
+  'permissioned-workflow': 'Internal Workflow',
+};
+
+export function renderTemplateMockup(templateId: string): React.ReactNode {
+  switch (templateId) {
+    case 'token-dashboard':       return <TokenDashboard />;
+    case 'nft-mint':              return <NftMintPage />;
+    case 'dao-voting':            return <DaoVotingPortal />;
+    case 'escrow-payment':        return <EscrowPaymentApp />;
+    case 'ledger-app':            return <LedgerApp />;
+    case 'permissioned-workflow': return <PermissionedWorkflow />;
+    default: return (
+      <div className="preview-empty">
+        <Monitor size={36} className="preview-empty-icon" />
+        <p>No template preview available. Generate code to see your dApp.</p>
+      </div>
+    );
+  }
+}
+
 export function DAppPreview({ selectedTemplate }: Props) {
   const [activePreview, setActivePreview] = useState<string>(
     selectedTemplate?.id ?? 'token-dashboard'

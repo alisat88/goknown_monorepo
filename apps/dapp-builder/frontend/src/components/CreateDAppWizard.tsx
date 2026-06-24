@@ -40,6 +40,7 @@ interface Props {
   editingApp?: SavedDApp;
   onSaveApp?: () => void;
   onGoToLibrary?: () => void;
+  currentUserEmail?: string;
 }
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
@@ -75,6 +76,7 @@ export function CreateDAppWizard({
   editingApp,
   onSaveApp,
   onGoToLibrary,
+  currentUserEmail,
 }: Props) {
   const [dappName, setDappName] = useState(
     editingApp?.dappName ?? (template.id === 'custom' ? '' : `My ${template.name}`)
@@ -143,6 +145,8 @@ export function CreateDAppWizard({
         createdAt: now,
         updatedAt: now,
         sharedWith: [],
+        sharedAccess: [],
+        ownerId: currentUserEmail ?? 'alisa@goknown.io',
         status: isDraft ? 'Draft' : 'Preview',
       };
       saveApp(newApp);

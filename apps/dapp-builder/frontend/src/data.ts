@@ -1,4 +1,4 @@
-import { Template, WorkflowBlock, ApiComponent, DAppProject } from './types';
+import { Template, WorkflowBlock, ApiComponent, DAppProject, DemoUser } from './types';
 
 export const TEMPLATES: Template[] = [
   {
@@ -174,4 +174,15 @@ export const DEMO_PROJECTS: DAppProject[] = [
   { id: 'token-rewards', name: 'Token Rewards Portal', status: 'Preview', templateId: 'token-dashboard' },
   { id: 'dao-voting-demo', name: 'DAO Voting Demo', status: 'Ready for API mapping', templateId: 'dao-voting' },
   { id: 'escrow-flow', name: 'Escrow Payment Flow', status: 'Permission review', templateId: 'escrow-payment' },
+];
+
+export const DEMO_USERS: DemoUser[] = [
+  { name: 'Alisa',   email: 'alisa@goknown.io' },
+  { name: 'Chuck',   email: 'chuck@goknown.io' },
+  { name: 'Dr. Lu',  email: 'drlu@goknown.io' },
+  { name: 'Dr. Sam', email: 'drsam@goknown.io' },
+  { name: 'Fiona',   email: 'fiona@goknown.io' },
+  { name: 'Leo',     email: 'leo@goknown.io' },
+  { name: 'Mike',    email: 'mike@goknown.io' },
+  { name: 'Connie',  email: 'connie@goknown.io' },
 ];

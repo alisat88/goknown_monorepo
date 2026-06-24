@@ -2,15 +2,26 @@
 // the backend persistence API (e.g. POST /api/dapps, PUT /api/dapps/:id).
 // localStorage is used here for demo purposes only.
 
-import { SavedDApp } from '../types';
+import { SavedDApp, SharedAccess } from '../types';
 
 const STORAGE_KEY = 'dappbuilder:saved_apps';
+const SEED_VERSION_KEY = 'dappbuilder:seed_version';
+export const CURRENT_SEED_VERSION = '3'; // bump when demo seed schema changes
+
+/** Migrate apps that predate the ownerId / sharedAccess fields. */
+function migrate(app: SavedDApp): SavedDApp {
+  return {
+    ...app,
+    ownerId: app.ownerId ?? 'alisa@goknown.io',
+    sharedAccess: app.sharedAccess ?? [],
+  };
+}
 
 export function loadSavedApps(): SavedDApp[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as SavedDApp[];
+    return (JSON.parse(raw) as SavedDApp[]).map(migrate);
   } catch {
     return [];
   }
@@ -42,27 +53,40 @@ export function getApp(id: string): SavedDApp | null {
   return loadSavedApps().find((a) => a.id === id) ?? null;
 }
 
-export function shareApp(id: string, email: string): void {
-  // TODO (production): POST /api/dapps/:id/share { email }
+export function shareApp(id: string, email: string, access?: SharedAccess): void {
+  // TODO (production): POST /api/dapps/:id/share { email, role }
   const apps = loadSavedApps();
   const idx = apps.findIndex((a) => a.id === id);
   if (idx === -1) return;
   const already = apps[idx].sharedWith.map((e) => e.toLowerCase());
-  if (already.includes(email.toLowerCase())) return;
+  const normalized = email.toLowerCase();
   apps[idx] = {
     ...apps[idx],
-    sharedWith: [...apps[idx].sharedWith, email.toLowerCase()],
+    sharedWith: already.includes(normalized)
+      ? apps[idx].sharedWith
+      : [...apps[idx].sharedWith, normalized],
+    sharedAccess: access
+      ? [
+          ...(apps[idx].sharedAccess ?? []).filter((a) => a.email !== normalized),
+          { ...access, email: normalized },
+        ]
+      : apps[idx].sharedAccess ?? [],
     updatedAt: new Date().toISOString(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
 }
 
 /**
- * Seeds demo apps into localStorage on first load only.
- * Checks for the storage key before writing — subsequent calls are no-ops.
+ * Seeds demo apps into localStorage. Re-seeds whenever CURRENT_SEED_VERSION changes
+ * so demo participants always see up-to-date ownership and sharing.
  */
 export function seedDemoApps(apps: SavedDApp[]): void {
   // TODO (production): Remove entirely — demo data is seeded server-side.
-  if (localStorage.getItem(STORAGE_KEY) !== null) return;
+  const storedVersion = localStorage.getItem(SEED_VERSION_KEY);
+  if (
+    localStorage.getItem(STORAGE_KEY) !== null &&
+    storedVersion === CURRENT_SEED_VERSION
+  ) return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
+  localStorage.setItem(SEED_VERSION_KEY, CURRENT_SEED_VERSION);
 }

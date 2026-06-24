@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Send, X } from 'lucide-react';
-import { SavedDApp } from '../types';
+import { SavedDApp, SharedRole, SharedAccess } from '../types';
 import { shareApp, updateApp } from '../services/storage';
 import { isWhitelisted } from '../services/whitelist';
 
@@ -10,8 +10,17 @@ interface Props {
   onClose: () => void;
 }
 
+const ROLES: SharedRole[] = ['Viewer', 'Builder', 'Reviewer'];
+
+const ROLE_DESC: Record<SharedRole, string> = {
+  Viewer:   'Can open preview only',
+  Builder:  'Can preview and edit workflow',
+  Reviewer: 'Can preview and review config',
+};
+
 export function SharePanel({ app, onUpdated, onClose }: Props) {
   const [emailInput, setEmailInput] = useState('');
+  const [selectedRole, setSelectedRole] = useState<SharedRole>('Viewer');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const handleShare = () => {
@@ -26,34 +35,45 @@ export function SharePanel({ app, onUpdated, onClose }: Props) {
     if (!isWhitelisted(email)) {
       setFeedback({
         type: 'error',
-        message: 'This email is not on the approved access list. Contact your admin to add them.',
+        message: 'This email is not whitelisted for DAppGenius access.',
       });
       return;
     }
 
-    shareApp(app.id, email);
+    const access: SharedAccess = { email, role: selectedRole };
+    shareApp(app.id, email, access);
+    const newSharedAccess = [
+      ...(app.sharedAccess ?? []).filter((a) => a.email !== email),
+      access,
+    ];
     const updated: SavedDApp = {
       ...app,
       sharedWith: [...app.sharedWith, email],
+      sharedAccess: newSharedAccess,
       updatedAt: new Date().toISOString(),
     };
     onUpdated(updated);
     setEmailInput('');
-    setFeedback({ type: 'success', message: `✓ Shared with ${email}` });
+    setFeedback({ type: 'success', message: `✓ Shared with ${email} as ${selectedRole}` });
     setTimeout(() => setFeedback(null), 3000);
   };
 
   const handleRemove = (email: string) => {
     // TODO (production): DELETE /api/dapps/:id/share/:email
     const newShared = app.sharedWith.filter((e) => e.toLowerCase() !== email.toLowerCase());
-    updateApp(app.id, { sharedWith: newShared });
+    const newAccess = (app.sharedAccess ?? []).filter((a) => a.email !== email.toLowerCase());
+    updateApp(app.id, { sharedWith: newShared, sharedAccess: newAccess });
     const updated: SavedDApp = {
       ...app,
       sharedWith: newShared,
+      sharedAccess: newAccess,
       updatedAt: new Date().toISOString(),
     };
     onUpdated(updated);
   };
+
+  const getRoleForEmail = (email: string): SharedRole | null =>
+    (app.sharedAccess ?? []).find((a) => a.email === email.toLowerCase())?.role ?? null;
 
   return (
     <div className="share-panel">
@@ -71,9 +91,19 @@ export function SharePanel({ app, onUpdated, onClose }: Props) {
           value={emailInput}
           onChange={(e) => setEmailInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleShare()}
-          placeholder="Enter email address to share with"
+          placeholder="Enter whitelisted email address"
           style={{ flex: 1, padding: '8px 12px', fontSize: '0.84rem' }}
         />
+        <select
+          className="share-role-select"
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value as SharedRole)}
+          aria-label="Permission role"
+        >
+          {ROLES.map((r) => (
+            <option key={r} value={r} title={ROLE_DESC[r]}>{r}</option>
+          ))}
+        </select>
         <button className="share-send-btn" onClick={handleShare} aria-label="Share">
           <Send size={14} />
           Share
@@ -89,23 +119,32 @@ export function SharePanel({ app, onUpdated, onClose }: Props) {
       {app.sharedWith.length > 0 && (
         <div className="share-email-list">
           <div className="share-email-list-label">Shared with</div>
-          {app.sharedWith.map((email) => (
-            <div key={email} className="share-email-row">
-              <span className="share-email-address">{email}</span>
-              <button
-                className="share-remove-btn"
-                onClick={() => handleRemove(email)}
-                aria-label={`Remove ${email}`}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
+          {app.sharedWith.map((email) => {
+            const role = getRoleForEmail(email);
+            return (
+              <div key={email} className="share-email-row">
+                <span className="share-email-address">{email}</span>
+                {role && (
+                  <span className={`shared-role-badge shared-role-badge--${role.toLowerCase()}`}>
+                    {role}
+                  </span>
+                )}
+                <button
+                  className="share-remove-btn"
+                  onClick={() => handleRemove(email)}
+                  aria-label={`Remove ${email}`}
+                >
+                  Remove
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
       <p className="share-panel-note">
-        Sharing is managed by the dApp-level access control service in production.
+        Only whitelisted DAppGenius users can be granted access.
+        Sharing is enforced by the access control service in production.
       </p>
     </div>
   );

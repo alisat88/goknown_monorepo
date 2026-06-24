@@ -33,6 +33,7 @@ interface Props {
   apiKey: string;
   onApiKeyChange: (key: string) => void;
   onSaveApp?: () => void;
+  currentUserEmail?: string;
 }
 
 export function CodeGenerationPreview({
@@ -41,6 +42,7 @@ export function CodeGenerationPreview({
   apiKey,
   onApiKeyChange,
   onSaveApp,
+  currentUserEmail,
 }: Props) {
   const [userPrompt, setUserPrompt] = useState('');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
@@ -124,6 +126,8 @@ export function CodeGenerationPreview({
           createdAt: now,
           updatedAt: now,
           sharedWith: [],
+          sharedAccess: [],
+          ownerId: currentUserEmail ?? 'alisa@goknown.io',
           status: 'Preview',
         });
       }
