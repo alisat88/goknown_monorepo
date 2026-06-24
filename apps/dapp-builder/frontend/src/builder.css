@@ -40,6 +40,42 @@
   opacity: 0.7;
 }
 
+.saved-app-desc {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.saved-app-owner {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.version-badge {
+  display: inline-block;
+  font-size: 0.69rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+}
+
+.dapp-preview-page-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.55;
+  max-width: 600px;
+}
+
 .saved-app-actions {
   display: flex;
   gap: 6px;
@@ -363,6 +399,28 @@
   color: #9bb6d3;
   border: 1px solid rgba(120, 160, 220, 0.22);
 }
+/* New lifecycle status badges */
+.status-badge--preview-ready {
+  background: rgba(78, 229, 255, 0.12);
+  color: #4ee5ff;
+  border: 1px solid rgba(78, 229, 255, 0.26);
+}
+.status-badge--generated {
+  background: rgba(126, 232, 126, 0.12);
+  color: #7ee87e;
+  border: 1px solid rgba(126, 232, 126, 0.26);
+}
+.status-badge--shared {
+  background: rgba(160, 100, 255, 0.12);
+  color: #c490ff;
+  border: 1px solid rgba(160, 100, 255, 0.26);
+}
+.status-badge--review {
+  background: rgba(255, 140, 60, 0.12);
+  color: #ff9a50;
+  border: 1px solid rgba(255, 140, 60, 0.26);
+}
+/* Keep old .status-badge--preview as alias for backward compat */
 .status-badge--preview {
   background: rgba(78, 229, 255, 0.12);
   color: #4ee5ff;
@@ -372,11 +430,6 @@
   background: rgba(255, 200, 60, 0.12);
   color: #ffc83c;
   border: 1px solid rgba(255, 200, 60, 0.26);
-}
-.status-badge--review {
-  background: rgba(255, 140, 60, 0.12);
-  color: #ff9a50;
-  border: 1px solid rgba(255, 140, 60, 0.26);
 }
 .status-badge--mock {
   background: rgba(38, 184, 255, 0.12);
@@ -1918,6 +1971,32 @@
   box-shadow: 0 6px 20px rgba(27, 125, 255, 0.48);
   transform: translateY(-1px);
 }
+
+/* "Create dApp" primary CTA button — appears in wizard footer */
+.wizard-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #1fbe7a, #26b8ff);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 4px 18px rgba(31, 190, 122, 0.35);
+  white-space: nowrap;
+}
+.wizard-create-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(31, 190, 122, 0.45);
+}
+.wizard-create-btn:active { transform: translateY(0); }
 
 /* Spinner animation */
 @keyframes spin {

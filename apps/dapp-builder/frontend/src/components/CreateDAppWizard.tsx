@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink } from 'lucide-react';
-import { Template, WorkflowBlock, SavedDApp } from '../types';
+import {
+  X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink, Eye, Zap,
+} from 'lucide-react';
+import { Template, WorkflowBlock, SavedDApp, ProjectStatus } from '../types';
 import { buildConfig } from '../lib/buildConfig';
 import { generateDAppCode } from '../lib/generateCode';
 import { saveApp, updateApp } from '../services/storage';
+import { WORKFLOW_BLOCKS, TEMPLATE_DEFAULT_BLOCKS, DEMO_USERS } from '../data';
 import { WorkflowBuilder } from './WorkflowBuilder';
 
 const LOADING_MESSAGES = [
@@ -40,6 +43,7 @@ interface Props {
   editingApp?: SavedDApp;
   onSaveApp?: () => void;
   onGoToLibrary?: () => void;
+  onCreateSuccess?: (app: SavedDApp) => void;
   currentUserEmail?: string;
 }
 
@@ -61,7 +65,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 const STEP_LABELS: Record<number, string> = {
   1: 'Name your dApp',
   2: 'Build your workflow',
-  3: 'Generate code',
+  3: 'Generate & preview',
 };
 
 export function CreateDAppWizard({
@@ -76,11 +80,13 @@ export function CreateDAppWizard({
   editingApp,
   onSaveApp,
   onGoToLibrary,
+  onCreateSuccess,
   currentUserEmail,
 }: Props) {
   const [dappName, setDappName] = useState(
     editingApp?.dappName ?? (template.id === 'custom' ? '' : `My ${template.name}`)
   );
+  const [description, setDescription] = useState(editingApp?.description ?? '');
   const [userPrompt, setUserPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
@@ -91,13 +97,12 @@ export function CreateDAppWizard({
   const [copied, setCopied] = useState(false);
   const [localKey, setLocalKey] = useState(apiKey);
   const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
+  const [lastSavedApp, setLastSavedApp] = useState<SavedDApp | null>(null);
 
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    return () => {
-      if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
-    };
+    return () => { if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current); };
   }, []);
 
   useEffect(() => { setLocalKey(apiKey); }, [apiKey]);
@@ -115,43 +120,115 @@ export function CreateDAppWizard({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // Current config derived from wizard state (used for step 3 recap and persistence).
   const config = buildConfig(template, workflowSteps, dappName);
 
-  const persistApp = (isDraft: boolean, code: string | null): SavedDApp => {
+  // Core persistence — builds and saves the app with the given status and code.
+  // Uses `workflowSteps` from props directly (caller must ensure they're populated).
+  const persistApp = (status: ProjectStatus, code: string | null): SavedDApp => {
     const now = new Date().toISOString();
+    const effectiveName = dappName.trim() || (template.id === 'custom' ? 'My Custom dApp' : `My ${template.name}`);
+    const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
+
     if (editingApp) {
       const updated: SavedDApp = {
         ...editingApp,
-        dappName: dappName || 'Untitled dApp',
+        dappName: effectiveName,
+        description,
         template: config.template,
         permissionModel: config.permissionModel,
         apis: config.apis,
         workflow: config.workflow,
-        generatedCode: isDraft ? editingApp.generatedCode : (code ?? editingApp.generatedCode),
+        generatedCode: code !== null ? code : editingApp.generatedCode,
         updatedAt: now,
-        status: isDraft ? editingApp.status : 'Preview',
+        status: editingApp.sharedWith.length > 0 ? 'Shared' : status,
+        ownerName: editingApp.ownerName,
+        version: (editingApp.version ?? 0) + 1,
       };
       updateApp(editingApp.id, updated);
       return updated;
     } else {
       const newApp: SavedDApp = {
-        id: crypto.randomUUID(),
-        dappName: dappName || 'Untitled dApp',
+        id: `dapp_${crypto.randomUUID()}`,
+        dappName: effectiveName,
+        description,
         template: config.template,
         permissionModel: config.permissionModel,
         apis: config.apis,
         workflow: config.workflow,
-        generatedCode: isDraft ? '' : (code ?? ''),
+        generatedCode: code ?? '',
         createdAt: now,
         updatedAt: now,
         sharedWith: [],
         sharedAccess: [],
         ownerId: currentUserEmail ?? 'alisa@goknown.io',
-        status: isDraft ? 'Draft' : 'Preview',
+        ownerName: ownerUser?.name ?? 'Alisa',
+        status,
+        version: 1,
       };
       saveApp(newApp);
       return newApp;
     }
+  };
+
+  // "Create dApp" — saves immediately (no code), opens preview.
+  const handleCreateDApp = () => {
+    const effectiveName = dappName.trim() || (template.id === 'custom' ? 'My Custom dApp' : `My ${template.name}`);
+    if (!dappName.trim()) setDappName(effectiveName);
+
+    // Auto-populate workflow from template defaults if empty
+    let effectiveBlocks = workflowSteps;
+    if (workflowSteps.length === 0 && template.id !== 'custom') {
+      const defaultBlockIds = TEMPLATE_DEFAULT_BLOCKS[template.id] ?? [];
+      effectiveBlocks = WORKFLOW_BLOCKS.filter((b) => defaultBlockIds.includes(b.id));
+      onWorkflowChange(effectiveBlocks);
+    }
+
+    // Build config from the effective (possibly auto-populated) blocks
+    const effectiveConfig = buildConfig(template, effectiveBlocks, effectiveName);
+    const now = new Date().toISOString();
+    const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
+
+    let app: SavedDApp;
+    if (editingApp) {
+      app = {
+        ...editingApp,
+        dappName: effectiveName,
+        description,
+        template: effectiveConfig.template,
+        permissionModel: effectiveConfig.permissionModel,
+        apis: effectiveConfig.apis,
+        workflow: effectiveConfig.workflow,
+        updatedAt: now,
+        status: editingApp.sharedWith.length > 0 ? 'Shared' : 'Preview Ready',
+        version: (editingApp.version ?? 0) + 1,
+      };
+      updateApp(editingApp.id, app);
+    } else {
+      app = {
+        id: `dapp_${crypto.randomUUID()}`,
+        dappName: effectiveName,
+        description,
+        template: effectiveConfig.template,
+        permissionModel: effectiveConfig.permissionModel,
+        apis: effectiveConfig.apis,
+        workflow: effectiveConfig.workflow,
+        generatedCode: '',
+        createdAt: now,
+        updatedAt: now,
+        sharedWith: [],
+        sharedAccess: [],
+        ownerId: currentUserEmail ?? 'alisa@goknown.io',
+        ownerName: ownerUser?.name ?? 'Alisa',
+        status: 'Preview Ready',
+        version: 1,
+      };
+      saveApp(app);
+    }
+
+    setLastSavedApp(app);
+    onSaveApp?.();
+    onCreateSuccess?.(app);
   };
 
   const handleGenerate = async () => {
@@ -184,9 +261,10 @@ export function CreateDAppWizard({
 
       setGeneratedCode(html);
 
-      // Auto-save immediately after successful generation
+      // Auto-save after successful generation
       // TODO (production): Replace with POST /api/dapps
-      const saved = persistApp(false, html);
+      const saved = persistApp('Generated', html);
+      setLastSavedApp(saved);
       onSaveApp?.();
       setSavedConfirmation(saved.dappName);
     } catch (err) {
@@ -204,6 +282,7 @@ export function CreateDAppWizard({
     setGeneratedCode(null);
     setGenError(null);
     setSavedConfirmation(null);
+    setLastSavedApp(null);
   };
 
   const handleCopy = () => {
@@ -215,7 +294,8 @@ export function CreateDAppWizard({
   };
 
   const handleSaveDraft = () => {
-    const app = persistApp(true, null);
+    const app = persistApp('Draft', null);
+    setLastSavedApp(app);
     onSaveApp?.();
     setSavedConfirmation(app.dappName);
     setTimeout(() => {
@@ -224,9 +304,16 @@ export function CreateDAppWizard({
     }, 1500);
   };
 
+  const handleOpenPreview = () => {
+    if (lastSavedApp && onCreateSuccess) {
+      onCreateSuccess(lastSavedApp);
+    }
+  };
+
   return (
     <div className="wizard-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="wizard-modal" role="dialog" aria-modal="true" aria-label="Create dApp wizard">
+
         {/* Header */}
         <div className="wizard-header">
           <div>
@@ -246,16 +333,13 @@ export function CreateDAppWizard({
         {/* Body */}
         <div className="wizard-body">
 
-          {/* Step 1 — Name */}
+          {/* ── Step 1: Name + Description ── */}
           {wizardStep === 1 && (
             <div className="wizard-step-content">
               {template.id === 'custom' ? (
                 <div className="wizard-template-reminder wizard-template-reminder--scratch">
                   <strong>Building from scratch</strong>
-                  <p>
-                    You're building from scratch. Name your dApp and then choose whichever
-                    workflow blocks fit your use case.
-                  </p>
+                  <p>You're building from scratch. Name your dApp and choose workflow blocks on the next screen.</p>
                 </div>
               ) : (
                 <div className="wizard-template-reminder">
@@ -270,31 +354,43 @@ export function CreateDAppWizard({
               )}
 
               <div className="wizard-field">
-                <label className="wizard-field-label" htmlFor="wizard-dapp-name">
-                  dApp name
-                </label>
+                <label className="wizard-field-label" htmlFor="wizard-dapp-name">dApp name</label>
                 <input
                   id="wizard-dapp-name"
                   className="wizard-input"
                   type="text"
                   value={dappName}
                   onChange={(e) => setDappName(e.target.value)}
-                  placeholder={template.id === 'custom' ? 'Give your dApp a name…' : 'e.g. Aviation Ledger App'}
+                  placeholder={template.id === 'custom' ? 'Give your dApp a name…' : `e.g. My ${template.name}`}
                   autoFocus
                 />
                 <div className="wizard-field-hint">
-                  This name appears in the generated code and config.
+                  This name appears in the generated code, config, and library.
                 </div>
+              </div>
+
+              <div className="wizard-field">
+                <label className="wizard-field-label" htmlFor="wizard-dapp-desc">
+                  Short description <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+                </label>
+                <input
+                  id="wizard-dapp-desc"
+                  className="wizard-input"
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What does this dApp do?"
+                />
               </div>
             </div>
           )}
 
-          {/* Step 2 — Workflow */}
+          {/* ── Step 2: Workflow ── */}
           {wizardStep === 2 && (
             <div className="wizard-step-content">
               {template.id === 'custom' && (
                 <div className="wizard-scratch-hint">
-                  This is your blank canvas. Add any workflow blocks you need — there's no wrong starting point.
+                  Blank canvas — add any workflow blocks that fit your use case.
                 </div>
               )}
               <WorkflowBuilder
@@ -305,7 +401,7 @@ export function CreateDAppWizard({
             </div>
           )}
 
-          {/* Step 3 — Generate */}
+          {/* ── Step 3: Generate ── */}
           {wizardStep === 3 && (
             <div className="wizard-step-content">
               {/* Config recap */}
@@ -323,7 +419,7 @@ export function CreateDAppWizard({
               {!generatedCode && (
                 <div className="codegen-prompt-field">
                   <label className="wizard-field-label" htmlFor="wizard-user-prompt">
-                    Describe what you want your dApp to do (optional)
+                    Describe what you want your dApp to do <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
                   </label>
                   <textarea
                     id="wizard-user-prompt"
@@ -339,9 +435,7 @@ export function CreateDAppWizard({
               {/* API key input */}
               {!localKey.trim() && (
                 <div className="api-key-input-wrap">
-                  <label className="wizard-field-label" htmlFor="wizard-api-key">
-                    Anthropic API key
-                  </label>
+                  <label className="wizard-field-label" htmlFor="wizard-api-key">Anthropic API key</label>
                   <input
                     id="wizard-api-key"
                     className="wizard-input wizard-input--key"
@@ -365,15 +459,9 @@ export function CreateDAppWizard({
                   disabled={generating || !localKey.trim()}
                 >
                   {generating ? (
-                    <>
-                      <Loader size={15} className="spin" />
-                      {loadingMsg}
-                    </>
+                    <><Loader size={15} className="spin" />{loadingMsg}</>
                   ) : (
-                    <>
-                      <Sparkles size={15} />
-                      Generate Code
-                    </>
+                    <><Sparkles size={15} />Generate Code</>
                   )}
                 </button>
               )}
@@ -394,7 +482,6 @@ export function CreateDAppWizard({
               {/* Generated output */}
               {generatedCode && (
                 <div className="wizard-code-output">
-                  {/* Live iframe preview */}
                   <div className="codegen-iframe-section">
                     <div className="codegen-iframe-header">
                       <span className="code-block-label">Live Preview</span>
@@ -419,14 +506,12 @@ export function CreateDAppWizard({
                     />
                   </div>
 
-                  {/* Auto-save confirmation */}
                   {savedConfirmation && (
                     <div className="save-toast" style={{ marginTop: '12px' }}>
                       ✓ Saved to My Library as <strong>{savedConfirmation}</strong>
                     </div>
                   )}
 
-                  {/* Code panel */}
                   <div className="wizard-code-header" style={{ marginTop: '20px' }}>
                     <span className="code-block-label">Generated HTML</span>
                     <button className="wizard-copy-btn" onClick={handleCopy}>
@@ -434,16 +519,6 @@ export function CreateDAppWizard({
                     </button>
                   </div>
                   <pre className="wizard-code-pre">{generatedCode}</pre>
-
-                  {/* Regenerate */}
-                  <button
-                    className="wizard-generate-btn"
-                    style={{ marginTop: '14px', background: 'rgba(38,184,255,0.06)' }}
-                    onClick={handleRegenerate}
-                  >
-                    <Sparkles size={14} />
-                    Regenerate
-                  </button>
                 </div>
               )}
             </div>
@@ -452,43 +527,78 @@ export function CreateDAppWizard({
 
         {/* Footer nav */}
         <div className="wizard-footer">
-          {savedConfirmation && wizardStep === 3 ? (
-            <button
-              className="wizard-nav-btn wizard-nav-btn--next"
-              onClick={onGoToLibrary ?? onClose}
-              style={{ marginLeft: 'auto' }}
-            >
-              Go to My Library →
-            </button>
-          ) : (
+
+          {/* ── Step 3 footer: after code generation ── */}
+          {wizardStep === 3 && savedConfirmation && (
             <>
               <button
                 className="wizard-nav-btn wizard-nav-btn--back"
-                onClick={() => wizardStep > 1 ? onStepChange((wizardStep - 1) as 1 | 2 | 3) : onClose()}
+                onClick={handleRegenerate}
+              >
+                ↺ Regenerate
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="wizard-nav-btn wizard-nav-btn--next"
+                  onClick={onGoToLibrary ?? onClose}
+                >
+                  Go to Library →
+                </button>
+                {onCreateSuccess && lastSavedApp && (
+                  <button className="wizard-create-btn" onClick={handleOpenPreview}>
+                    <Eye size={14} />
+                    Open Preview
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Step 3 footer: before generation or while generating ── */}
+          {wizardStep === 3 && !savedConfirmation && (
+            <button
+              className="wizard-nav-btn wizard-nav-btn--back"
+              onClick={() => onStepChange(2)}
+            >
+              ← Back
+            </button>
+          )}
+
+          {/* ── Steps 1 & 2 footer ── */}
+          {wizardStep < 3 && (
+            <>
+              <button
+                className="wizard-nav-btn wizard-nav-btn--back"
+                onClick={() => wizardStep > 1 ? onStepChange((wizardStep - 1) as 1 | 2) : onClose()}
               >
                 {wizardStep === 1 ? 'Cancel' : '← Back'}
               </button>
 
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {wizardStep < 3 && (
-                  <button
-                    className="wizard-nav-btn wizard-nav-btn--save-draft"
-                    onClick={handleSaveDraft}
-                  >
-                    <Save size={13} />
-                    Save as Draft
-                  </button>
-                )}
-                {wizardStep < 3 && (
-                  <button
-                    className="wizard-nav-btn wizard-nav-btn--next"
-                    onClick={() => onStepChange((wizardStep + 1) as 2 | 3)}
-                    disabled={wizardStep === 2 && workflowSteps.length === 0 && template.id !== 'custom'}
-                  >
-                    {wizardStep === 1 ? 'Next: Build Workflow' : 'Next: Generate Code'}
-                    <ArrowRight size={15} />
-                  </button>
-                )}
+                <button
+                  className="wizard-nav-btn wizard-nav-btn--save-draft"
+                  onClick={handleSaveDraft}
+                  title="Save to library as a draft — no preview yet"
+                >
+                  <Save size={13} />
+                  Save Draft
+                </button>
+                <button
+                  className="wizard-create-btn"
+                  onClick={handleCreateDApp}
+                  title="Create the dApp now — opens preview immediately"
+                >
+                  <Zap size={14} />
+                  Create dApp
+                </button>
+                <button
+                  className="wizard-nav-btn wizard-nav-btn--next"
+                  onClick={() => onStepChange((wizardStep + 1) as 2 | 3)}
+                  disabled={wizardStep === 2 && workflowSteps.length === 0 && template.id !== 'custom'}
+                >
+                  {wizardStep === 1 ? 'Next: Build Workflow' : 'Next: Generate Code'}
+                  <ArrowRight size={15} />
+                </button>
               </div>
             </>
           )}

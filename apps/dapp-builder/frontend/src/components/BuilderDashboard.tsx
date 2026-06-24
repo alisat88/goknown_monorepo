@@ -20,9 +20,15 @@ import {
   Check,
   ArrowLeft,
 } from 'lucide-react';
-import { Template, WorkflowBlock, TabId, SavedDApp, DemoUser, SharedRole, SharedAccess } from '../types';
-import { TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS, DEMO_USERS } from '../data';
-import { loadSavedApps, deleteApp, seedDemoApps } from '../services/storage';
+import {
+  Template, WorkflowBlock, TabId, SavedDApp, DemoUser, SharedRole, SharedAccess, ProjectStatus,
+} from '../types';
+import {
+  TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS,
+  DEMO_USERS, DEMO_PROJECT_DESCRIPTIONS,
+} from '../data';
+import { loadSavedApps, deleteApp, seedDemoApps, saveApp } from '../services/storage';
+import { buildConfig } from '../lib/buildConfig';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ApiComponentLibrary } from './ApiComponentLibrary';
 import { WorkflowBuilder } from './WorkflowBuilder';
@@ -35,21 +41,23 @@ import { InstructionsPage } from './InstructionsPage';
 import { CreateDAppWizard } from './CreateDAppWizard';
 import { SharePanel } from './SharePanel';
 
+// ── Tabs ────────────────────────────────────────────────────────────────────
+
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'instructions', label: 'How It Works', icon: BookOpen },
-  { id: 'dashboard', label: 'My dApps', icon: LayoutDashboard },
-  { id: 'templates', label: 'Templates', icon: Library },
-  { id: 'apis', label: 'API Components', icon: Plug },
-  { id: 'workflow', label: 'Workflow', icon: GitBranch },
-  { id: 'config', label: 'Config', icon: Braces },
-  { id: 'code', label: 'Code Preview', icon: Code2 },
-  { id: 'permissions', label: 'Permissions', icon: Shield },
-  { id: 'preview', label: 'dApp Preview', icon: Monitor },
-  { id: 'demo', label: 'Demo Flow', icon: Zap },
+  { id: 'dashboard',    label: 'My dApps',     icon: LayoutDashboard },
+  { id: 'templates',   label: 'Templates',     icon: Library },
+  { id: 'apis',        label: 'API Components',icon: Plug },
+  { id: 'workflow',    label: 'Workflow',       icon: GitBranch },
+  { id: 'config',      label: 'Config',         icon: Braces },
+  { id: 'code',        label: 'Code Preview',   icon: Code2 },
+  { id: 'permissions', label: 'Permissions',    icon: Shield },
+  { id: 'preview',     label: 'dApp Preview',   icon: Monitor },
+  { id: 'demo',        label: 'Demo Flow',      icon: Zap },
 ];
 
-// Ownership for the demo seed — defines who owns each demo app and who has access.
-// TODO (production): Ownership and sharing are managed server-side.
+// ── Demo seed ────────────────────────────────────────────────────────────────
+
 const DEMO_SEED_OWNERSHIP: Record<string, { ownerId: string; sharedWith: string[]; sharedAccess: SharedAccess[] }> = {
   'aviation-ledger': {
     ownerId: 'chuck@goknown.io',
@@ -73,26 +81,29 @@ const DEMO_SEED_OWNERSHIP: Record<string, { ownerId: string; sharedWith: string[
     ownerId: 'mike@goknown.io',
     sharedWith: ['leo@goknown.io', 'connie@goknown.io'],
     sharedAccess: [
-      { email: 'leo@goknown.io', role: 'Reviewer' },
+      { email: 'leo@goknown.io',    role: 'Reviewer' },
       { email: 'connie@goknown.io', role: 'Viewer' },
     ],
   },
 };
 
-function statusClass(status: string) {
-  if (status === 'Draft') return 'status-badge--draft';
-  if (status === 'Preview') return 'status-badge--preview';
-  if (status === 'Ready for API mapping') return 'status-badge--api';
-  if (status === 'Permission review') return 'status-badge--review';
-  return 'status-badge--draft';
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function statusClass(status: string): string {
+  switch (status) {
+    case 'Draft':             return 'status-badge--draft';
+    case 'Preview Ready':     return 'status-badge--preview-ready';
+    case 'Generated':         return 'status-badge--generated';
+    case 'Shared':            return 'status-badge--shared';
+    case 'Permission Review': return 'status-badge--review';
+    default:                  return 'status-badge--draft';
+  }
 }
 
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return iso;
-  }
+  } catch { return iso; }
 }
 
 function getUserRole(app: SavedDApp, email: string): 'Owner' | SharedRole | null {
@@ -103,7 +114,15 @@ function getUserRole(app: SavedDApp, email: string): 'Owner' | SharedRole | null
   return null;
 }
 
-function CurrentUserBar({ currentUser, onChange }: { currentUser: DemoUser; onChange: (u: DemoUser) => void }) {
+// ── CurrentUserBar ───────────────────────────────────────────────────────────
+
+function CurrentUserBar({
+  currentUser,
+  onChange,
+}: {
+  currentUser: DemoUser;
+  onChange: (u: DemoUser) => void;
+}) {
   return (
     <div className="demo-user-bar">
       <span className="demo-user-label">Viewing as:</span>
@@ -122,6 +141,8 @@ function CurrentUserBar({ currentUser, onChange }: { currentUser: DemoUser; onCh
     </div>
   );
 }
+
+// ── DAppPreviewPage ──────────────────────────────────────────────────────────
 
 function DAppPreviewPage({
   app,
@@ -168,22 +189,27 @@ function DAppPreviewPage({
         <div className="dapp-preview-page-header">
           <div className="dapp-preview-page-nav">
             <button className="dapp-preview-back-btn" onClick={onGoToLibrary}>
-              <ArrowLeft size={13} />
-              Back to Library
+              <ArrowLeft size={13} /> Back to Library
             </button>
             <button className="dapp-preview-back-btn dapp-preview-back-btn--ghost" onClick={onClose}>
-              <ArrowLeft size={13} />
-              Back to Builder
+              <ArrowLeft size={13} /> Back to Builder
             </button>
           </div>
 
           <div className="dapp-preview-page-title-row">
             <div className="dapp-preview-page-title-block">
               <div className="dapp-preview-page-name">{app.dappName}</div>
-              <div className="dapp-preview-page-template">{templateName}</div>
+              <div className="dapp-preview-page-template">
+                {templateName}
+                {app.ownerName && <span style={{ color: 'var(--text-muted)' }}> · by {app.ownerName}</span>}
+                {app.version > 1 && <span style={{ color: 'var(--text-muted)' }}> · v{app.version}</span>}
+              </div>
+              {app.description && (
+                <div className="dapp-preview-page-desc">{app.description}</div>
+              )}
             </div>
             <div className="dapp-preview-page-badges">
-              <span className="dapp-preview-badge dapp-preview-badge--mode">Preview Mode</span>
+              <span className={`status-badge ${statusClass(app.status)}`}>{app.status}</span>
               {app.generatedCode && (
                 <span className="dapp-preview-badge dapp-preview-badge--built">Generated by DApp Builder</span>
               )}
@@ -196,8 +222,7 @@ function DAppPreviewPage({
             <div className="dapp-preview-page-actions">
               {app.generatedCode && (
                 <button className="open-newtab-btn" onClick={handleOpenNewTab}>
-                  <ExternalLink size={13} />
-                  Open in new tab
+                  <ExternalLink size={13} /> Open in new tab
                 </button>
               )}
               <button className="wizard-close-btn" onClick={onClose} aria-label="Close preview">
@@ -283,6 +308,8 @@ function DAppPreviewPage({
   );
 }
 
+// ── DashboardPane ────────────────────────────────────────────────────────────
+
 interface DashboardPaneProps {
   savedApps: SavedDApp[];
   currentUser: DemoUser;
@@ -313,21 +340,30 @@ function DashboardPane({
 
   const renderCard = (app: SavedDApp) => {
     const role = getUserRole(app, currentUser.email);
-    const canOpen = role === 'Owner' || role === 'Builder' || role === 'Reviewer';
-    const canShare = role === 'Owner';
+    const canOpen   = role === 'Owner' || role === 'Builder' || role === 'Reviewer';
+    const canShare  = role === 'Owner';
     const canDelete = role === 'Owner';
+    const templateName = TEMPLATES.find((t) => t.id === app.template)?.name ?? app.template;
 
     return (
       <div key={app.id} className="saved-app-card">
         <div className="saved-app-card-top">
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="saved-app-name">{app.dappName}</div>
             <div className="saved-app-meta">
-              <span>{TEMPLATES.find((t) => t.id === app.template)?.name ?? app.template}</span>
+              <span>{templateName}</span>
               <span className="saved-app-date">· {formatDate(app.createdAt)}</span>
             </div>
+            {app.description && (
+              <div className="saved-app-desc">{app.description}</div>
+            )}
           </div>
-          <span className={`status-badge ${statusClass(app.status)}`}>{app.status}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+            <span className={`status-badge ${statusClass(app.status)}`}>{app.status}</span>
+            {app.ownerName && (
+              <span className="saved-app-owner">by {app.ownerName}</span>
+            )}
+          </div>
         </div>
 
         <div className="saved-app-badges-row">
@@ -345,6 +381,9 @@ function DashboardPane({
           {app.generatedCode && (
             <span className="generated-badge">Code ready</span>
           )}
+          {app.version > 1 && (
+            <span className="version-badge">v{app.version}</span>
+          )}
         </div>
 
         <div className="saved-app-actions">
@@ -361,7 +400,7 @@ function DashboardPane({
               onClick={() => onOpen(app)}
             >
               <FolderOpen size={13} />
-              Open
+              Edit
             </button>
           )}
           {canShare && (
@@ -401,36 +440,33 @@ function DashboardPane({
         <p className="pane-kicker">Builder Dashboard</p>
         <h2 className="pane-title">My dApps</h2>
         <p className="pane-desc">
-          Manage your decentralized applications. Use the tabs above to access the Template Library,
-          Workflow Builder, and more.
+          Manage your decentralized applications. Preview opens immediately — even before code is
+          generated, you'll see a template mockup. Generate code later to upgrade to a live preview.
         </p>
       </div>
 
       {myApps.length > 0 && (
         <div className="library-section">
           <div className="library-section-title">My Apps</div>
-          <div className="project-grid">
-            {myApps.map(renderCard)}
-          </div>
+          <div className="project-grid">{myApps.map(renderCard)}</div>
         </div>
       )}
 
       {sharedApps.length > 0 && (
         <div className="library-section">
           <div className="library-section-title">Shared with Me</div>
-          <div className="project-grid">
-            {sharedApps.map(renderCard)}
-          </div>
+          <div className="project-grid">{sharedApps.map(renderCard)}</div>
         </div>
       )}
 
       {myApps.length === 0 && sharedApps.length === 0 && (
         <div className="library-empty">
-          No dApps visible for <strong>{currentUser.name}</strong>. Create a new one, or ask a teammate to share their app with {currentUser.email}.
+          No dApps visible for <strong>{currentUser.name}</strong>. Create one below or ask a
+          teammate to share their app with <code>{currentUser.email}</code>.
         </div>
       )}
 
-      <div className={`project-grid${myApps.length > 0 || sharedApps.length > 0 ? ' project-grid--create-only' : ''}`}>
+      <div className="project-grid project-grid--create-only">
         <div
           className="create-card"
           onClick={onCreateNew}
@@ -446,22 +482,25 @@ function DashboardPane({
   );
 }
 
+// ── BuilderDashboard ─────────────────────────────────────────────────────────
+
 export function BuilderDashboard() {
-  const [activeTab, setActiveTab] = useState<TabId>('instructions');
+  const [activeTab,      setActiveTab]      = useState<TabId>('instructions');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [workflowSteps, setWorkflowSteps] = useState<WorkflowBlock[]>([]);
-  const [demoStarted, setDemoStarted] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
-  const [editingApp, setEditingApp] = useState<SavedDApp | null>(null);
-  const [savedApps, setSavedApps] = useState<SavedDApp[]>([]);
-  const [apiKey, setApiKey] = useState(
+  const [workflowSteps,  setWorkflowSteps]  = useState<WorkflowBlock[]>([]);
+  const [demoStarted,    setDemoStarted]    = useState(false);
+  const [demoApp,        setDemoApp]        = useState<SavedDApp | null>(null);
+  const [wizardOpen,     setWizardOpen]     = useState(false);
+  const [wizardStep,     setWizardStep]     = useState<1 | 2 | 3>(1);
+  const [editingApp,     setEditingApp]     = useState<SavedDApp | null>(null);
+  const [savedApps,      setSavedApps]      = useState<SavedDApp[]>([]);
+  const [apiKey,         setApiKey]         = useState(
     (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? ''
   );
-  const [previewApp, setPreviewApp] = useState<SavedDApp | null>(null);
-  const [currentUser, setCurrentUser] = useState<DemoUser>(DEMO_USERS[0]);
+  const [previewApp,     setPreviewApp]     = useState<SavedDApp | null>(null);
+  const [currentUser,    setCurrentUser]    = useState<DemoUser>(DEMO_USERS[0]);
 
-  // Seed demo apps with ownership/sharing on first load (or when seed version changes).
+  // ── Seed demo apps on mount (re-seeds when CURRENT_SEED_VERSION changes) ──
   // TODO (production): Replace with GET /api/dapps
   useEffect(() => {
     const demoSeed: SavedDApp[] = DEMO_PROJECTS.map((p) => {
@@ -475,9 +514,11 @@ export function BuilderDashboard() {
         sharedWith: [],
         sharedAccess: [],
       };
+      const ownerUser = DEMO_USERS.find((u) => u.email === ownership.ownerId);
       return {
         id: p.id,
         dappName: p.name,
+        description: DEMO_PROJECT_DESCRIPTIONS[p.id] ?? '',
         template: p.templateId,
         permissionModel: tmpl?.permissionModel ?? 'role-based',
         apis: tmpl?.apiIds ?? [],
@@ -486,6 +527,8 @@ export function BuilderDashboard() {
         createdAt: '2026-06-15T00:00:00.000Z',
         updatedAt: '2026-06-15T00:00:00.000Z',
         status: p.status,
+        ownerName: ownerUser?.name ?? 'Alisa',
+        version: 1,
         ...ownership,
       };
     });
@@ -494,6 +537,16 @@ export function BuilderDashboard() {
   }, []);
 
   const reloadApps = () => setSavedApps(loadSavedApps());
+
+  // ── Called when "Create dApp" or "Open Preview" is clicked in wizard ──────
+  const handleCreateSuccess = (app: SavedDApp) => {
+    reloadApps();
+    setWizardOpen(false);
+    setWizardStep(1);
+    setEditingApp(null);
+    setPreviewApp(app);       // ← Opens preview immediately
+    setActiveTab('dashboard');
+  };
 
   const handleUseTemplate = (t: Template) => {
     const defaultBlockIds = TEMPLATE_DEFAULT_BLOCKS[t.id] ?? [];
@@ -539,14 +592,45 @@ export function BuilderDashboard() {
     setEditingApp(null);
   };
 
+  // ── Chuck demo: creates a real app for Chuck + opens preview immediately ──
   const handleStartChuckDemo = () => {
+    const chuckUser = DEMO_USERS.find((u) => u.name === 'Chuck') ?? DEMO_USERS[0];
+    setCurrentUser(chuckUser);
+
     const ledgerTemplate = TEMPLATES.find((t) => t.id === 'ledger-app')!;
     const demoBlockIds = ['authenticate-user', 'check-dapp-permission', 'read-ledger-entries'];
     const demoBlocks = WORKFLOW_BLOCKS.filter((b) => demoBlockIds.includes(b.id));
+
     setSelectedTemplate(ledgerTemplate);
     setWorkflowSteps(demoBlocks);
     setDemoStarted(true);
-    setActiveTab('workflow');
+
+    // Create a real app object for Chuck
+    const now = new Date().toISOString();
+    const config = buildConfig(ledgerTemplate, demoBlocks, 'Aviation Ledger App');
+    const demoAppObj: SavedDApp = {
+      id: `dapp_chuck_demo_${Date.now()}`,
+      dappName: 'Aviation Ledger App',
+      description: 'Immutable aviation maintenance ledger — created by Chuck in the demo flow.',
+      template: ledgerTemplate.id,
+      permissionModel: ledgerTemplate.permissionModel,
+      apis: config.apis,
+      workflow: config.workflow,
+      generatedCode: '',
+      createdAt: now,
+      updatedAt: now,
+      sharedWith: [],
+      sharedAccess: [],
+      ownerId: chuckUser.email,
+      ownerName: chuckUser.name,
+      status: 'Preview Ready',
+      version: 1,
+    };
+    saveApp(demoAppObj);
+    reloadApps();
+
+    setDemoApp(demoAppObj);
+    setPreviewApp(demoAppObj);   // ← Opens preview immediately
   };
 
   return (
@@ -573,6 +657,7 @@ export function BuilderDashboard() {
           editingApp={editingApp ?? undefined}
           onSaveApp={handleSaveApp}
           onGoToLibrary={handleGoToLibrary}
+          onCreateSuccess={handleCreateSuccess}
           currentUserEmail={currentUser.email}
         />
       )}
@@ -654,8 +739,10 @@ export function BuilderDashboard() {
             demoStarted={demoStarted}
             selectedTemplate={selectedTemplate}
             workflowSteps={workflowSteps}
+            demoApp={demoApp}
             onStartDemo={handleStartChuckDemo}
             onNavigateTab={setActiveTab}
+            onViewDemo={() => demoApp && setPreviewApp(demoApp)}
           />
         )}
       </div>

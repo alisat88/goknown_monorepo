@@ -1,6 +1,14 @@
 export type TemplateStatus = 'Mock template' | 'Coming soon' | 'Custom';
 export type SecurityLevel = 'auth' | 'dapp' | 'readonly' | 'admin';
-export type ProjectStatus = 'Draft' | 'Preview' | 'Ready for API mapping' | 'Permission review';
+
+// Lifecycle statuses that reflect where a dApp is in its creation journey.
+export type ProjectStatus =
+  | 'Draft'          // being configured; not yet saved as an app object
+  | 'Preview Ready'  // app object created; template mockup preview available
+  | 'Generated'      // code was generated; live iframe preview available
+  | 'Shared'         // at least one collaborator has been granted access
+  | 'Permission Review'; // role/access changes pending review
+
 export type SharedRole = 'Viewer' | 'Builder' | 'Reviewer';
 
 export interface SharedAccess {
@@ -12,6 +20,7 @@ export interface DemoUser {
   name: string;
   email: string;
 }
+
 export type TabId =
   | 'instructions'
   | 'dashboard'
@@ -61,6 +70,7 @@ export interface DAppProject {
 export interface SavedDApp {
   id: string;
   dappName: string;
+  description: string;
   template: string;
   permissionModel: string;
   apis: string[];
@@ -71,5 +81,7 @@ export interface SavedDApp {
   sharedWith: string[];
   sharedAccess: SharedAccess[];
   ownerId: string;
+  ownerName: string;
   status: ProjectStatus;
+  version: number;
 }

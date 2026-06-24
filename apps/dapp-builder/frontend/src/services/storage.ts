@@ -2,26 +2,39 @@
 // the backend persistence API (e.g. POST /api/dapps, PUT /api/dapps/:id).
 // localStorage is used here for demo purposes only.
 
-import { SavedDApp, SharedAccess } from '../types';
+import { SavedDApp, SharedAccess, ProjectStatus } from '../types';
 
 const STORAGE_KEY = 'dappbuilder:saved_apps';
 const SEED_VERSION_KEY = 'dappbuilder:seed_version';
-export const CURRENT_SEED_VERSION = '3'; // bump when demo seed schema changes
+export const CURRENT_SEED_VERSION = '4'; // bump when demo seed schema changes
 
-/** Migrate apps that predate the ownerId / sharedAccess fields. */
-function migrate(app: SavedDApp): SavedDApp {
+// Map old status strings to the current lifecycle status enum.
+const LEGACY_STATUS_MAP: Record<string, ProjectStatus> = {
+  'Preview': 'Preview Ready',
+  'Ready for API mapping': 'Generated',
+  'Permission review': 'Permission Review',
+};
+
+/** Migrate apps that predate new fields (ownerId, sharedAccess, description, ownerName, version). */
+function migrate(raw: Partial<SavedDApp>): SavedDApp {
+  const legacyStatus = LEGACY_STATUS_MAP[raw.status as string];
   return {
-    ...app,
-    ownerId: app.ownerId ?? 'alisa@goknown.io',
-    sharedAccess: app.sharedAccess ?? [],
-  };
+    description: '',
+    ownerName: 'Alisa',
+    version: 1,
+    ownerId: 'alisa@goknown.io',
+    sharedAccess: [],
+    ...raw,
+    // Override status only if it's a legacy value
+    status: (legacyStatus ?? raw.status ?? 'Draft') as ProjectStatus,
+  } as SavedDApp;
 }
 
 export function loadSavedApps(): SavedDApp[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return (JSON.parse(raw) as SavedDApp[]).map(migrate);
+    return (JSON.parse(raw) as Partial<SavedDApp>[]).map(migrate);
   } catch {
     return [];
   }
@@ -71,6 +84,8 @@ export function shareApp(id: string, email: string, access?: SharedAccess): void
           { ...access, email: normalized },
         ]
       : apps[idx].sharedAccess ?? [],
+    // Upgrade status to Shared when at least one person is shared
+    status: 'Shared',
     updatedAt: new Date().toISOString(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(apps));
@@ -78,7 +93,7 @@ export function shareApp(id: string, email: string, access?: SharedAccess): void
 
 /**
  * Seeds demo apps into localStorage. Re-seeds whenever CURRENT_SEED_VERSION changes
- * so demo participants always see up-to-date ownership and sharing.
+ * so demo participants always see up-to-date ownership, sharing, and new fields.
  */
 export function seedDemoApps(apps: SavedDApp[]): void {
   // TODO (production): Remove entirely — demo data is seeded server-side.

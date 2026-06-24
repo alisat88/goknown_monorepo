@@ -170,11 +170,18 @@ export const TEMPLATE_DEFAULT_BLOCKS: Record<string, string[]> = {
 };
 
 export const DEMO_PROJECTS: DAppProject[] = [
-  { id: 'aviation-ledger', name: 'Aviation Ledger App', status: 'Draft', templateId: 'ledger-app' },
-  { id: 'token-rewards', name: 'Token Rewards Portal', status: 'Preview', templateId: 'token-dashboard' },
-  { id: 'dao-voting-demo', name: 'DAO Voting Demo', status: 'Ready for API mapping', templateId: 'dao-voting' },
-  { id: 'escrow-flow', name: 'Escrow Payment Flow', status: 'Permission review', templateId: 'escrow-payment' },
+  { id: 'aviation-ledger',  name: 'Aviation Ledger App',    status: 'Draft',             templateId: 'ledger-app' },
+  { id: 'token-rewards',    name: 'Token Rewards Portal',   status: 'Preview Ready',      templateId: 'token-dashboard' },
+  { id: 'dao-voting-demo',  name: 'DAO Voting Demo',        status: 'Generated',          templateId: 'dao-voting' },
+  { id: 'escrow-flow',      name: 'Escrow Payment Flow',    status: 'Permission Review',  templateId: 'escrow-payment' },
 ];
+
+export const DEMO_PROJECT_DESCRIPTIONS: Record<string, string> = {
+  'aviation-ledger':  'An immutable aviation maintenance ledger with kBFT™-verified entries, submitted and approved by crew members.',
+  'token-rewards':    'A token balance dashboard for the ZTA Rewards programme — shows balance, transfer form, and recent history.',
+  'dao-voting-demo':  'A DAO voting portal for GoKnown governance. Proposals are submitted, voted on with quorum tracking, and finalized on-chain.',
+  'escrow-flow':      'A multi-party escrow payment app for aviation services — conditional release requires both parties to confirm.',
+};
 
 export const DEMO_USERS: DemoUser[] = [
   { name: 'Alisa',   email: 'alisa@goknown.io' },

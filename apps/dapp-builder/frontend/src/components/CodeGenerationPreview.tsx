@@ -112,12 +112,24 @@ export function CodeGenerationPreview({
       const existing = existingApps.find(
         (a) => a.dappName === config.dappName && a.template === config.template
       );
+      const ownerUser = [
+        { name: 'Alisa', email: 'alisa@goknown.io' },
+        { name: 'Chuck', email: 'chuck@goknown.io' },
+        { name: 'Dr. Lu', email: 'drlu@goknown.io' },
+        { name: 'Dr. Sam', email: 'drsam@goknown.io' },
+        { name: 'Fiona', email: 'fiona@goknown.io' },
+        { name: 'Leo', email: 'leo@goknown.io' },
+        { name: 'Mike', email: 'mike@goknown.io' },
+        { name: 'Connie', email: 'connie@goknown.io' },
+      ].find(u => u.email === currentUserEmail);
+
       if (existing) {
-        updateApp(existing.id, { generatedCode: html, apis: config.apis, workflow: config.workflow, status: 'Preview' });
+        updateApp(existing.id, { generatedCode: html, apis: config.apis, workflow: config.workflow, status: 'Generated' });
       } else {
         saveApp({
-          id: crypto.randomUUID(),
+          id: `dapp_${crypto.randomUUID()}`,
           dappName: config.dappName,
+          description: '',
           template: config.template,
           permissionModel: config.permissionModel,
           apis: config.apis,
@@ -128,7 +140,9 @@ export function CodeGenerationPreview({
           sharedWith: [],
           sharedAccess: [],
           ownerId: currentUserEmail ?? 'alisa@goknown.io',
-          status: 'Preview',
+          ownerName: ownerUser?.name ?? 'Alisa',
+          status: 'Generated',
+          version: 1,
         });
       }
       onSaveApp?.();
