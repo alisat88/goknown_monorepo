@@ -35,7 +35,8 @@ import { WorkflowBuilder } from './WorkflowBuilder';
 import { GeneratedConfigPanel } from './GeneratedConfigPanel';
 import { CodeGenerationPreview } from './CodeGenerationPreview';
 import { PermissioningPanel } from './PermissioningPanel';
-import { DAppPreview, renderTemplateMockup } from './DAppPreview';
+import { DAppPreview } from './DAppPreview';
+import { GeneratedAppRenderer } from './GeneratedAppRenderer';
 import { DemoFlowPanel } from './DemoFlowPanel';
 import { InstructionsPage } from './InstructionsPage';
 import { CreateDAppWizard } from './CreateDAppWizard';
@@ -282,6 +283,7 @@ function DAppPreviewPage({
 
         <div className="dapp-preview-page-body">
           {app.generatedCode ? (
+            // Generated code → live iframe (full canvas)
             <iframe
               srcDoc={app.generatedCode}
               title={`${app.dappName} live preview`}
@@ -289,16 +291,68 @@ function DAppPreviewPage({
               className="dapp-preview-iframe"
             />
           ) : (
-            <div className="dapp-preview-mockup-wrapper">
-              <div className="dapp-preview-mockup-note">
-                Template mockup — generate code in the builder to see your live dApp here
-              </div>
-              <div className="preview-frame dapp-preview-mockup-frame">
-                <div className="preview-frame-header">
-                  <h3 className="preview-frame-title">{templateName}</h3>
-                  <span className="preview-badge">Mock preview</span>
+            // No code yet → split: interactive app renderer + config sidebar
+            <div className="dapp-preview-split">
+              <div className="dapp-preview-app-scroll">
+                <div className="dapp-preview-app-labels">
+                  <span className="dapp-preview-badge dapp-preview-badge--mode">Operational Preview</span>
+                  <span className="dapp-preview-badge dapp-preview-badge--built">Frontend runtime mock</span>
+                  <span className="dapp-preview-app-label-note">
+                    Backend / API deployment coming later
+                  </span>
                 </div>
-                {renderTemplateMockup(app.template)}
+                <GeneratedAppRenderer app={app} onBack={onClose} />
+              </div>
+
+              <div className="dapp-preview-config-sidebar">
+                <div className="dapp-preview-sidebar-section">
+                  <div className="dapp-preview-sidebar-label">Generated Config</div>
+                  <pre className="dapp-preview-config-json">{JSON.stringify({
+                    dappName: app.dappName,
+                    templateId: app.template,
+                    permissionModel: app.permissionModel,
+                    status: app.status,
+                    version: app.version,
+                    apiComponents: app.apis,
+                    workflowBlocks: app.workflow,
+                    ownerId: app.ownerId,
+                  }, null, 2)}</pre>
+                </div>
+
+                {app.apis.length > 0 && (
+                  <div className="dapp-preview-sidebar-section">
+                    <div className="dapp-preview-sidebar-label">API Components</div>
+                    <div className="gen-workflow-chips">
+                      {app.apis.map((api) => (
+                        <span key={api} className="gen-chip gen-chip--api">{api}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {app.workflow.length > 0 && (
+                  <div className="dapp-preview-sidebar-section">
+                    <div className="dapp-preview-sidebar-label">Workflow Steps</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {app.workflow.map((id, i) => (
+                        <div key={id} className="dapp-preview-sidebar-step">
+                          <span className="dapp-preview-sidebar-step-num">{i + 1}</span>
+                          <span className="dapp-preview-sidebar-step-label">
+                            {WORKFLOW_BLOCKS.find((b) => b.id === id)?.label ?? id}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="dapp-preview-sidebar-section">
+                  <div className="dapp-preview-sidebar-label">Upgrade to Live Preview</div>
+                  <div className="dapp-preview-sidebar-note">
+                    Go to the <strong>Code Preview</strong> tab, enter your Anthropic API key,
+                    and generate code to upgrade this preview to a live HTML app inside an iframe.
+                  </div>
+                </div>
               </div>
             </div>
           )}
