@@ -400,6 +400,12 @@
   border: 1px solid rgba(120, 160, 220, 0.22);
 }
 /* New lifecycle status badges */
+.status-badge--saved {
+  background: rgba(78, 229, 255, 0.12);
+  color: #4ee5ff;
+  border: 1px solid rgba(78, 229, 255, 0.26);
+}
+/* Keep --preview-ready as legacy alias */
 .status-badge--preview-ready {
   background: rgba(78, 229, 255, 0.12);
   color: #4ee5ff;
@@ -1764,6 +1770,73 @@
 .wizard-template-reminder--scratch {
   border-color: rgba(109, 64, 255, 0.35);
   background: linear-gradient(135deg, rgba(27, 125, 255, 0.05), rgba(109, 64, 255, 0.05));
+}
+
+/* Prompt textarea (1000-word limit) */
+.wizard-prompt-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: #dff4ff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  padding: 12px 14px;
+  resize: vertical;
+  min-height: 120px;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.wizard-prompt-textarea:focus {
+  outline: none;
+  border-color: rgba(78, 229, 255, 0.45);
+}
+.wizard-prompt-textarea::placeholder { color: var(--text-muted); opacity: 0.6; }
+.wizard-prompt-textarea--over {
+  border-color: rgba(255, 100, 80, 0.55);
+}
+
+.wizard-word-count {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+.wizard-word-count--over {
+  color: #ff8855;
+  font-weight: 600;
+}
+
+/* API picker */
+.wizard-api-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wizard-api-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.wizard-api-chip:hover {
+  background: rgba(38, 184, 255, 0.08);
+  border-color: rgba(38, 184, 255, 0.3);
+  color: #c4daf5;
+}
+.wizard-api-chip.selected {
+  background: rgba(38, 184, 255, 0.14);
+  border-color: rgba(38, 184, 255, 0.45);
+  color: #4ee5ff;
 }
 
 .wizard-scratch-hint {

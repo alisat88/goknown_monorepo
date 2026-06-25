@@ -6,25 +6,31 @@ import { SavedDApp, SharedAccess, ProjectStatus } from '../types';
 
 const STORAGE_KEY = 'dappbuilder:saved_apps';
 const SEED_VERSION_KEY = 'dappbuilder:seed_version';
-export const CURRENT_SEED_VERSION = '4'; // bump when demo seed schema changes
+export const CURRENT_SEED_VERSION = '5'; // bump when demo seed schema changes
 
 // Map old status strings to the current lifecycle status enum.
 const LEGACY_STATUS_MAP: Record<string, ProjectStatus> = {
-  'Preview': 'Preview Ready',
+  'Preview': 'Saved',
+  'Preview Ready': 'Saved',
   'Ready for API mapping': 'Generated',
   'Permission review': 'Permission Review',
 };
 
-/** Migrate apps that predate new fields (ownerId, sharedAccess, description, ownerName, version). */
+/** Migrate apps that predate new fields. */
 function migrate(raw: Partial<SavedDApp>): SavedDApp {
   const legacyStatus = LEGACY_STATUS_MAP[raw.status as string];
+  const id = raw.id ?? `dapp_${crypto.randomUUID()}`;
   return {
     description: '',
+    userPrompt: '',
+    generatedConfig: '',
+    internalAppPath: `/dapp-builder/apps/${id}`,
     ownerName: 'Alisa',
     version: 1,
     ownerId: 'alisa@goknown.io',
     sharedAccess: [],
     ...raw,
+    id,
     // Override status only if it's a legacy value
     status: (legacyStatus ?? raw.status ?? 'Draft') as ProjectStatus,
   } as SavedDApp;

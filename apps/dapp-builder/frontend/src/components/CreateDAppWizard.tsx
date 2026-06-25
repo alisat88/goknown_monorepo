@@ -1,20 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink, Eye, Zap,
+  X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink, Play, Zap,
 } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp, ProjectStatus } from '../types';
 import { buildConfig } from '../lib/buildConfig';
 import { generateDAppCode } from '../lib/generateCode';
 import { saveApp, updateApp } from '../services/storage';
-import { WORKFLOW_BLOCKS, TEMPLATE_DEFAULT_BLOCKS, DEMO_USERS } from '../data';
+import { WORKFLOW_BLOCKS, TEMPLATE_DEFAULT_BLOCKS, DEMO_USERS, API_COMPONENTS } from '../data';
 import { WorkflowBuilder } from './WorkflowBuilder';
 
 const LOADING_MESSAGES = [
-  'Generating your dApp...',
+  'Generating your app...',
   'Wiring up the workflow blocks...',
   'Connecting API services...',
   'Almost there...',
 ];
+
+const MAX_PROMPT_WORDS = 1000;
+
+function countWords(text: string): number {
+  if (!text.trim()) return 0;
+  return text.trim().split(/\s+/).length;
+}
 
 function classifyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
@@ -63,9 +70,9 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 }
 
 const STEP_LABELS: Record<number, string> = {
-  1: 'Name your dApp',
+  1: 'Describe your app',
   2: 'Build your workflow',
-  3: 'Generate & preview',
+  3: 'Generate Code',
 };
 
 export function CreateDAppWizard({
@@ -87,7 +94,10 @@ export function CreateDAppWizard({
     editingApp?.dappName ?? (template.id === 'custom' ? '' : `My ${template.name}`)
   );
   const [description, setDescription] = useState(editingApp?.description ?? '');
-  const [userPrompt, setUserPrompt] = useState('');
+  const [userPrompt, setUserPrompt] = useState(editingApp?.userPrompt ?? '');
+  const [selectedApis, setSelectedApis] = useState<string[]>(
+    editingApp?.apis ?? [...template.apiIds]
+  );
   const [generating, setGenerating] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
   const [generatedCode, setGeneratedCode] = useState<string | null>(
@@ -100,6 +110,9 @@ export function CreateDAppWizard({
   const [lastSavedApp, setLastSavedApp] = useState<SavedDApp | null>(null);
 
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const promptWordCount = countWords(userPrompt);
+  const promptOverLimit = promptWordCount > MAX_PROMPT_WORDS;
 
   useEffect(() => {
     return () => { if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current); };
@@ -120,24 +133,58 @@ export function CreateDAppWizard({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Current config derived from wizard state (used for step 3 recap and persistence).
-  const config = buildConfig(template, workflowSteps, dappName);
+  const toggleApi = (id: string) => {
+    setSelectedApis((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
+    );
+  };
 
-  // Core persistence — builds and saves the app with the given status and code.
-  // Uses `workflowSteps` from props directly (caller must ensure they're populated).
-  const persistApp = (status: ProjectStatus, code: string | null): SavedDApp => {
+  // Derive a short display name for the API chip
+  const apiChipLabel = (name: string) =>
+    name
+      .replace(' (Placeholder)', '')
+      .replace(' Adapter API', ' Adapter')
+      .replace(' API', '');
+
+  // Config uses selectedApis (overrides template defaults).
+  const config = buildConfig(template, workflowSteps, dappName);
+  const effectiveApis = selectedApis.length > 0 ? selectedApis : config.apis;
+
+  // Build and persist the saved app object.
+  const persistApp = (
+    status: ProjectStatus,
+    code: string | null,
+    opts?: { overrideId?: string }
+  ): SavedDApp => {
     const now = new Date().toISOString();
-    const effectiveName = dappName.trim() || (template.id === 'custom' ? 'My Custom dApp' : `My ${template.name}`);
+    const effectiveName = dappName.trim() || (template.id === 'custom' ? 'My Custom App' : `My ${template.name}`);
     const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
+
+    const id = opts?.overrideId ?? (editingApp?.id ?? `dapp_${crypto.randomUUID()}`);
+    const internalAppPath = `/dapp-builder/apps/${id}`;
+
+    const generatedConfigObj = {
+      appName: effectiveName,
+      userPrompt: userPrompt.trim() || description,
+      template: config.template,
+      selectedApis: effectiveApis,
+      workflowBlocks: config.workflow,
+      permissionModel: config.permissionModel,
+      runtimeMode: 'frontend-mock',
+      internalAppPath,
+    };
 
     if (editingApp) {
       const updated: SavedDApp = {
         ...editingApp,
         dappName: effectiveName,
         description,
+        userPrompt: userPrompt.trim() || editingApp.userPrompt,
+        generatedConfig: JSON.stringify(generatedConfigObj, null, 2),
+        internalAppPath,
         template: config.template,
         permissionModel: config.permissionModel,
-        apis: config.apis,
+        apis: effectiveApis,
         workflow: config.workflow,
         generatedCode: code !== null ? code : editingApp.generatedCode,
         updatedAt: now,
@@ -149,12 +196,15 @@ export function CreateDAppWizard({
       return updated;
     } else {
       const newApp: SavedDApp = {
-        id: `dapp_${crypto.randomUUID()}`,
+        id,
         dappName: effectiveName,
         description,
+        userPrompt: userPrompt.trim(),
+        generatedConfig: JSON.stringify(generatedConfigObj, null, 2),
+        internalAppPath,
         template: config.template,
         permissionModel: config.permissionModel,
-        apis: config.apis,
+        apis: effectiveApis,
         workflow: config.workflow,
         generatedCode: code ?? '',
         createdAt: now,
@@ -171,9 +221,13 @@ export function CreateDAppWizard({
     }
   };
 
-  // "Create dApp" — saves immediately (no code), opens preview.
-  const handleCreateDApp = () => {
-    const effectiveName = dappName.trim() || (template.id === 'custom' ? 'My Custom dApp' : `My ${template.name}`);
+  // "Create App" — saves immediately (no generated code), opens app runtime.
+  const handleCreateApp = () => {
+    if (promptOverLimit) {
+      setGenError(`Please keep the app prompt under ${MAX_PROMPT_WORDS} words (currently ${promptWordCount}).`);
+      return;
+    }
+    const effectiveName = dappName.trim() || (template.id === 'custom' ? 'My Custom App' : `My ${template.name}`);
     if (!dappName.trim()) setDappName(effectiveName);
 
     // Auto-populate workflow from template defaults if empty
@@ -184,10 +238,23 @@ export function CreateDAppWizard({
       onWorkflowChange(effectiveBlocks);
     }
 
-    // Build config from the effective (possibly auto-populated) blocks
     const effectiveConfig = buildConfig(template, effectiveBlocks, effectiveName);
     const now = new Date().toISOString();
     const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
+    const id = editingApp?.id ?? `dapp_${crypto.randomUUID()}`;
+    const internalAppPath = `/dapp-builder/apps/${id}`;
+    const apis = selectedApis.length > 0 ? selectedApis : effectiveConfig.apis;
+
+    const generatedConfigObj = {
+      appName: effectiveName,
+      userPrompt: userPrompt.trim() || description,
+      template: effectiveConfig.template,
+      selectedApis: apis,
+      workflowBlocks: effectiveConfig.workflow,
+      permissionModel: effectiveConfig.permissionModel,
+      runtimeMode: 'frontend-mock',
+      internalAppPath,
+    };
 
     let app: SavedDApp;
     if (editingApp) {
@@ -195,23 +262,29 @@ export function CreateDAppWizard({
         ...editingApp,
         dappName: effectiveName,
         description,
+        userPrompt: userPrompt.trim() || editingApp.userPrompt,
+        generatedConfig: JSON.stringify(generatedConfigObj, null, 2),
+        internalAppPath,
         template: effectiveConfig.template,
         permissionModel: effectiveConfig.permissionModel,
-        apis: effectiveConfig.apis,
+        apis,
         workflow: effectiveConfig.workflow,
         updatedAt: now,
-        status: editingApp.sharedWith.length > 0 ? 'Shared' : 'Preview Ready',
+        status: editingApp.sharedWith.length > 0 ? 'Shared' : 'Saved',
         version: (editingApp.version ?? 0) + 1,
       };
       updateApp(editingApp.id, app);
     } else {
       app = {
-        id: `dapp_${crypto.randomUUID()}`,
+        id,
         dappName: effectiveName,
         description,
+        userPrompt: userPrompt.trim(),
+        generatedConfig: JSON.stringify(generatedConfigObj, null, 2),
+        internalAppPath,
         template: effectiveConfig.template,
         permissionModel: effectiveConfig.permissionModel,
-        apis: effectiveConfig.apis,
+        apis,
         workflow: effectiveConfig.workflow,
         generatedCode: '',
         createdAt: now,
@@ -220,7 +293,7 @@ export function CreateDAppWizard({
         sharedAccess: [],
         ownerId: currentUserEmail ?? 'alisa@goknown.io',
         ownerName: ownerUser?.name ?? 'Alisa',
-        status: 'Preview Ready',
+        status: 'Saved',
         version: 1,
       };
       saveApp(app);
@@ -232,6 +305,10 @@ export function CreateDAppWizard({
   };
 
   const handleGenerate = async () => {
+    if (promptOverLimit) {
+      setGenError(`Please keep the app prompt under ${MAX_PROMPT_WORDS} words (currently ${promptWordCount}).`);
+      return;
+    }
     const key = localKey.trim();
     if (!key) return;
 
@@ -252,7 +329,7 @@ export function CreateDAppWizard({
         {
           dappName: config.dappName,
           template: config.template,
-          apis: config.apis,
+          apis: effectiveApis,
           workflow: config.workflow,
           userPrompt,
         },
@@ -261,8 +338,6 @@ export function CreateDAppWizard({
 
       setGeneratedCode(html);
 
-      // Auto-save after successful generation
-      // TODO (production): Replace with POST /api/dapps
       const saved = persistApp('Generated', html);
       setLastSavedApp(saved);
       onSaveApp?.();
@@ -304,7 +379,7 @@ export function CreateDAppWizard({
     }, 1500);
   };
 
-  const handleOpenPreview = () => {
+  const handleOpenApp = () => {
     if (lastSavedApp && onCreateSuccess) {
       onCreateSuccess(lastSavedApp);
     }
@@ -312,13 +387,13 @@ export function CreateDAppWizard({
 
   return (
     <div className="wizard-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="wizard-modal" role="dialog" aria-modal="true" aria-label="Create dApp wizard">
+      <div className="wizard-modal" role="dialog" aria-modal="true" aria-label="Create app wizard">
 
         {/* Header */}
         <div className="wizard-header">
           <div>
             <div className="wizard-header-kicker">
-              {editingApp ? 'Edit dApp' : 'Create dApp'} — {template.name}
+              {editingApp ? 'Edit App' : 'Create App'} — {template.name}
             </div>
             <div className="wizard-header-title">{STEP_LABELS[wizardStep]}</div>
           </div>
@@ -333,13 +408,13 @@ export function CreateDAppWizard({
         {/* Body */}
         <div className="wizard-body">
 
-          {/* ── Step 1: Name + Description ── */}
+          {/* ── Step 1: Name + Prompt + APIs ── */}
           {wizardStep === 1 && (
             <div className="wizard-step-content">
               {template.id === 'custom' ? (
                 <div className="wizard-template-reminder wizard-template-reminder--scratch">
                   <strong>Building from scratch</strong>
-                  <p>You're building from scratch. Name your dApp and choose workflow blocks on the next screen.</p>
+                  <p>Describe what you want to build — the runtime will be inferred from your prompt and selected APIs.</p>
                 </div>
               ) : (
                 <div className="wizard-template-reminder">
@@ -353,22 +428,24 @@ export function CreateDAppWizard({
                 </div>
               )}
 
+              {/* App name */}
               <div className="wizard-field">
-                <label className="wizard-field-label" htmlFor="wizard-dapp-name">dApp name</label>
+                <label className="wizard-field-label" htmlFor="wizard-dapp-name">App name</label>
                 <input
                   id="wizard-dapp-name"
                   className="wizard-input"
                   type="text"
                   value={dappName}
                   onChange={(e) => setDappName(e.target.value)}
-                  placeholder={template.id === 'custom' ? 'Give your dApp a name…' : `e.g. My ${template.name}`}
+                  placeholder={template.id === 'custom' ? 'Give your app a name…' : `e.g. My ${template.name}`}
                   autoFocus
                 />
                 <div className="wizard-field-hint">
-                  This name appears in the generated code, config, and library.
+                  Shown in the library, runtime header, and generated code.
                 </div>
               </div>
 
+              {/* Short description */}
               <div className="wizard-field">
                 <label className="wizard-field-label" htmlFor="wizard-dapp-desc">
                   Short description <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
@@ -379,8 +456,54 @@ export function CreateDAppWizard({
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What does this dApp do?"
+                  placeholder="What does this app do? (shown on library card)"
                 />
+              </div>
+
+              {/* Full prompt */}
+              <div className="wizard-field">
+                <label className="wizard-field-label" htmlFor="wizard-user-prompt">
+                  Describe the app you want to build
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> (up to {MAX_PROMPT_WORDS.toLocaleString()} words)</span>
+                </label>
+                <textarea
+                  id="wizard-user-prompt"
+                  className={`wizard-prompt-textarea${promptOverLimit ? ' wizard-prompt-textarea--over' : ''}`}
+                  rows={5}
+                  value={userPrompt}
+                  onChange={(e) => setUserPrompt(e.target.value)}
+                  placeholder={
+                    template.id === 'custom'
+                      ? 'e.g. An app that plans outfits based on the weather. User enters their city, the app shows current conditions and temperature, then generates an outfit recommendation for the day based on weather and occasion.'
+                      : `e.g. Show a live token balance, allow the user to submit a transfer request, and display a transaction history table with filters.`
+                  }
+                />
+                <div className={`wizard-word-count${promptOverLimit ? ' wizard-word-count--over' : ''}`}>
+                  {promptWordCount.toLocaleString()} / {MAX_PROMPT_WORDS.toLocaleString()} words
+                  {promptOverLimit && ' — please shorten your prompt before saving'}
+                </div>
+              </div>
+
+              {/* API picker */}
+              <div className="wizard-field">
+                <label className="wizard-field-label">APIs to include</label>
+                <div className="wizard-api-picker">
+                  {API_COMPONENTS.map((api) => (
+                    <button
+                      key={api.id}
+                      type="button"
+                      className={`wizard-api-chip${selectedApis.includes(api.id) ? ' selected' : ''}`}
+                      onClick={() => toggleApi(api.id)}
+                      title={api.purpose}
+                    >
+                      {apiChipLabel(api.name)}
+                    </button>
+                  ))}
+                </div>
+                <div className="wizard-field-hint">
+                  {selectedApis.length} API{selectedApis.length !== 1 ? 's' : ''} selected
+                  {selectedApis.length > 0 && ` · ${selectedApis.join(', ')}`}
+                </div>
               </div>
             </div>
           )}
@@ -401,34 +524,32 @@ export function CreateDAppWizard({
             </div>
           )}
 
-          {/* ── Step 3: Generate ── */}
+          {/* ── Step 3: Generate Code ── */}
           {wizardStep === 3 && (
             <div className="wizard-step-content">
               {/* Config recap */}
               <div className="wizard-config-recap">
                 <div className="config-panel-header">
-                  <span className="config-panel-label">dapp.config.json</span>
+                  <span className="config-panel-label">app.config.json</span>
                   <span className="config-live-badge">Live</span>
                 </div>
                 <pre className="config-json" style={{ maxHeight: '160px', overflowY: 'auto' }}>
-                  {JSON.stringify(config, null, 2)}
+                  {JSON.stringify({
+                    appName: config.dappName,
+                    template: config.template,
+                    selectedApis: effectiveApis,
+                    workflowBlocks: config.workflow,
+                    permissionModel: config.permissionModel,
+                    runtimeMode: 'frontend-mock',
+                    userPrompt: userPrompt.slice(0, 120) + (userPrompt.length > 120 ? '…' : ''),
+                  }, null, 2)}
                 </pre>
               </div>
 
-              {/* Custom prompt — shown before generation */}
-              {!generatedCode && (
-                <div className="codegen-prompt-field">
-                  <label className="wizard-field-label" htmlFor="wizard-user-prompt">
-                    Describe what you want your dApp to do <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <textarea
-                    id="wizard-user-prompt"
-                    className="codegen-prompt-textarea"
-                    rows={4}
-                    value={userPrompt}
-                    onChange={(e) => setUserPrompt(e.target.value)}
-                    placeholder="e.g. Show a live token balance, allow the user to submit a transfer request, display a transaction history table with filters"
-                  />
+              {/* Show prompt over-limit warning if user skipped step 1 */}
+              {promptOverLimit && (
+                <div className="wizard-gen-error">
+                  Prompt is {promptWordCount.toLocaleString()} words — please go back and shorten it to under {MAX_PROMPT_WORDS.toLocaleString()} words before generating.
                 </div>
               )}
 
@@ -456,7 +577,7 @@ export function CreateDAppWizard({
                 <button
                   className="wizard-generate-btn"
                   onClick={handleGenerate}
-                  disabled={generating || !localKey.trim()}
+                  disabled={generating || !localKey.trim() || promptOverLimit}
                 >
                   {generating ? (
                     <><Loader size={15} className="spin" />{loadingMsg}</>
@@ -470,12 +591,14 @@ export function CreateDAppWizard({
               {genError && (
                 <div className="wizard-gen-error">
                   <strong>Error:</strong> {genError}
-                  <button
-                    style={{ marginLeft: '12px', background: 'none', border: 'none', color: '#ff8855', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline' }}
-                    onClick={() => { setGenError(null); handleGenerate(); }}
-                  >
-                    Retry
-                  </button>
+                  {!promptOverLimit && (
+                    <button
+                      style={{ marginLeft: '12px', background: 'none', border: 'none', color: '#ff8855', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline' }}
+                      onClick={() => { setGenError(null); handleGenerate(); }}
+                    >
+                      Retry
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -484,7 +607,7 @@ export function CreateDAppWizard({
                 <div className="wizard-code-output">
                   <div className="codegen-iframe-section">
                     <div className="codegen-iframe-header">
-                      <span className="code-block-label">Live Preview</span>
+                      <span className="code-block-label">Live App</span>
                       <button
                         className="open-newtab-btn"
                         onClick={() => {
@@ -500,7 +623,7 @@ export function CreateDAppWizard({
                     <iframe
                       srcDoc={generatedCode}
                       className="codegen-iframe"
-                      title={`${config.dappName} live preview`}
+                      title={`${config.dappName} live app`}
                       sandbox="allow-scripts allow-popups allow-forms allow-modals"
                       style={{ width: '100%', minHeight: '500px', border: 'none', borderRadius: '8px' }}
                     />
@@ -531,10 +654,7 @@ export function CreateDAppWizard({
           {/* ── Step 3 footer: after code generation ── */}
           {wizardStep === 3 && savedConfirmation && (
             <>
-              <button
-                className="wizard-nav-btn wizard-nav-btn--back"
-                onClick={handleRegenerate}
-              >
+              <button className="wizard-nav-btn wizard-nav-btn--back" onClick={handleRegenerate}>
                 ↺ Regenerate
               </button>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -545,9 +665,9 @@ export function CreateDAppWizard({
                   Go to Library →
                 </button>
                 {onCreateSuccess && lastSavedApp && (
-                  <button className="wizard-create-btn" onClick={handleOpenPreview}>
-                    <Eye size={14} />
-                    Open Preview
+                  <button className="wizard-create-btn" onClick={handleOpenApp}>
+                    <Play size={14} />
+                    Open App
                   </button>
                 )}
               </div>
@@ -578,18 +698,19 @@ export function CreateDAppWizard({
                 <button
                   className="wizard-nav-btn wizard-nav-btn--save-draft"
                   onClick={handleSaveDraft}
-                  title="Save to library as a draft — no preview yet"
+                  title="Save to library as a draft"
                 >
                   <Save size={13} />
                   Save Draft
                 </button>
                 <button
                   className="wizard-create-btn"
-                  onClick={handleCreateDApp}
-                  title="Create the dApp now — opens preview immediately"
+                  onClick={handleCreateApp}
+                  title="Create the app now — opens immediately in the library"
+                  disabled={promptOverLimit}
                 >
                   <Zap size={14} />
-                  Create dApp
+                  Create App
                 </button>
                 <button
                   className="wizard-nav-btn wizard-nav-btn--next"

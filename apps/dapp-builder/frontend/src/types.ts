@@ -3,10 +3,10 @@ export type SecurityLevel = 'auth' | 'dapp' | 'readonly' | 'admin';
 
 // Lifecycle statuses that reflect where a dApp is in its creation journey.
 export type ProjectStatus =
-  | 'Draft'          // being configured; not yet saved as an app object
-  | 'Preview Ready'  // app object created; template mockup preview available
-  | 'Generated'      // code was generated; live iframe preview available
-  | 'Shared'         // at least one collaborator has been granted access
+  | 'Draft'             // being configured; not yet saved as a library entry
+  | 'Saved'             // app object created and live in the library; runtime available
+  | 'Generated'         // Anthropic code was generated; live HTML iframe available
+  | 'Shared'            // at least one collaborator has been granted access
   | 'Permission Review'; // role/access changes pending review
 
 export type SharedRole = 'Viewer' | 'Builder' | 'Reviewer';
@@ -71,6 +71,9 @@ export interface SavedDApp {
   id: string;
   dappName: string;
   description: string;
+  userPrompt?: string;       // full app prompt (≤ 1000 words)
+  generatedConfig?: string;  // JSON-stringified full config
+  internalAppPath?: string;  // simulated path: /dapp-builder/apps/{id}
   template: string;
   permissionModel: string;
   apis: string[];

@@ -146,6 +146,24 @@ export const API_COMPONENTS: ApiComponent[] = [
     securityNote: 'Admin only',
     securityLevel: 'admin',
   },
+  {
+    id: 'weather-api',
+    name: 'Weather API (Placeholder)',
+    purpose: 'Fetch current weather conditions, temperature, and forecast for a given city or location.',
+    endpoint: '/api/weather/current',
+    inputOutput: 'Input: city/location → Output: temperature (°F/°C), condition, 3-day forecast',
+    securityNote: 'Public read',
+    securityLevel: 'readonly',
+  },
+  {
+    id: 'outfit-api',
+    name: 'Outfit Recommendation API (Placeholder)',
+    purpose: 'Generate outfit recommendations based on weather conditions, temperature, and occasion.',
+    endpoint: '/api/outfit/recommend',
+    inputOutput: 'Input: weather, temperature, occasion → Output: outfit recommendation text',
+    securityNote: 'Requires authenticated user',
+    securityLevel: 'auth',
+  },
 ];
 
 export const WORKFLOW_BLOCKS: WorkflowBlock[] = [
@@ -171,9 +189,9 @@ export const TEMPLATE_DEFAULT_BLOCKS: Record<string, string[]> = {
 
 export const DEMO_PROJECTS: DAppProject[] = [
   { id: 'aviation-ledger',  name: 'Aviation Ledger App',    status: 'Draft',             templateId: 'ledger-app' },
-  { id: 'token-rewards',    name: 'Token Rewards Portal',   status: 'Preview Ready',      templateId: 'token-dashboard' },
-  { id: 'dao-voting-demo',  name: 'DAO Voting Demo',        status: 'Generated',          templateId: 'dao-voting' },
-  { id: 'escrow-flow',      name: 'Escrow Payment Flow',    status: 'Permission Review',  templateId: 'escrow-payment' },
+  { id: 'token-rewards',    name: 'Token Rewards Portal',   status: 'Saved',             templateId: 'token-dashboard' },
+  { id: 'dao-voting-demo',  name: 'DAO Voting Demo',        status: 'Generated',         templateId: 'dao-voting' },
+  { id: 'escrow-flow',      name: 'Escrow Payment Flow',    status: 'Permission Review', templateId: 'escrow-payment' },
 ];
 
 export const DEMO_PROJECT_DESCRIPTIONS: Record<string, string> = {

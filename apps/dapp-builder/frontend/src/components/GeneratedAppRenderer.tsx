@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SavedDApp } from '../types';
-import { WORKFLOW_BLOCKS } from '../data';
+import { WORKFLOW_BLOCKS, API_COMPONENTS } from '../data';
 
 // ── App-type inference ───────────────────────────────────────────────────────
 
@@ -22,8 +22,18 @@ const KNOWN_TEMPLATE_TYPES: AppType[] = [
   'escrow-payment', 'ledger-app', 'permissioned-workflow',
 ];
 
-export function inferAppType(name: string, desc: string, templateId: string): AppType {
+export function inferAppType(
+  name: string,
+  desc: string,
+  templateId: string,
+  apis?: string[]
+): AppType {
   if (KNOWN_TEMPLATE_TYPES.includes(templateId as AppType)) return templateId as AppType;
+
+  // Explicit API selection takes highest priority — user intent is clear
+  if (apis?.includes('weather-api') || apis?.includes('outfit-api')) return 'weather-outfit';
+  if (apis?.includes('smart-contract') && apis?.includes('wallet')) return 'nft-mint';
+  if (apis?.includes('bft') && apis?.includes('permissions')) return 'dao-voting';
 
   const s = `${name} ${desc}`.toLowerCase();
 
@@ -39,6 +49,27 @@ export function inferAppType(name: string, desc: string, templateId: string): Ap
   if (/workflow|approval|permission|access|role|step/.test(s)) return 'permissioned-workflow';
 
   return 'generic';
+}
+
+// ── Connected APIs panel ─────────────────────────────────────────────────────
+// Shown in every rendered app to surface which APIs the user selected.
+
+function ConnectedApisPanel({ apis }: { apis: string[] }) {
+  if (!apis || apis.length === 0) return null;
+  return (
+    <Card label="Connected APIs">
+      <div className="gen-workflow-chips">
+        {apis.map((id) => {
+          const meta = API_COMPONENTS.find((a) => a.id === id);
+          return (
+            <span key={id} className="gen-chip gen-chip--api" title={meta?.purpose}>
+              {meta?.name.replace(' (Placeholder)', '').replace(' Adapter API', ' Adapter').replace(' API', '') ?? id}
+            </span>
+          );
+        })}
+      </div>
+    </Card>
+  );
 }
 
 // ── Shared tiny helpers ──────────────────────────────────────────────────────
@@ -521,7 +552,7 @@ const OUTFIT_TABLE: Record<string, Record<string, string>> = {
   },
 };
 
-function WeatherOutfitApp({ name, description }: { name: string; description: string }) {
+function WeatherOutfitApp({ name, description, apis }: { name: string; description: string; apis?: string[] }) {
   const [city, setCity] = useState('');
   const [weather, setWeather] = useState('Sunny');
   const [temp, setTemp] = useState('72');
@@ -582,6 +613,32 @@ function WeatherOutfitApp({ name, description }: { name: string; description: st
             <div className="gen-outfit-note">
               Tap any condition to regenerate a new recommendation.
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Notification log panel — shown when Notification API is selected */}
+      {apis?.includes('notifications') && outfit && (
+        <Card label="Notification Log">
+          <div className="gen-muted" style={{ fontSize: '0.78rem' }}>
+            <div>📩 Outfit plan generated for {city || 'your location'} — {new Date().toLocaleTimeString()}</div>
+            {apis?.includes('identity') && (
+              <div style={{ marginTop: '6px' }}>✓ Session verified via Identity API</div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Permission status block — shown when Permissioning API is selected */}
+      {apis?.includes('permissions') && (
+        <Card label="Access Status">
+          <div className="gen-workflow-step" style={{ padding: '6px 0', border: 'none' }}>
+            <span className="gen-task-check gen-task-check--done">✓</span>
+            <span style={{ color: '#dff4ff', fontSize: '0.84rem' }}>Permissioning API — access granted</span>
+            <StatusChip ok label="Authorized" />
+          </div>
+          <div className="gen-muted" style={{ fontSize: '0.76rem', marginTop: '4px' }}>
+            Permission model: {name.toLowerCase().includes('outfit') ? 'user-scoped' : 'role-based'}
           </div>
         </Card>
       )}
@@ -932,30 +989,32 @@ export interface GeneratedAppRendererProps {
 export function GeneratedAppRenderer({ app, onBack }: GeneratedAppRendererProps) {
   if (!app?.id || !app?.dappName) return <InvalidAppFallback app={app ?? {}} onBack={onBack} />;
 
-  const appType = inferAppType(app.dappName, app.description ?? '', app.template);
+  const appType = inferAppType(app.dappName, app.description ?? '', app.template, app.apis);
+
+  const apiPanel = <ConnectedApisPanel apis={app.apis ?? []} />;
 
   switch (appType) {
     case 'token-dashboard':
-      return <InteractiveTokenDashboard name={app.dappName} />;
+      return <><InteractiveTokenDashboard name={app.dappName} />{apiPanel}</>;
     case 'nft-mint':
-      return <InteractiveNFTMint name={app.dappName} />;
+      return <><InteractiveNFTMint name={app.dappName} />{apiPanel}</>;
     case 'dao-voting':
-      return <InteractiveDAOVoting name={app.dappName} />;
+      return <><InteractiveDAOVoting name={app.dappName} />{apiPanel}</>;
     case 'escrow-payment':
-      return <InteractiveEscrowPayment name={app.dappName} />;
+      return <><InteractiveEscrowPayment name={app.dappName} />{apiPanel}</>;
     case 'ledger-app':
-      return <InteractiveLedgerApp name={app.dappName} />;
+      return <><InteractiveLedgerApp name={app.dappName} />{apiPanel}</>;
     case 'permissioned-workflow':
-      return <InteractivePermissionedWorkflow name={app.dappName} />;
+      return <><InteractivePermissionedWorkflow name={app.dappName} />{apiPanel}</>;
     case 'weather-outfit':
-      return <WeatherOutfitApp name={app.dappName} description={app.description ?? ''} />;
+      return <><WeatherOutfitApp name={app.dappName} description={app.userPrompt || app.description || ''} apis={app.apis} />{apiPanel}</>;
     case 'travel-planner':
-      return <TravelPlannerApp name={app.dappName} description={app.description ?? ''} />;
+      return <><TravelPlannerApp name={app.dappName} description={app.userPrompt || app.description || ''} />{apiPanel}</>;
     case 'budget-tracker':
-      return <BudgetTrackerApp name={app.dappName} description={app.description ?? ''} />;
+      return <><BudgetTrackerApp name={app.dappName} description={app.userPrompt || app.description || ''} />{apiPanel}</>;
     case 'task-workflow':
-      return <TaskWorkflowApp name={app.dappName} description={app.description ?? ''} />;
+      return <><TaskWorkflowApp name={app.dappName} description={app.userPrompt || app.description || ''} />{apiPanel}</>;
     default:
-      return <GenericGeneratedApp app={app} />;
+      return <><GenericGeneratedApp app={app} />{apiPanel}</>;
   }
 }
