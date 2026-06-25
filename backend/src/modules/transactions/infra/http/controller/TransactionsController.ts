@@ -28,8 +28,10 @@ class TransactionsController {
         organizationId,
       });
       return response.json(classToClass(transactions));
-    } catch (err) {
-      return response.status(400).json({ error: err.message });
+    } catch (err: any) {
+      const message = err?.message || 'Failed to load transactions';
+      console.error('[TransactionsController.index] user:', request.user?.sync_id, 'error:', message, err);
+      return response.status(500).json({ status: 'error', message });
     }
   }
 

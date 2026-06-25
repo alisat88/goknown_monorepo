@@ -34,14 +34,19 @@ class Axios {
         //   window.location.href = "/";
         // }
 
+        const errorMessage = error.response
+          ? (error.response.data as any)?.message ||
+            (error.response.data as any)?.error ||
+            `Request failed with status ${error.response.status}`
+          : error.message || "Network error — could not reach the server";
+
         const errorFormatted = {
+          message: errorMessage,
           response: {
             status: error.response?.status || 500,
             data: {
-              error: error.response
-                ? (error.response.data as any)?.message ||
-                  (error.response.data as any)?.error
-                : "Internal Server Error",
+              message: errorMessage,
+              error: errorMessage,
             },
           },
         };

@@ -38,7 +38,7 @@ class ListLatestTransactionsService {
       throw new AppError('User not found');
     }
 
-    let organization_id = null;
+    let organization_id: string | undefined = undefined;
     if (organizationId) {
       const organization = await this.organizationsRepository.findBySyncId(
         organizationId,

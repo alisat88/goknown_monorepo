@@ -86,6 +86,7 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<ITransactionItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const history = useHistory();
 
   const { addToast } = useToast();
@@ -110,13 +111,13 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
 
   const description = useCallback((transaction: ITransactionItem) => {
     if (transaction.transactionType === "sent") {
-      return `to ${transaction.touser.name}`;
+      return `to ${transaction.touser?.name ?? "Unknown"}`;
     }
     if (transaction.transactionType === "received") {
       if (transaction.category === "charge") {
         return "from Token Issuer";
       }
-      return `from ${transaction.touser.name}`;
+      return `from ${transaction.touser?.name ?? "Unknown"}`;
     }
 
     return "";
@@ -137,6 +138,7 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
 
   const avatar = useCallback((transaction: ITransactionItem) => {
     if (transaction.transactionType === "sent") {
+      if (!transaction.fromuser) return null;
       return (
         <Avatar
           name={transaction.fromuser.name}
@@ -147,8 +149,9 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
     }
     if (transaction.transactionType === "received") {
       if (transaction.category === "charge") {
-        return "";
+        return null;
       }
+      if (!transaction.touser) return null;
       return (
         <Avatar
           name={transaction.touser.name}
@@ -157,7 +160,7 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
         />
       );
     }
-    return "";
+    return null;
   }, []);
 
   const handleGoTo = useCallback(
@@ -217,6 +220,7 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
     const url = idOrganization
       ? `/me/transactions/organizations/${idOrganization}`
       : `/me/transactions/`;
@@ -225,18 +229,23 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
       .get<IResponseTransactions>(url)
       .then((response) => {
         setTransactions(
-          response.data.transactions.map((transaction) => ({
+          (response.data.transactions ?? []).map((transaction) => ({
             ...transaction,
             date: format(parseISO(transaction.created_at), "MM/dd/yy"),
             formattedAmount: formatValue(transaction.amount),
             formattedBalance: formatValue(transaction.balance),
           }))
         );
-        updateCurrentBalance(response.data.current_balance, false);
+        updateCurrentBalance(response.data.current_balance ?? 0, false);
       })
-      .catch((err) =>
-        addToast({ type: "error", title: "error", description: err.message })
-      )
+      .catch((err) => {
+        const msg =
+          err?.message ||
+          err?.response?.data?.error ||
+          "Failed to load wallet data";
+        setLoadError(msg);
+        addToast({ type: "error", title: "Wallet error", description: msg });
+      })
       .finally(() => setLoading(false));
   }, [addToast, idOrganization, updateCurrentBalance]);
 
@@ -269,7 +278,14 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
           </p>
           <Section>
             {loading && <TransactionLoader />}
-            {!loading && transactions.length === 0 && (
+            {!loading && loadError && (
+              <header>
+                <p style={{ color: "#e55" }}>
+                  Could not load wallet data: {loadError}
+                </p>
+              </header>
+            )}
+            {!loading && !loadError && transactions.length === 0 && (
               <header>
                 <p>No Transactions found</p>
                 <img src={noTransactions} alt="no transactions" />

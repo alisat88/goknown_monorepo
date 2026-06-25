@@ -32,15 +32,18 @@ class TransactionsRepository implements ITransactionsRepository {
     user_id: string,
     organization_id?: string,
   ): Promise<number> {
+    // When organization_id is undefined (personal wallet), omit the filter so we
+    // match transactions regardless of whether organization_id is null or unset.
+    const baseFilter = organization_id ? { organization_id } : {};
     const transaction = await this.ormRepository.findOne({
       where: [
         {
-          organization_id,
+          ...baseFilter,
           from_user_id: user_id,
           status: EnumStatus.Approved,
         },
         {
-          organization_id,
+          ...baseFilter,
           to_user_id: user_id,
           from_user_id: IsNull(),
           status: EnumStatus.Approved,
@@ -51,7 +54,7 @@ class TransactionsRepository implements ITransactionsRepository {
       },
     });
     if (transaction && transaction.balance) {
-      return transaction.balance;
+      return Number(transaction.balance);
     }
     return 0;
   }
@@ -60,14 +63,15 @@ class TransactionsRepository implements ITransactionsRepository {
     user_id: string,
     organization_id?: string,
   ): Promise<Transaction[] | undefined> {
+    const baseFilter = organization_id ? { organization_id } : {};
     const transactions = await this.ormRepository.find({
       where: [
         {
+          ...baseFilter,
           from_user_id: user_id,
-          organization_id,
         },
         {
-          organization_id,
+          ...baseFilter,
           to_user_id: user_id,
           from_user_id: IsNull(),
         },
