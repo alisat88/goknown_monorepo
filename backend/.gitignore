@@ -30,6 +30,7 @@ coverage/
 tmp/*
 !tmp/.gitkeep
 mnt/
+fix-transactions-schema.sql
 
 # =========================
 # CONFIG FILES (SENSITIVE)
