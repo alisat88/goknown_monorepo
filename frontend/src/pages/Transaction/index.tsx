@@ -182,11 +182,13 @@ const Transaction: React.FC<React.PropsWithChildren<unknown>> = () => {
             </li>
             {transaction.category === "transaction" && (
               <li>
-                <strong>From:</strong> <p>{transaction.fromuser.name}</p>
+                <strong>From:</strong>{" "}
+                <p>{transaction.fromuser?.name ?? "Unknown"}</p>
               </li>
             )}
             <li>
-              <strong>To:</strong> <p>{transaction.touser.name}</p>
+              <strong>To:</strong>{" "}
+              <p>{transaction.touser?.name ?? "Unknown"}</p>
             </li>
             <li>
               <strong>Amount:</strong> <p>{formatValue(transaction.amount)}</p>

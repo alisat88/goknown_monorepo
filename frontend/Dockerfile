@@ -11,10 +11,14 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
 # COPY EVERYTHING FROM PROJECT TO ROOT
+# .env.production is included here and used by CRA during build
 COPY . .
 
-# CREATE A EMPTY FILE .env for build
-RUN touch .env
+# Allow overriding API URL at Docker build time via --build-arg
+ARG REACT_APP_PRODUCTION_API
+ARG REACT_APP_ENVIRONMENT
+ENV REACT_APP_PRODUCTION_API=${REACT_APP_PRODUCTION_API}
+ENV REACT_APP_ENVIRONMENT=${REACT_APP_ENVIRONMENT}
 
 # build project
 RUN yarn build

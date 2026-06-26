@@ -6,6 +6,9 @@ envs:
 - key: NODE_ENV
   scope: RUN_AND_BUILD_TIME
   value: staging
+- key: REACT_APP_PRODUCTION_API
+  scope: BUILD_TIME
+  value: https://node1.goknown.app/
 name: shark-app
 region: nyc
 static_sites:
@@ -19,6 +22,7 @@ static_sites:
   routes:
   - path: /
   - path: /sendtokens
+  - path: /transactions
   - path: /dashboard
   - path: /confirm-email-denied
   - path: /confirm-email

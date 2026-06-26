@@ -204,7 +204,10 @@ const BuyTokens: React.FC<React.PropsWithChildren<unknown>> = () => {
         addToast({
           type: "error",
           title: "Buy tokens error",
-          description: err?.message || err?.response?.data?.error || "Failed to buy tokens",
+          description:
+            err?.message ||
+            err?.response?.data?.error ||
+            "Failed to buy tokens",
         });
       } finally {
         setLoadingSubmit(false);

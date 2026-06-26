@@ -1,5 +1,4 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from "axios";
-import React from "react";
 
 class Axios {
   public api = {} as AxiosInstance;
@@ -11,10 +10,23 @@ class Axios {
       staging: process.env.REACT_APP_STAGING_API,
       production: process.env.REACT_APP_PRODUCTION_API,
     };
-    const baseURL = (apiURLs[environment] || "http://localhost:3333").replace(
-      /\/$/,
-      ""
-    );
+
+    const resolvedURL = apiURLs[environment];
+
+    // Surfaces missing build-time env var immediately in the browser console.
+    // REACT_APP_* vars are baked in at build time — a runtime env var change
+    // has no effect without a rebuild. Check frontend/.env.production or your
+    // Render/DigitalOcean build environment variables.
+    if (!resolvedURL && process.env.NODE_ENV === "production") {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[GoKnown] REACT_APP_${environment.toUpperCase()}_API is not set. ` +
+          "All API calls will fail. " +
+          "Set this variable in frontend/.env.production or your deployment build env vars, then rebuild."
+      );
+    }
+
+    const baseURL = (resolvedURL || "http://localhost:3333").replace(/\/$/, "");
 
     this.api = axios.create({
       baseURL,
