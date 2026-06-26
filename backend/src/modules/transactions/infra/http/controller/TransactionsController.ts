@@ -30,7 +30,15 @@ class TransactionsController {
       return response.json(classToClass(transactions));
     } catch (err: any) {
       const message = err?.message || 'Failed to load transactions';
-      console.error('[TransactionsController.index] user:', request.user?.sync_id, 'error:', message, err);
+      // Log the DB error detail (err.detail / err.code) so schema mismatches
+      // are visible in Render logs without exposing secrets.
+      console.error(
+        '[TransactionsController.index]',
+        'user:', request.user?.sync_id,
+        'pg_code:', err?.code,
+        'error:', message,
+        err?.detail || '',
+      );
       return response.status(500).json({ status: 'error', message });
     }
   }
