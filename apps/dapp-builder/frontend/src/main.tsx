@@ -3,11 +3,13 @@ import ReactDOM from 'react-dom/client';
 import './styles.css';
 import './builder.css';
 import { BuilderDashboard } from './components/BuilderDashboard';
+import { AuthProvider } from './context/AuthContext';
 
 const logoPath = '/assets/dappbuilder.png';
 
 function App() {
   return (
+    <AuthProvider>
     <main className="shell">
       <header className="nav" aria-label="Primary">
         <div className="brand" aria-label="DApp Builder">
@@ -23,6 +25,7 @@ function App() {
 
       <BuilderDashboard />
     </main>
+    </AuthProvider>
   );
 }
 

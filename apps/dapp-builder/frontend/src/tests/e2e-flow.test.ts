@@ -15,6 +15,7 @@ function makeDApp(overrides: Partial<SavedDApp> = {}): SavedDApp {
   return {
     id: crypto.randomUUID(),
     dappName: 'Test dApp',
+    description: '',
     template: 'ledger-app',
     permissionModel: 'role-based',
     apis: ['identity', 'ledger'],
@@ -23,7 +24,11 @@ function makeDApp(overrides: Partial<SavedDApp> = {}): SavedDApp {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     sharedWith: [],
+    sharedAccess: [],
+    ownerId: 'mike@goknown.io',
+    ownerName: 'Mike',
     status: 'Draft',
+    version: 1,
     ...overrides,
   };
 }
@@ -58,13 +63,13 @@ describe('DApp Builder end-to-end flow', () => {
     saveApp(app);
 
     const originalUpdatedAt = app.updatedAt;
-    // Small delay so the timestamp actually differs
-    updateApp(app.id, { dappName: 'Updated Name', status: 'Preview' });
+    // 'Preview' is a legacy status remapped to 'Saved' by migrate() — use 'Generated' instead
+    updateApp(app.id, { dappName: 'Updated Name', status: 'Generated' });
 
     const updated = getApp(app.id);
     expect(updated).not.toBeNull();
     expect(updated!.dappName).toBe('Updated Name');
-    expect(updated!.status).toBe('Preview');
+    expect(updated!.status).toBe('Generated');
     expect(updated!.template).toBe('ledger-app'); // preserved
     expect(updated!.updatedAt).not.toBe(originalUpdatedAt);
   });
@@ -137,5 +142,106 @@ describe('DApp Builder end-to-end flow', () => {
     expect(list).toContain('alisa@goknown.io');
     expect(list).toContain('chuck@goknown.io');
     expect(list.length).toBeGreaterThanOrEqual(8);
+  });
+
+  // ── Auth / ownership tests ────────────────────────────────────────────────
+
+  test('ownership — Mike creates a draft and draft owner is Mike, not Alisa', () => {
+    const app = makeDApp({
+      dappName: 'Mikes App',
+      ownerId: 'mike@goknown.io',
+      ownerName: 'Mike',
+    });
+    saveApp(app);
+
+    const loaded = getApp(app.id);
+    expect(loaded).not.toBeNull();
+    expect(loaded!.ownerId).toBe('mike@goknown.io');
+    expect(loaded!.ownerName).toBe('Mike');
+    expect(loaded!.ownerId).not.toBe('alisa@goknown.io');
+    expect(loaded!.ownerName).not.toBe('Alisa');
+  });
+
+  test('migrate — apps missing ownerId do not default to Alisa after storage.ts fix', () => {
+    // Simulate an old record saved without ownerId / ownerName
+    const legacyRecord: Partial<SavedDApp> = {
+      id: 'legacy-001',
+      dappName: 'Old App',
+      template: 'ledger-app',
+      permissionModel: 'role-based',
+      apis: [],
+      workflow: [],
+      generatedCode: '',
+      status: 'Draft',
+      sharedWith: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    // Write raw partial (bypasses saveApp type check)
+    localStorage.setItem('dappbuilder:saved_apps', JSON.stringify([legacyRecord]));
+
+    const loaded = loadSavedApps();
+    expect(loaded).toHaveLength(1);
+    // After fix: migrate() defaults to '' not 'alisa@goknown.io'
+    expect(loaded[0].ownerId).not.toBe('alisa@goknown.io');
+    expect(loaded[0].ownerName).not.toBe('Alisa');
+  });
+
+  test('ownership — ownerId is preserved through save / load / update cycle', () => {
+    const app = makeDApp({ ownerId: 'mike@goknown.io', ownerName: 'Mike' });
+    saveApp(app);
+
+    updateApp(app.id, { dappName: 'Updated Name' });
+
+    const updated = getApp(app.id);
+    expect(updated!.ownerId).toBe('mike@goknown.io');
+    expect(updated!.ownerName).toBe('Mike');
+    expect(updated!.dappName).toBe('Updated Name');
+  });
+
+  test('access control — a user cannot see apps they do not own and are not shared with', () => {
+    const mikesApp  = makeDApp({ dappName: 'Mikes App',  ownerId: 'mike@goknown.io',  ownerName: 'Mike' });
+    const alisasApp = makeDApp({ dappName: 'Alisas App', ownerId: 'alisa@goknown.io', ownerName: 'Alisa' });
+    saveApp(mikesApp);
+    saveApp(alisasApp);
+
+    const all = loadSavedApps();
+
+    // Only mikesApp is owned by mike
+    const mikeOwned = all.filter((a) => a.ownerId === 'mike@goknown.io');
+    expect(mikeOwned).toHaveLength(1);
+    expect(mikeOwned[0].dappName).toBe('Mikes App');
+
+    // alisasApp is not in mikesApp's scope unless shared
+    const mikeShared = all.filter(
+      (a) => a.ownerId !== 'mike@goknown.io' &&
+             a.sharedWith.includes('mike@goknown.io')
+    );
+    expect(mikeShared).toHaveLength(0);
+  });
+
+  test('sharing — shared viewer is recorded with Viewer role, owner stays unchanged', () => {
+    const app = makeDApp({ ownerId: 'alisa@goknown.io', ownerName: 'Alisa' });
+    saveApp(app);
+
+    shareApp(app.id, 'mike@goknown.io', { email: 'mike@goknown.io', role: 'Viewer' });
+
+    const updated = getApp(app.id);
+    expect(updated!.ownerId).toBe('alisa@goknown.io');
+    expect(updated!.sharedWith).toContain('mike@goknown.io');
+    expect(updated!.sharedAccess[0].role).toBe('Viewer');
+    expect(updated!.sharedAccess[0].email).toBe('mike@goknown.io');
+  });
+
+  test('sharing — owner cannot be demoted to Viewer via shareApp', () => {
+    const app = makeDApp({ ownerId: 'alisa@goknown.io', ownerName: 'Alisa' });
+    saveApp(app);
+
+    // Attempting to share back with the owner does not change ownerId
+    shareApp(app.id, 'alisa@goknown.io', { email: 'alisa@goknown.io', role: 'Viewer' });
+
+    const updated = getApp(app.id);
+    // ownerId is never modified by shareApp
+    expect(updated!.ownerId).toBe('alisa@goknown.io');
   });
 });

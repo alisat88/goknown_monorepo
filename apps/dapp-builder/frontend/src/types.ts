@@ -1,6 +1,14 @@
 export type TemplateStatus = 'Mock template' | 'Coming soon' | 'Custom';
 export type SecurityLevel = 'auth' | 'dapp' | 'readonly' | 'admin';
 
+// Authenticated user passed from DAppGenius into the builder via URL params.
+// See context/AuthContext.tsx for resolution logic.
+export interface AuthUser {
+  userId: string;
+  userName: string;
+  userEmail: string;
+}
+
 // Lifecycle statuses that reflect where a dApp is in its creation journey.
 export type ProjectStatus =
   | 'Draft'             // being configured; not yet saved as a library entry

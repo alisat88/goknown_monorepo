@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink, Play, Zap,
+  X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink, Zap,
 } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp, ProjectStatus } from '../types';
 import { buildConfig } from '../lib/buildConfig';
@@ -71,8 +71,8 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 
 const STEP_LABELS: Record<number, string> = {
   1: 'Describe your app',
-  2: 'Build your workflow',
-  3: 'Generate Code',
+  2: 'Build Workflow & APIs',
+  3: 'Preview & Create',
 };
 
 export function CreateDAppWizard({
@@ -211,8 +211,8 @@ export function CreateDAppWizard({
         updatedAt: now,
         sharedWith: [],
         sharedAccess: [],
-        ownerId: currentUserEmail ?? 'alisa@goknown.io',
-        ownerName: ownerUser?.name ?? 'Alisa',
+        ownerId: currentUserEmail ?? '',
+        ownerName: ownerUser?.name ?? '',
         status,
         version: 1,
       };
@@ -291,8 +291,8 @@ export function CreateDAppWizard({
         updatedAt: now,
         sharedWith: [],
         sharedAccess: [],
-        ownerId: currentUserEmail ?? 'alisa@goknown.io',
-        ownerName: ownerUser?.name ?? 'Alisa',
+        ownerId: currentUserEmail ?? '',
+        ownerName: ownerUser?.name ?? '',
         status: 'Saved',
         version: 1,
       };
@@ -484,8 +484,25 @@ export function CreateDAppWizard({
                 </div>
               </div>
 
-              {/* API picker */}
-              <div className="wizard-field">
+            </div>
+          )}
+
+          {/* ── Step 2: Workflow + APIs ── */}
+          {wizardStep === 2 && (
+            <div className="wizard-step-content">
+              {template.id === 'custom' && (
+                <div className="wizard-scratch-hint">
+                  Blank canvas — add any workflow blocks that fit your use case.
+                </div>
+              )}
+              <WorkflowBuilder
+                workflowSteps={workflowSteps}
+                onWorkflowChange={onWorkflowChange}
+                selectedTemplate={template}
+              />
+
+              {/* API picker — moved here from step 1 */}
+              <div className="wizard-field" style={{ marginTop: '24px' }}>
                 <label className="wizard-field-label">APIs to include</label>
                 <div className="wizard-api-picker">
                   {API_COMPONENTS.map((api) => (
@@ -505,22 +522,6 @@ export function CreateDAppWizard({
                   {selectedApis.length > 0 && ` · ${selectedApis.join(', ')}`}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* ── Step 2: Workflow ── */}
-          {wizardStep === 2 && (
-            <div className="wizard-step-content">
-              {template.id === 'custom' && (
-                <div className="wizard-scratch-hint">
-                  Blank canvas — add any workflow blocks that fit your use case.
-                </div>
-              )}
-              <WorkflowBuilder
-                workflowSteps={workflowSteps}
-                onWorkflowChange={onWorkflowChange}
-                selectedTemplate={template}
-              />
             </div>
           )}
 
@@ -666,8 +667,8 @@ export function CreateDAppWizard({
                 </button>
                 {onCreateSuccess && lastSavedApp && (
                   <button className="wizard-create-btn" onClick={handleOpenApp}>
-                    <Play size={14} />
-                    Open App
+                    <Zap size={14} />
+                    Create App
                   </button>
                 )}
               </div>
@@ -703,21 +704,13 @@ export function CreateDAppWizard({
                   <Save size={13} />
                   Save Draft
                 </button>
-                <button
-                  className="wizard-create-btn"
-                  onClick={handleCreateApp}
-                  title="Create the app now — opens immediately in the library"
-                  disabled={promptOverLimit}
-                >
-                  <Zap size={14} />
-                  Create App
-                </button>
+                {/* "Create App" is only available on the final step (step 3) after generation */}
                 <button
                   className="wizard-nav-btn wizard-nav-btn--next"
                   onClick={() => onStepChange((wizardStep + 1) as 2 | 3)}
                   disabled={wizardStep === 2 && workflowSteps.length === 0 && template.id !== 'custom'}
                 >
-                  {wizardStep === 1 ? 'Next: Build Workflow' : 'Next: Generate Code'}
+                  {wizardStep === 1 ? 'Next: Build Workflow' : 'Next: Preview & Create'}
                   <ArrowRight size={15} />
                 </button>
               </div>

@@ -23,6 +23,7 @@ import {
 import {
   Template, WorkflowBlock, TabId, SavedDApp, DemoUser, SharedRole, SharedAccess, ProjectStatus,
 } from '../types';
+import { useAuth, AuthUser } from '../context/AuthContext';
 import {
   TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS,
   DEMO_USERS, DEMO_PROJECT_DESCRIPTIONS,
@@ -117,22 +118,30 @@ function getUserRole(app: SavedDApp, email: string): 'Owner' | SharedRole | null
 }
 
 // ── CurrentUserBar ───────────────────────────────────────────────────────────
+// When DAppGenius hands off an authenticated user via URL params, that user is
+// pre-selected and the bar shows "Viewing as: <name>".
+// When accessed directly (no URL params), no user is pre-selected and the bar
+// shows "Select demo identity:" so demo participants can pick who they are.
 
 function CurrentUserBar({
   currentUser,
+  authUser,
   onChange,
 }: {
-  currentUser: DemoUser;
+  currentUser: DemoUser | null;
+  authUser: AuthUser | null;
   onChange: (u: DemoUser) => void;
 }) {
   return (
     <div className="demo-user-bar">
-      <span className="demo-user-label">Viewing as:</span>
+      <span className="demo-user-label">
+        {authUser ? 'Viewing as:' : 'Select demo identity:'}
+      </span>
       <div className="demo-user-btns">
         {DEMO_USERS.map((u) => (
           <button
             key={u.email}
-            className={`demo-user-btn${currentUser.email === u.email ? ' active' : ''}`}
+            className={`demo-user-btn${currentUser?.email === u.email ? ' active' : ''}`}
             onClick={() => onChange(u)}
             title={u.email}
           >
@@ -558,6 +567,8 @@ function DashboardPane({
 // ── BuilderDashboard ─────────────────────────────────────────────────────────
 
 export function BuilderDashboard() {
+  const { currentUser: authUser, isLoading: authLoading } = useAuth();
+
   const [activeTab,      setActiveTab]      = useState<TabId>('instructions');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [workflowSteps,  setWorkflowSteps]  = useState<WorkflowBlock[]>([]);
@@ -571,7 +582,21 @@ export function BuilderDashboard() {
     (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? ''
   );
   const [previewApp,     setPreviewApp]     = useState<SavedDApp | null>(null);
-  const [currentUser,    setCurrentUser]    = useState<DemoUser>(DEMO_USERS[0]);
+  // currentUser is null until the auth context resolves or a demo user is selected.
+  // It is never pre-set to DEMO_USERS[0] (Alisa) — the active user always comes
+  // from the authenticated session or an explicit demo selection.
+  const [currentUser,    setCurrentUser]    = useState<DemoUser | null>(null);
+
+  // Sync currentUser from the authenticated session when it becomes available.
+  useEffect(() => {
+    if (!authLoading && authUser) {
+      // Prefer a matching DEMO_USERS entry so demo ownership / sharing still works.
+      const matched = DEMO_USERS.find(
+        (u) => u.email.toLowerCase() === authUser.userEmail.toLowerCase()
+      );
+      setCurrentUser(matched ?? { name: authUser.userName, email: authUser.userEmail });
+    }
+  }, [authLoading, authUser]);
 
   // ── Seed demo apps on mount (re-seeds when CURRENT_SEED_VERSION changes) ──
   // TODO (production): Replace with GET /api/dapps
@@ -600,7 +625,7 @@ export function BuilderDashboard() {
         createdAt: '2026-06-15T00:00:00.000Z',
         updatedAt: '2026-06-15T00:00:00.000Z',
         status: p.status,
-        ownerName: ownerUser?.name ?? 'Alisa',
+        ownerName: ownerUser?.name ?? '',
         version: 1,
         ...ownership,
       };
@@ -667,8 +692,8 @@ export function BuilderDashboard() {
 
   // ── Chuck demo: creates a real app for Chuck + opens preview immediately ──
   const handleStartChuckDemo = () => {
-    const chuckUser = DEMO_USERS.find((u) => u.name === 'Chuck') ?? DEMO_USERS[0];
-    setCurrentUser(chuckUser);
+    const chuckUser = DEMO_USERS.find((u) => u.name === 'Chuck');
+    if (chuckUser) setCurrentUser(chuckUser);
 
     const ledgerTemplate = TEMPLATES.find((t) => t.id === 'ledger-app')!;
     const demoBlockIds = ['authenticate-user', 'check-dapp-permission', 'read-ledger-entries'];
@@ -694,8 +719,8 @@ export function BuilderDashboard() {
       updatedAt: now,
       sharedWith: [],
       sharedAccess: [],
-      ownerId: chuckUser.email,
-      ownerName: chuckUser.name,
+      ownerId: chuckUser?.email ?? '',
+      ownerName: chuckUser?.name ?? '',
       status: 'Saved',
       version: 1,
     };
@@ -708,7 +733,8 @@ export function BuilderDashboard() {
 
   return (
     <div className="builder">
-      {previewApp && (
+      {/* Overlays — only mount when a user is selected */}
+      {previewApp && currentUser && (
         <SavedAppPage
           app={previewApp}
           currentUserEmail={currentUser.email}
@@ -717,7 +743,7 @@ export function BuilderDashboard() {
         />
       )}
 
-      {wizardOpen && selectedTemplate && (
+      {wizardOpen && selectedTemplate && currentUser && (
         <CreateDAppWizard
           template={selectedTemplate}
           workflowSteps={workflowSteps}
@@ -735,7 +761,19 @@ export function BuilderDashboard() {
         />
       )}
 
-      <CurrentUserBar currentUser={currentUser} onChange={setCurrentUser} />
+      <CurrentUserBar currentUser={currentUser} authUser={authUser} onChange={setCurrentUser} />
+
+      {/* When no user is selected, show a clear prompt and suppress user-specific tabs */}
+      {!currentUser && !authLoading && (
+        <div className="auth-required" role="status">
+          <p>
+            <strong>Select your identity above</strong> to access the DApp Builder library and create apps.
+          </p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
+            Signing in from DApp Genius sets your identity automatically.
+          </p>
+        </div>
+      )}
 
       <div className="builder-tabs" role="tablist" aria-label="Builder sections">
         {tabs.map((tab) => {
@@ -759,7 +797,7 @@ export function BuilderDashboard() {
         {activeTab === 'instructions' && (
           <InstructionsPage onNavigate={setActiveTab} />
         )}
-        {activeTab === 'dashboard' && (
+        {activeTab === 'dashboard' && currentUser && (
           <DashboardPane
             savedApps={savedApps}
             currentUser={currentUser}
@@ -800,7 +838,7 @@ export function BuilderDashboard() {
             apiKey={apiKey}
             onApiKeyChange={setApiKey}
             onSaveApp={handleSaveApp}
-            currentUserEmail={currentUser.email}
+            currentUserEmail={currentUser?.email ?? ''}
           />
         )}
         {activeTab === 'permissions' && <PermissioningPanel />}
