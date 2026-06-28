@@ -3230,6 +3230,24 @@
   .card-grid { grid-template-columns: 1fr; }
 }
 
+/* ── INCOMPLETE GENERATION ERROR ───────────────────── */
+
+.dapp-preview-regen-error {
+  padding: 14px 20px;
+  background: rgba(255, 80, 60, 0.1);
+  border: 1px solid rgba(255, 80, 60, 0.3);
+  border-radius: 8px;
+  margin: 16px 20px;
+  font-size: 0.85rem;
+  color: #ffd0c8;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.dapp-preview-regen-error strong {
+  color: #ffb3a6;
+}
+
 /* ── NO-CODE PREVIEW BODY ───────────────────────────── */
 
 .dapp-preview-mock-body {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Check, Loader, ExternalLink } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp } from '../types';
 import { buildConfig } from '../lib/buildConfig';
-import { generateDAppCode } from '../lib/generateCode';
+import { generateDAppCode, validateGeneratedHtml } from '../lib/generateCode';
 import { saveApp, updateApp } from '../services/storage';
 import { DEMO_USERS } from '../data';
 
@@ -90,6 +90,7 @@ export function CodeGenerationPreview({
       const html = await generateDAppCode(
         {
           dappName: config.dappName,
+          description: userPrompt.trim() || undefined,
           template: config.template,
           apis: config.apis,
           workflow: config.workflow,
@@ -97,6 +98,11 @@ export function CodeGenerationPreview({
         },
         key
       );
+
+      const validationError = validateGeneratedHtml(html);
+      if (validationError) {
+        throw new Error(validationError);
+      }
 
       setGeneratedCode(html);
 
@@ -230,12 +236,12 @@ export function CodeGenerationPreview({
       {/* Error */}
       {genError && (
         <div className="wizard-gen-error" style={{ marginTop: '16px' }}>
-          <strong>Error:</strong> {genError}
+          <strong>We couldn't generate the app preview.</strong> {genError}
           <button
             style={{ marginLeft: '12px', background: 'none', border: 'none', color: '#ff8855', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline' }}
             onClick={() => { setGenError(null); handleGenerate(); }}
           >
-            Retry
+            Try again
           </button>
         </div>
       )}

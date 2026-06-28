@@ -11,6 +11,7 @@ import {
 import { isWhitelisted, getWhitelist } from '../services/whitelist';
 import { SavedDApp } from '../types';
 import { FLOW_STEPS } from '../components/InstructionsPage';
+import { validateGeneratedHtml } from '../lib/generateCode';
 
 function makeDApp(overrides: Partial<SavedDApp> = {}): SavedDApp {
   return {
@@ -275,5 +276,100 @@ describe('DApp Builder end-to-end flow', () => {
       expect(step.label.trim(), `step ${i + 1} label is blank`).not.toBe('');
       expect(step.desc.trim(), `step ${i + 1} desc is blank`).not.toBe('');
     });
+  });
+
+  // ── Generated app preview validation tests ───────────────────────────────────
+
+  test('validateGeneratedHtml — rejects empty string', () => {
+    expect(validateGeneratedHtml('')).not.toBeNull();
+  });
+
+  test('validateGeneratedHtml — rejects very short output (likely just a header)', () => {
+    const headerOnly = `<!DOCTYPE html><html><body><h1>Dog-walking app</h1><p>Web3-Verified Walk Logs</p></body></html>`;
+    expect(validateGeneratedHtml(headerOnly)).not.toBeNull();
+  });
+
+  test('validateGeneratedHtml — rejects output with no interactive elements', () => {
+    const noInteraction = '<!DOCTYPE html><html><body>' + '<p>content</p>'.repeat(50) + '</body></html>';
+    expect(validateGeneratedHtml(noInteraction)).not.toBeNull();
+  });
+
+  test('validateGeneratedHtml — accepts a complete app with inputs and buttons', () => {
+    const fullApp = `<!DOCTYPE html>
+<html><head><title>Dog-walking app</title></head>
+<body>
+  <header><h1>Dog-walking app</h1></header>
+  <main>
+    <form id="walk-form">
+      <input type="text" id="dog-name" placeholder="Dog name" />
+      <input type="number" id="distance" placeholder="Distance (km)" />
+      <button type="submit">Log Walk</button>
+    </form>
+    <section id="stats">
+      <div class="stat-card"><h3>Total Walks</h3><span id="total">3</span></div>
+      <div class="stat-card"><h3>Total Distance</h3><span id="dist">7.2 km</span></div>
+    </section>
+    <section id="history">
+      <table><tbody>
+        <tr><td>Buddy</td><td>2.5 km</td><td>30 min</td></tr>
+        <tr><td>Max</td><td>1.8 km</td><td>22 min</td></tr>
+        <tr><td>Buddy</td><td>2.9 km</td><td>35 min</td></tr>
+      </tbody></table>
+    </section>
+  </main>
+  <script>
+    document.getElementById('walk-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      document.getElementById('total').textContent = String(parseInt(document.getElementById('total').textContent || '0') + 1);
+    });
+  </script>
+</body></html>`;
+    expect(validateGeneratedHtml(fullApp)).toBeNull();
+  });
+
+  test('validateGeneratedHtml — accepts output with a form, button, and reasonable length', () => {
+    // A realistic-length HTML with interactive elements
+    const withForm = `<!DOCTYPE html>
+<html>
+<head><title>Test App</title>
+<style>
+  body { background: #0d1117; color: #e8f4ff; font-family: sans-serif; margin: 0; padding: 20px; }
+  input { display: block; width: 100%; padding: 10px; margin: 8px 0; background: #1a1f3c; border: 1px solid #26b8ff; color: #e8f4ff; border-radius: 4px; }
+  button { padding: 10px 20px; background: #26b8ff; color: #0d1117; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  td, th { padding: 10px; border: 1px solid #1a2f5c; }
+</style>
+</head>
+<body>
+  <header><h1>Test App</h1></header>
+  <form id="main-form">
+    <input type="text" id="name" placeholder="Enter name" />
+    <input type="number" id="value" placeholder="Enter value" />
+    <button type="submit">Submit</button>
+  </form>
+  <div id="result" style="padding:12px; background:#1a1f3c; border-radius:4px; margin-top:16px; display:none;"></div>
+  <table id="history"><thead><tr><th>Name</th><th>Value</th><th>Date</th></tr></thead>
+    <tbody>
+      <tr><td>Sample 1</td><td>42</td><td>2026-06-28</td></tr>
+      <tr><td>Sample 2</td><td>18</td><td>2026-06-27</td></tr>
+    </tbody>
+  </table>
+  <script>
+    document.getElementById('main-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const result = document.getElementById('result');
+      result.textContent = 'Saved: ' + name;
+      result.style.display = 'block';
+    });
+  </script>
+</body></html>`;
+    expect(validateGeneratedHtml(withForm)).toBeNull();
+  });
+
+  test('validateGeneratedHtml — rejects output with only 1 interactive element and short length', () => {
+    const almostEmpty = '<!DOCTYPE html><html><body><h1>App</h1><button>Go</button></body></html>';
+    // Short AND only 1 interactive element → should flag as incomplete
+    expect(validateGeneratedHtml(almostEmpty)).not.toBeNull();
   });
 });

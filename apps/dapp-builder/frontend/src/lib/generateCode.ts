@@ -2,19 +2,36 @@ import { API_COMPONENTS } from '../data';
 
 export interface GenerationConfig {
   dappName: string;
+  description?: string;   // short app description from step 1
   template: string;
-  apis: string[];      // API IDs from buildConfig — resolved to descriptions internally
+  apis: string[];          // API IDs — resolved to descriptions internally
   workflow: string[];
-  userPrompt: string;
+  userPrompt: string;      // detailed free-form prompt from step 1
 }
 
-const SYSTEM_PROMPT = `You are a dApp frontend code generator. Generate a single self-contained HTML file with embedded CSS and JavaScript that implements the dApp described. Requirements:
-(1) No external dependencies except a CDN-hosted React/ReactDOM via unpkg, or a plain vanilla JS implementation — pick whichever fits better.
-(2) Working UI with real interactivity — buttons do things, forms submit, state updates visibly.
-(3) Stub the API service calls as async functions that log to console and return realistic mock data so the UI behaves as if connected.
-(4) Include the dApp name as the page title and a visible header.
-(5) Use a dark blue / Web3 color scheme matching #26b8ff, #4ee5ff, #1a1f3c as the palette.
-(6) Return ONLY the HTML — no explanation, no markdown fences, no preamble.`;
+const SYSTEM_PROMPT = `You are a no-code app builder that generates complete, working, self-contained HTML apps. Your output is immediately rendered in a sandboxed iframe for a non-technical user to interact with.
+
+REQUIRED — your output MUST contain ALL of the following six sections. Omitting any section is not acceptable:
+1. HEADER — app name, short tagline, optional status/wallet chip
+2. INPUT AREA — form fields relevant to the app's purpose (text inputs, number fields, pickers, dropdowns)
+3. ACTION BUTTONS — at least one primary button that triggers a visible, immediate state change
+4. RESULTS / STATS PANEL — a card or section that shows output data after the user takes an action
+5. HISTORY / LOG LIST — a table or list pre-populated with 3 realistic demo rows that updates when the user adds more
+6. STATUS BAR — shows success, error, and loading states in a non-technical way
+
+MANDATORY RULES:
+- Vanilla JavaScript only — zero external dependencies, no CDN, no npm
+- All data operations are local mock functions — no real network calls
+- Simulate async delay (400–700 ms) so buttons feel responsive
+- Clicking any button MUST visibly change state on screen immediately after the delay
+- Pre-populate history with 3 believable demo entries so the app looks alive on first load
+- Do NOT generate a placeholder, skeleton, or "coming soon" UI — generate the full working app
+- Do NOT generate only a header and blank space — the body MUST be present and complete
+- Every input field must accept user input and connect to at least one action
+- Color scheme: page background #0d1117, card background #1a1f3c, primary accent #26b8ff, secondary #4ee5ff, text #e8f4ff, muted text #7aa0c4
+- Readable font sizes: body 15px minimum, labels 13px minimum
+- Make the layout fill the screen height — no large blank white space below the fold
+- Return ONLY raw HTML starting with <!DOCTYPE html> — no markdown fences, no preamble, no explanation`;
 
 function buildUserPrompt(config: GenerationConfig): string {
   const apiDetails = config.apis
@@ -26,21 +43,75 @@ function buildUserPrompt(config: GenerationConfig): string {
     })
     .join(', ');
 
-  const lines = [
-    `Build a dApp called "${config.dappName}" using the "${config.template}" pattern.`,
-    `Selected API services: ${apiDetails || 'none'}, each with stub implementations.`,
-    `Workflow steps in order: ${config.workflow.join(' → ') || 'none'}.`,
-  ];
+  const lines: string[] = [];
 
-  if (config.userPrompt.trim()) {
-    lines.push(`Additional requirements from the builder: ${config.userPrompt.trim()}`);
+  lines.push(`Build an app called "${config.dappName}".`);
+
+  // description and userPrompt both describe what the app does — include both
+  const desc = config.description?.trim();
+  const prompt = config.userPrompt?.trim();
+  if (desc) {
+    lines.push(`What this app does: ${desc}`);
+  }
+  if (prompt && prompt !== desc) {
+    lines.push(`Detailed requirements: ${prompt}`);
+  }
+
+  if (config.template && config.template !== 'none' && config.template !== 'custom') {
+    lines.push(`Starting pattern: "${config.template}".`);
+  }
+
+  if (apiDetails) {
+    lines.push(`Mock these services (stub all calls, no real HTTP): ${apiDetails}.`);
+  }
+
+  if (config.workflow.length > 0) {
+    lines.push(`User workflow steps: ${config.workflow.join(' → ')}.`);
   }
 
   lines.push(
-    'Make the UI fully interactive — include real state, working button handlers, and visible feedback for every user action.'
+    'Remember: generate the COMPLETE app — all six required sections must be present. ' +
+    'Pre-populate the history section with 3 demo rows. Every button must do something visible.'
   );
 
   return lines.join('\n');
+}
+
+/**
+ * Returns an error string if the generated HTML looks like a header-only shell,
+ * or null if it looks like a complete app.
+ */
+export function validateGeneratedHtml(html: string): string | null {
+  if (!html || html.length < 800) {
+    return 'The generated output was too short to be a working app.';
+  }
+
+  const lower = html.toLowerCase();
+
+  // Find body content (after <body tag, or entire string if no explicit body)
+  const bodyStart = lower.indexOf('<body');
+  const bodyContent = bodyStart >= 0 ? lower.slice(bodyStart) : lower;
+
+  // Must have at least one interactive element
+  const hasInteractive =
+    bodyContent.includes('<input') ||
+    bodyContent.includes('<button') ||
+    bodyContent.includes('<form') ||
+    bodyContent.includes('<select') ||
+    bodyContent.includes('<textarea');
+
+  if (!hasInteractive) {
+    return 'The generated app has no input fields or buttons. Please regenerate.';
+  }
+
+  // If the HTML is very short AND has fewer than 3 interactive elements it's likely incomplete
+  const buttonCount = (bodyContent.match(/<button/g) ?? []).length;
+  const inputCount = (bodyContent.match(/<input/g) ?? []).length;
+  if (html.length < 2000 && buttonCount + inputCount < 2) {
+    return 'The generated app looks incomplete (very short with few interactive elements). Please regenerate.';
+  }
+
+  return null;
 }
 
 export async function generateDAppCode(
@@ -57,7 +128,7 @@ export async function generateDAppCode(
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+      max_tokens: 8192,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: buildUserPrompt(config) }],
     }),
@@ -65,7 +136,6 @@ export async function generateDAppCode(
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({})) as { error?: { message?: string } };
-    // Prefix with HTTP status so call sites can classify the error
     throw new Error(`${response.status}:${err.error?.message ?? 'API request failed'}`);
   }
 
@@ -75,7 +145,6 @@ export async function generateDAppCode(
   // Strip markdown fences — handles ```html, ```HTML, ```tsx, ``` with/without trailing spaces
   let html = raw.replace(/^```[a-zA-Z]*\n?/, '').trim();
   html = html.replace(/\n?```$/, '').trim();
-  // Edge case: model wrapped twice — strip again
   if (html.startsWith('```')) {
     html = html.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
   }

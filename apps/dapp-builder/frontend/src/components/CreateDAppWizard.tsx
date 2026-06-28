@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp, ProjectStatus } from '../types';
 import { buildConfig } from '../lib/buildConfig';
-import { generateDAppCode } from '../lib/generateCode';
+import { generateDAppCode, validateGeneratedHtml } from '../lib/generateCode';
 import { saveApp, updateApp } from '../services/storage';
 import { WORKFLOW_BLOCKS, TEMPLATE_DEFAULT_BLOCKS, DEMO_USERS, API_COMPONENTS } from '../data';
 import { WorkflowBuilder } from './WorkflowBuilder';
@@ -327,6 +327,7 @@ export function CreateDAppWizard({
       const html = await generateDAppCode(
         {
           dappName: config.dappName,
+          description,
           template: config.template,
           apis: effectiveApis,
           workflow: config.workflow,
@@ -334,6 +335,11 @@ export function CreateDAppWizard({
         },
         key
       );
+
+      const validationError = validateGeneratedHtml(html);
+      if (validationError) {
+        throw new Error(validationError);
+      }
 
       setGeneratedCode(html);
 

@@ -28,6 +28,7 @@ import {
 } from '../data';
 import { loadSavedApps, deleteApp, seedDemoApps, saveApp } from '../services/storage';
 import { buildConfig } from '../lib/buildConfig';
+import { validateGeneratedHtml } from '../lib/generateCode';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ApiComponentLibrary } from './ApiComponentLibrary';
 import { WorkflowBuilder } from './WorkflowBuilder';
@@ -166,6 +167,9 @@ function SavedAppPage({
 }) {
   const role = getUserRole(app, currentUserEmail);
   const templateName = TEMPLATES.find((t) => t.id === app.template)?.name ?? app.template;
+  // Validate that the stored generated code is a complete app (not a header-only shell).
+  const codeValidationError = app.generatedCode ? validateGeneratedHtml(app.generatedCode) : null;
+  const hasValidCode = !!app.generatedCode && !codeValidationError;
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); },
@@ -211,7 +215,7 @@ function SavedAppPage({
             </div>
             <div className="dapp-preview-page-badges">
               <span className={`status-badge ${statusClass(app.status)}`}>{app.status}</span>
-              {app.generatedCode && (
+              {hasValidCode && (
                 <span className="dapp-preview-badge dapp-preview-badge--built">Live preview ready</span>
               )}
               {role && (
@@ -221,7 +225,7 @@ function SavedAppPage({
               )}
             </div>
             <div className="dapp-preview-page-actions">
-              {app.generatedCode && (
+              {hasValidCode && (
                 <button className="open-newtab-btn" onClick={handleOpenNewTab}>
                   <ExternalLink size={13} /> Open in new tab
                 </button>
@@ -273,14 +277,24 @@ function SavedAppPage({
         </div>
 
         <div className="dapp-preview-page-body">
-          {app.generatedCode ? (
+          {hasValidCode ? (
             // Generated code → live iframe (full canvas)
             <iframe
-              srcDoc={app.generatedCode}
+              srcDoc={app.generatedCode!}
               title={`${app.dappName} live app`}
               sandbox="allow-scripts allow-popups allow-forms allow-modals"
               className="dapp-preview-iframe"
             />
+          ) : app.generatedCode && codeValidationError ? (
+            // Code exists but failed validation — incomplete/header-only output
+            <div className="dapp-preview-mock-body">
+              <div className="dapp-preview-regen-error">
+                <strong>We generated the app shell, but the app screen did not render.</strong>
+                <br />
+                {codeValidationError} Please use <strong>Edit App</strong> above to regenerate.
+              </div>
+              <GeneratedAppRenderer app={app} onBack={onClose} />
+            </div>
           ) : (
             // No generated code → full-width interactive mock preview
             <div className="dapp-preview-mock-body">
