@@ -16,8 +16,6 @@ import {
   Users,
   X,
   ExternalLink,
-  Copy,
-  Check,
   ArrowLeft,
 } from 'lucide-react';
 import {
@@ -52,7 +50,7 @@ const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'apis',        label: 'API Components',   icon: Plug },
   { id: 'workflow',    label: 'Workflow',          icon: GitBranch },
   { id: 'config',      label: 'Config',            icon: Braces },
-  { id: 'code',        label: 'Generate Code',    icon: Code2 },
+  { id: 'code',        label: 'Generate App',     icon: Code2 },
   { id: 'permissions', label: 'Permissions',      icon: Shield },
   { id: 'preview',     label: 'App Runtime',      icon: Monitor },
   { id: 'demo',        label: 'Demo Flow',        icon: Zap },
@@ -166,9 +164,7 @@ function SavedAppPage({
   onClose: () => void;
   onGoToLibrary: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
   const role = getUserRole(app, currentUserEmail);
-  const appPath = app.internalAppPath ?? `/dapp-builder/apps/${app.id}`;
   const templateName = TEMPLATES.find((t) => t.id === app.template)?.name ?? app.template;
 
   const handleKeyDown = useCallback(
@@ -179,12 +175,6 @@ function SavedAppPage({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
-
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(appPath).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleOpenNewTab = () => {
     if (!app.generatedCode) return;
@@ -222,7 +212,7 @@ function SavedAppPage({
             <div className="dapp-preview-page-badges">
               <span className={`status-badge ${statusClass(app.status)}`}>{app.status}</span>
               {app.generatedCode && (
-                <span className="dapp-preview-badge dapp-preview-badge--built">Code generated</span>
+                <span className="dapp-preview-badge dapp-preview-badge--built">Live preview ready</span>
               )}
               {role && (
                 <span className={`dapp-preview-badge dapp-preview-badge--role dapp-preview-badge--role-${role.toLowerCase()}`}>
@@ -243,15 +233,6 @@ function SavedAppPage({
           </div>
 
           <div className="dapp-preview-page-meta">
-            <div className="dapp-preview-mock-url">
-              <span className="dapp-preview-meta-label">Internal App Path</span>
-              <code className="dapp-preview-mock-url-path">{appPath}</code>
-              <button className="dapp-preview-copy-btn" onClick={handleCopyUrl} aria-label="Copy path">
-                {copied ? <Check size={12} /> : <Copy size={12} />}
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-
             {app.workflow.length > 0 && (
               <div className="dapp-preview-workflow-row">
                 <span className="dapp-preview-meta-label">Workflow</span>
@@ -301,75 +282,13 @@ function SavedAppPage({
               className="dapp-preview-iframe"
             />
           ) : (
-            // No generated code → split: interactive app runtime + config sidebar
-            <div className="dapp-preview-split">
-              <div className="dapp-preview-app-scroll">
-                <div className="dapp-preview-app-labels">
-                  <span className="dapp-preview-badge dapp-preview-badge--mode">App Runtime</span>
-                  <span className="dapp-preview-badge dapp-preview-badge--built">Frontend mock</span>
-                  <span className="dapp-preview-app-label-note">
-                    Backend / API deployment coming later
-                  </span>
-                </div>
-                <GeneratedAppRenderer app={app} onBack={onClose} />
-              </div>
-
-              <div className="dapp-preview-config-sidebar">
-                <div className="dapp-preview-sidebar-section">
-                  <div className="dapp-preview-sidebar-label">Generated Config</div>
-                  <pre className="dapp-preview-config-json">{JSON.stringify({
-                    dappName: app.dappName,
-                    templateId: app.template,
-                    permissionModel: app.permissionModel,
-                    status: app.status,
-                    version: app.version,
-                    apiComponents: app.apis,
-                    workflowBlocks: app.workflow,
-                    ownerId: app.ownerId,
-                  }, null, 2)}</pre>
-                </div>
-
-                {app.apis.length > 0 && (
-                  <div className="dapp-preview-sidebar-section">
-                    <div className="dapp-preview-sidebar-label">API Components</div>
-                    <div className="gen-workflow-chips">
-                      {app.apis.map((api) => (
-                        <span key={api} className="gen-chip gen-chip--api">{api}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {app.workflow.length > 0 && (
-                  <div className="dapp-preview-sidebar-section">
-                    <div className="dapp-preview-sidebar-label">Workflow Steps</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {app.workflow.map((id, i) => (
-                        <div key={id} className="dapp-preview-sidebar-step">
-                          <span className="dapp-preview-sidebar-step-num">{i + 1}</span>
-                          <span className="dapp-preview-sidebar-step-label">
-                            {WORKFLOW_BLOCKS.find((b) => b.id === id)?.label ?? id}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {app.userPrompt && (
-                  <div className="dapp-preview-sidebar-section">
-                    <div className="dapp-preview-sidebar-label">App Prompt</div>
-                    <div className="dapp-preview-sidebar-note">{app.userPrompt}</div>
-                  </div>
-                )}
-
-                <div className="dapp-preview-sidebar-section">
-                  <div className="dapp-preview-sidebar-label">Generate Live Code</div>
-                  <div className="dapp-preview-sidebar-note">
-                    Go to the <strong>Generate Code</strong> tab, enter your Anthropic API key,
-                    and generate HTML code to upgrade this runtime to a live app inside an iframe.
-                  </div>
-                </div>
+            // No generated code → full-width interactive mock preview
+            <div className="dapp-preview-mock-body">
+              <GeneratedAppRenderer app={app} onBack={onClose} />
+              <div className="dapp-preview-generate-banner">
+                <span className="dapp-preview-generate-banner-text">
+                  This is an interactive mock of your app. Use <strong>Edit App</strong> above to generate a live version.
+                </span>
               </div>
             </div>
           )}
@@ -521,9 +440,9 @@ function DashboardPane({
         <p className="pane-kicker">DApp Builder Library</p>
         <h2 className="pane-title">My Apps</h2>
         <p className="pane-desc">
-          Your saved apps live here. Click <strong>Open App</strong> to run the app directly.
-          Every app gets an interactive runtime immediately — no code generation required. Use
-          <strong> Generate Code</strong> to produce live HTML when you're ready.
+          Your saved apps live here. Click <strong>Open App</strong> to launch or preview any app.
+          Every app gets an interactive preview immediately. Use <strong>Generate App</strong> to
+          create the full live version.
         </p>
       </div>
 

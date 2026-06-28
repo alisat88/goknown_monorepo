@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Copy, Check, Loader, ExternalLink } from 'lucide-react';
+import { Sparkles, Check, Loader, ExternalLink } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp } from '../types';
 import { buildConfig } from '../lib/buildConfig';
 import { generateDAppCode } from '../lib/generateCode';
 import { saveApp, updateApp } from '../services/storage';
+import { DEMO_USERS } from '../data';
 
 const LOADING_MESSAGES = [
   'Generating your dApp...',
@@ -49,7 +50,6 @@ export function CodeGenerationPreview({
   const [generating, setGenerating] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
   const [genError, setGenError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
   const [localKey, setLocalKey] = useState(apiKey);
 
@@ -112,16 +112,7 @@ export function CodeGenerationPreview({
       const existing = existingApps.find(
         (a) => a.dappName === config.dappName && a.template === config.template
       );
-      const ownerUser = [
-        { name: 'Alisa', email: 'alisa@goknown.io' },
-        { name: 'Chuck', email: 'chuck@goknown.io' },
-        { name: 'Dr. Lu', email: 'drlu@goknown.io' },
-        { name: 'Dr. Sam', email: 'drsam@goknown.io' },
-        { name: 'Fiona', email: 'fiona@goknown.io' },
-        { name: 'Leo', email: 'leo@goknown.io' },
-        { name: 'Mike', email: 'mike@goknown.io' },
-        { name: 'Connie', email: 'connie@goknown.io' },
-      ].find(u => u.email === currentUserEmail);
+      const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
 
       if (existing) {
         updateApp(existing.id, { generatedCode: html, apis: config.apis, workflow: config.workflow, status: 'Generated' });
@@ -139,8 +130,8 @@ export function CodeGenerationPreview({
           updatedAt: now,
           sharedWith: [],
           sharedAccess: [],
-          ownerId: currentUserEmail ?? 'alisa@goknown.io',
-          ownerName: ownerUser?.name ?? 'Alisa',
+          ownerId: currentUserEmail ?? '',
+          ownerName: ownerUser?.name ?? '',
           status: 'Generated',
           version: 1,
         });
@@ -164,34 +155,15 @@ export function CodeGenerationPreview({
     setSavedConfirmation(null);
   };
 
-  const handleCopy = () => {
-    if (!generatedCode) return;
-    navigator.clipboard.writeText(generatedCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
   return (
     <div className="pane">
       <div className="pane-header">
-        <p className="pane-kicker">AI-Assisted Code Generation</p>
-        <h2 className="pane-title">Generate dApp code</h2>
+        <p className="pane-kicker">App Generator</p>
+        <h2 className="pane-title">Generate your app</h2>
         <p className="pane-desc">
-          Select a template, build a workflow, then generate a live interactive dApp from your
-          config. The result renders directly in the browser — no downloads required.
+          Select a template, build a workflow, and DApp Builder creates a working app for you —
+          no code, no downloads, no deployment needed.
         </p>
-      </div>
-
-      {/* Active config */}
-      <div className="wizard-config-recap" style={{ marginBottom: '24px' }}>
-        <div className="config-panel-header">
-          <span className="config-panel-label">Active config</span>
-          <span className="config-live-badge">Live</span>
-        </div>
-        <pre className="config-json" style={{ maxHeight: '160px', overflowY: 'auto', fontSize: '0.76rem' }}>
-          {JSON.stringify(config, null, 2)}
-        </pre>
       </div>
 
       {/* Custom prompt */}
@@ -249,7 +221,7 @@ export function CodeGenerationPreview({
           ) : (
             <>
               <Sparkles size={15} />
-              Generate Code
+              Generate App
             </>
           )}
         </button>
@@ -302,19 +274,6 @@ export function CodeGenerationPreview({
               ✓ Saved to My Library as <strong>{savedConfirmation}</strong>
             </div>
           )}
-
-          {/* Code panel */}
-          <div className="wizard-code-header" style={{ marginTop: '20px' }}>
-            <span className="code-block-label">Generated HTML</span>
-            <button className="wizard-copy-btn" onClick={handleCopy}>
-              {copied ? (
-                <><Check size={13} /> Copied ✓</>
-              ) : (
-                <><Copy size={13} /> Copy code</>
-              )}
-            </button>
-          </div>
-          <pre className="wizard-code-pre">{generatedCode}</pre>
 
           <button
             className="wizard-generate-btn"

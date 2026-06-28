@@ -3229,3 +3229,47 @@
   .preview-layout { grid-template-columns: 1fr; }
   .card-grid { grid-template-columns: 1fr; }
 }
+
+/* ── NO-CODE PREVIEW BODY ───────────────────────────── */
+
+.dapp-preview-mock-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dapp-preview-generate-banner {
+  padding: 10px 20px;
+  background: rgba(38, 184, 255, 0.06);
+  border-top: 1px solid rgba(38, 184, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.dapp-preview-generate-banner-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.dapp-preview-generate-banner-text strong {
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+/* ── AUTH REQUIRED WALL ─────────────────────────────── */
+
+.auth-required {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.auth-required strong {
+  color: var(--text-primary);
+}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  X, ArrowRight, Sparkles, Copy, Check, Loader, Save, ExternalLink, Zap,
+  X, ArrowRight, Sparkles, Check, Loader, Save, ExternalLink, Zap,
 } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp, ProjectStatus } from '../types';
 import { buildConfig } from '../lib/buildConfig';
@@ -104,7 +104,6 @@ export function CreateDAppWizard({
     editingApp?.generatedCode || null
   );
   const [genError, setGenError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [localKey, setLocalKey] = useState(apiKey);
   const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
   const [lastSavedApp, setLastSavedApp] = useState<SavedDApp | null>(null);
@@ -360,14 +359,6 @@ export function CreateDAppWizard({
     setLastSavedApp(null);
   };
 
-  const handleCopy = () => {
-    if (!generatedCode) return;
-    navigator.clipboard.writeText(generatedCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
   const handleSaveDraft = () => {
     const app = persistApp('Draft', null);
     setLastSavedApp(app);
@@ -525,26 +516,25 @@ export function CreateDAppWizard({
             </div>
           )}
 
-          {/* ── Step 3: Generate Code ── */}
+          {/* ── Step 3: Preview & Create ── */}
           {wizardStep === 3 && (
             <div className="wizard-step-content">
-              {/* Config recap */}
+              {/* App summary (user-facing, no internal fields) */}
               <div className="wizard-config-recap">
                 <div className="config-panel-header">
-                  <span className="config-panel-label">app.config.json</span>
-                  <span className="config-live-badge">Live</span>
+                  <span className="config-panel-label">Your app</span>
+                  <span className="config-live-badge">Ready to generate</span>
                 </div>
-                <pre className="config-json" style={{ maxHeight: '160px', overflowY: 'auto' }}>
-                  {JSON.stringify({
-                    appName: config.dappName,
-                    template: config.template,
-                    selectedApis: effectiveApis,
-                    workflowBlocks: config.workflow,
-                    permissionModel: config.permissionModel,
-                    runtimeMode: 'frontend-mock',
-                    userPrompt: userPrompt.slice(0, 120) + (userPrompt.length > 120 ? '…' : ''),
-                  }, null, 2)}
-                </pre>
+                <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem', color: '#c4daf5' }}>
+                  <div><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>Name</span> {config.dappName || '—'}</div>
+                  <div><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>Template</span> {config.template || '—'}</div>
+                  {effectiveApis.length > 0 && (
+                    <div><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>APIs</span> {effectiveApis.join(', ')}</div>
+                  )}
+                  {config.workflow.length > 0 && (
+                    <div><span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>Workflow</span> {config.workflow.join(' → ')}</div>
+                  )}
+                </div>
               </div>
 
               {/* Show prompt over-limit warning if user skipped step 1 */}
@@ -583,7 +573,7 @@ export function CreateDAppWizard({
                   {generating ? (
                     <><Loader size={15} className="spin" />{loadingMsg}</>
                   ) : (
-                    <><Sparkles size={15} />Generate Code</>
+                    <><Sparkles size={15} />Generate App</>
                   )}
                 </button>
               )}
@@ -591,13 +581,13 @@ export function CreateDAppWizard({
               {/* Error */}
               {genError && (
                 <div className="wizard-gen-error">
-                  <strong>Error:</strong> {genError}
+                  <strong>We couldn't generate the app preview.</strong> {genError}
                   {!promptOverLimit && (
                     <button
                       style={{ marginLeft: '12px', background: 'none', border: 'none', color: '#ff8855', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline' }}
                       onClick={() => { setGenError(null); handleGenerate(); }}
                     >
-                      Retry
+                      Try again
                     </button>
                   )}
                 </div>
@@ -632,17 +622,10 @@ export function CreateDAppWizard({
 
                   {savedConfirmation && (
                     <div className="save-toast" style={{ marginTop: '12px' }}>
-                      ✓ Saved to My Library as <strong>{savedConfirmation}</strong>
+                      <Check size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                      Your app is ready — <strong>{savedConfirmation}</strong> has been saved to My Library
                     </div>
                   )}
-
-                  <div className="wizard-code-header" style={{ marginTop: '20px' }}>
-                    <span className="code-block-label">Generated HTML</span>
-                    <button className="wizard-copy-btn" onClick={handleCopy}>
-                      {copied ? <><Check size={13} /> Copied ✓</> : <><Copy size={13} /> Copy code</>}
-                    </button>
-                  </div>
-                  <pre className="wizard-code-pre">{generatedCode}</pre>
                 </div>
               )}
             </div>

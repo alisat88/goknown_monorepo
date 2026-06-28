@@ -10,6 +10,7 @@ import {
 } from '../services/storage';
 import { isWhitelisted, getWhitelist } from '../services/whitelist';
 import { SavedDApp } from '../types';
+import { FLOW_STEPS } from '../components/InstructionsPage';
 
 function makeDApp(overrides: Partial<SavedDApp> = {}): SavedDApp {
   return {
@@ -59,7 +60,8 @@ describe('DApp Builder end-to-end flow', () => {
   });
 
   test('updateApp — updatedAt changes, other fields preserved', () => {
-    const app = makeDApp({ dappName: 'Original Name', status: 'Draft' });
+    // Use a fixed past date so updateApp's new Date() is always different.
+    const app = makeDApp({ dappName: 'Original Name', status: 'Draft', updatedAt: '2020-01-01T00:00:00.000Z' });
     saveApp(app);
 
     const originalUpdatedAt = app.updatedAt;
@@ -243,5 +245,35 @@ describe('DApp Builder end-to-end flow', () => {
     const updated = getApp(app.id);
     // ownerId is never modified by shareApp
     expect(updated!.ownerId).toBe('alisa@goknown.io');
+  });
+
+  // ── "How it works" messaging tests ───────────────────────────────────────────
+
+  test('InstructionsPage — no step mentions copying to a repo or deploying manually', () => {
+    const allText = FLOW_STEPS.map((s) => `${s.label} ${s.desc}`).join(' ').toLowerCase();
+    expect(allText).not.toMatch(/copy.*repo/);
+    expect(allText).not.toMatch(/paste.*repo/);
+    expect(allText).not.toMatch(/drop.*repo/);
+    expect(allText).not.toMatch(/your (project|repo)/);
+    expect(allText).not.toMatch(/github/);
+    expect(allText).not.toMatch(/deploy.*yourself/);
+  });
+
+  test('InstructionsPage — last step describes previewing or creating the app, not exporting code', () => {
+    const lastStep = FLOW_STEPS[FLOW_STEPS.length - 1];
+    const text = `${lastStep.label} ${lastStep.desc}`.toLowerCase();
+    // Must mention preview, library, or save — not "copy", "export", or "repo"
+    const hasPositive = /preview|library|save|launch/.test(text);
+    const hasDeveloperLang = /copy|export|paste|repo/.test(text);
+    expect(hasPositive).toBe(true);
+    expect(hasDeveloperLang).toBe(false);
+  });
+
+  test('InstructionsPage — five steps are defined and none are blank', () => {
+    expect(FLOW_STEPS).toHaveLength(5);
+    FLOW_STEPS.forEach((step, i) => {
+      expect(step.label.trim(), `step ${i + 1} label is blank`).not.toBe('');
+      expect(step.desc.trim(), `step ${i + 1} desc is blank`).not.toBe('');
+    });
   });
 });
