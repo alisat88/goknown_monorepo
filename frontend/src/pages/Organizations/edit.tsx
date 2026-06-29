@@ -14,7 +14,6 @@ import Button from "../../components/Button";
 import Field from "../../components/Field";
 import Header from "../../components/Header";
 import Input from "../../components/Input";
-import Toggle from "../../components/Toggle";
 import UnControlledToggle from "../../components/Toggle/unControlled";
 import { useDialog } from "../../hooks/dialog";
 import { useToast } from "../../hooks/toast";
@@ -108,7 +107,6 @@ export default function EditOrganization() {
         const schema = Yup.object().shape({
           name: Yup.string().required(),
           admin_alias: Yup.string(),
-          enableWallet: Yup.bool(),
         });
 
         await schema.validate(data, { abortEarly: false });
@@ -117,7 +115,6 @@ export default function EditOrganization() {
           name: data.name,
           admin_alias: data.admin_alias || "Group Admin",
           description: data.description,
-          enable_wallet: data.enableWallet,
         };
 
         if (idOrganization) {
@@ -334,7 +331,6 @@ export default function EditOrganization() {
           initialData={{
             name: selectedOrganization?.name,
             admin_alias: selectedOrganization?.admin_alias,
-            enableWallet: selectedOrganization?.enableWallet,
           }}
         >
           <AvatarInput>
@@ -368,19 +364,6 @@ export default function EditOrganization() {
             placeholder="Group Admin Alias"
             isLoading={loadingSubmit || loading}
           />
-
-          <div className="dls_sections">
-            <label>Organization Wallet</label>
-            <Toggle
-              // active={"true"}
-              // inactive={data.switch_alias?.inactive}
-              // showAlias={data.showAlias}
-              // label={dl.name}
-
-              isOn={selectedOrganization?.enableWallet || false}
-              name="enableWallet"
-            />
-          </div>
 
           {idOrganization && renderAdmins()}
 

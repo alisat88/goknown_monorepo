@@ -10,7 +10,6 @@ import laboratory from "../assets/laboratory.png";
 import nft from "../assets/nft.svg";
 import organizations from "../assets/organizations.svg";
 import team from "../assets/team.svg";
-import wallet from "../assets/wallet.svg";
 import ZTA from "../assets/ZTA.png";
 import {
   DAPP_BUILDER_URL,
@@ -30,17 +29,6 @@ export default [
     icon_url: nft,
     route: "/digitalassets",
     flag: "digital_assets",
-  },
-  {
-    id: uuid(),
-    sync_id: uuid(),
-    name: "Wallet",
-    description:
-      "Hold and manage tokens used for identification, rewards, group access, and application-specific workflows.",
-    icon: wallet,
-    icon_url: wallet,
-    route: "/transactions",
-    flag: "wallet",
   },
   {
     id: uuid(),

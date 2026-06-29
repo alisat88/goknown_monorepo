@@ -1,8 +1,6 @@
-import DL from '@modules/dls/infra/typeorm/entities/DL';
-import ListAllDLsService from '@modules/dls/services/ListAllDLsService';
 import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import AppError from '@shared/errors/AppError';
-import { container, inject, injectable } from 'tsyringe';
+import { inject, injectable } from 'tsyringe';
 import {
   EnumRole,
   EnumStatus,
@@ -84,22 +82,7 @@ class DashboardRoomService {
       throw new AppError('Room not found');
     }
 
-    const listAllDLs = container.resolve(ListAllDLsService);
-    const walletDL = (await listAllDLs.execute()).find(
-      dl => dl.flag === 'wallet',
-    );
-
-    const formattedRoom = {
-      ...room,
-      dls:
-        organization.enableWallet && walletDL
-          ? room.dls
-            ? [...room.dls, walletDL]
-            : [walletDL]
-          : room.dls,
-    };
-
-    return formattedRoom;
+    return room;
   }
 }
 
