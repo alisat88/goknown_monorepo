@@ -38,8 +38,8 @@ const Tutorials: React.FC = () => {
         <SectionHeader>
           <h2>Pre-recorded walkthroughs</h2>
           <p>
-            Click any card to open the recording in a new tab. No account
-            needed to watch.
+            Click any card to open the recording in a new tab. No account needed
+            to watch.
           </p>
         </SectionHeader>
 

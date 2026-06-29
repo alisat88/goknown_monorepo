@@ -168,8 +168,7 @@ export default [
     id: uuid(),
     sync_id: uuid(),
     name: "Tutorials",
-    description:
-      "Watch walkthroughs and pre-recorded training videos.",
+    description: "Watch walkthroughs and pre-recorded training videos.",
     icon: tutorials,
     icon_url: tutorials,
     route: "/tutorials",

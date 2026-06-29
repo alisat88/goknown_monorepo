@@ -43,8 +43,8 @@ import SendToken from "../pages/SendTokens";
 import SignIn from "../pages/SignIn";
 import SignUp from "../pages/SignUp";
 import Transaction from "../pages/Transaction";
-import { TwoFactorSMS } from "../pages/TwoFactorSMS";
 import Tutorials from "../pages/Tutorials";
+import { TwoFactorSMS } from "../pages/TwoFactorSMS";
 import Workflow from "../pages/Workflow";
 import Route from "./Route";
 
