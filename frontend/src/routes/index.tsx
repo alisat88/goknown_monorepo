@@ -44,6 +44,7 @@ import SignIn from "../pages/SignIn";
 import SignUp from "../pages/SignUp";
 import Transaction from "../pages/Transaction";
 import { TwoFactorSMS } from "../pages/TwoFactorSMS";
+import Tutorials from "../pages/Tutorials";
 import Workflow from "../pages/Workflow";
 import Route from "./Route";
 
@@ -300,6 +301,7 @@ const Routes: React.FC<React.PropsWithChildren<unknown>> = () => (
 
     <Route path="/payments" component={Payments} isPrivate />
     <Route path="/workflow" component={Workflow} isPrivate />
+    <Route path="/tutorials" exact component={Tutorials} isPrivate />
   </Switch>
 );
 

@@ -10,6 +10,7 @@ import laboratory from "../assets/laboratory.png";
 import nft from "../assets/nft.svg";
 import organizations from "../assets/organizations.svg";
 import team from "../assets/team.svg";
+import tutorials from "../assets/tutorials.svg";
 import ZTA from "../assets/ZTA.png";
 import {
   DAPP_BUILDER_URL,
@@ -158,5 +159,20 @@ export default [
     route: "/dapp-builder", // ✅ INTERNAL ROUTE (placeholder — app is separately deployed)
     externalUrl: DAPP_BUILDER_URL,
     flag: "dapp_builder",
+  },
+
+  // ============================================
+  // 🎬 TUTORIAL VIDEOS
+  // ============================================
+  {
+    id: uuid(),
+    sync_id: uuid(),
+    name: "Tutorial Videos",
+    description:
+      "Watch pre-recorded walkthroughs and screen recordings of GoKnown features.",
+    icon: tutorials,
+    icon_url: tutorials,
+    route: "/tutorials",
+    flag: "tutorials",
   },
 ] as IDL[];
