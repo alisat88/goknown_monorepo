@@ -9,6 +9,7 @@ import { v4 as uuid } from "uuid";
 // eslint-disable-next-line import/no-duplicates
 // eslint-disable-next-line import/no-duplicates
 
+import tutorialsIcon from "../../../../assets/tutorials.svg";
 import Button from "../../../../components/Button";
 import SmallLisItemLoader from "../../../../components/ContentLoader/SmallLisItemLoader";
 import DLs from "../../../../components/DLs";
@@ -94,19 +95,22 @@ const Dashboard: React.FC<React.PropsWithChildren<unknown>> = () => {
         .then((response) => {
           setSelectedDashboard(response.data);
           setDLsList([
-            // {
-            //   id: uuid(),
-            //   flag: "wallet",
-            //   icon: "wallet.svg",
-            //   name: "Wallet",
-            //   route: `/organizations/${idOrganization}/groups/${idGroup}/rooms/${idRoom}transactions`,
-            //   oldPage: `/organizations/${idOrganization}/groups/${idGroup}/rooms/${idRoom}/dashboard`,
-            // },
             ...response.data.dls.map((dl: IDL) => ({
               ...dl,
               route: `/organizations/${idOrganization}/groups/${idGroup}/rooms/${idRoom}${dl.route}`,
               oldPage: `/organizations/${idOrganization}/groups/${idGroup}/rooms/${idRoom}/dashboard`,
             })),
+            {
+              id: uuid(),
+              sync_id: uuid(),
+              name: "Tutorials",
+              description:
+                "Watch walkthroughs and pre-recorded training videos.",
+              icon: tutorialsIcon,
+              icon_url: tutorialsIcon,
+              route: "/tutorials",
+              flag: "tutorials",
+            },
           ]);
           setSelectedOrganization(response.data.group.organization);
           setSelectedGroup(response.data.group);
