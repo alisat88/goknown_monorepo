@@ -120,7 +120,7 @@ function getUserRole(app: SavedDApp, email: string): 'Owner' | SharedRole | null
 // When DAppGenius hands off an authenticated user via URL params, that user is
 // pre-selected and the bar shows "Viewing as: <name>".
 // When accessed directly (no URL params), no user is pre-selected and the bar
-// shows "Select demo identity:" so demo participants can pick who they are.
+// shows "Select your name:" so demo participants can pick who they are.
 
 function CurrentUserBar({
   currentUser,
@@ -131,13 +131,19 @@ function CurrentUserBar({
   authUser: AuthUser | null;
   onChange: (u: DemoUser) => void;
 }) {
+  // Build display order: ungrouped users first, then one group per team label.
+  const ungrouped = DEMO_USERS.filter((u) => !u.team);
+  const teamNames = Array.from(
+    new Set(DEMO_USERS.map((u) => u.team).filter((t): t is string => !!t))
+  );
+
   return (
     <div className="demo-user-bar">
       <span className="demo-user-label">
-        {authUser ? 'Viewing as:' : 'Select demo identity:'}
+        {authUser ? 'Viewing as:' : 'Select your name:'}
       </span>
       <div className="demo-user-btns">
-        {DEMO_USERS.map((u) => (
+        {ungrouped.map((u) => (
           <button
             key={u.email}
             className={`demo-user-btn${currentUser?.email === u.email ? ' active' : ''}`}
@@ -146,6 +152,21 @@ function CurrentUserBar({
           >
             {u.name}
           </button>
+        ))}
+        {teamNames.map((team) => (
+          <React.Fragment key={team}>
+            <span className="demo-user-team-label">{team}</span>
+            {DEMO_USERS.filter((u) => u.team === team).map((u) => (
+              <button
+                key={u.email}
+                className={`demo-user-btn${currentUser?.email === u.email ? ' active' : ''}`}
+                onClick={() => onChange(u)}
+                title={u.email}
+              >
+                {u.name}
+              </button>
+            ))}
+          </React.Fragment>
         ))}
       </div>
     </div>
@@ -700,7 +721,7 @@ export function BuilderDashboard() {
       {!currentUser && !authLoading && (
         <div className="auth-required" role="status">
           <p>
-            <strong>Select your identity above</strong> to access the DApp Builder library and create apps.
+            <strong>Select your name from the list</strong> to access the DApp Builder library and create apps.
           </p>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
             Signing in from DApp Genius sets your identity automatically.

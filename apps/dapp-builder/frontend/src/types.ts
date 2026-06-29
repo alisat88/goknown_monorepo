@@ -27,6 +27,7 @@ export interface SharedAccess {
 export interface DemoUser {
   name: string;
   email: string;
+  team?: string;
 }
 
 export type TabId =

@@ -2248,6 +2248,20 @@
   font-weight: 600;
 }
 
+.demo-user-team-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 4px;
+  align-self: center;
+  white-space: nowrap;
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+  margin-left: 4px;
+}
+
 /* ── LIBRARY SECTIONS (My Apps / Shared with Me) ── */
 
 .library-section {

@@ -204,9 +204,9 @@ export const DEMO_PROJECT_DESCRIPTIONS: Record<string, string> = {
 export const DEMO_USERS: DemoUser[] = [
   { name: 'Alisa',   email: 'alisa@goknown.io' },
   { name: 'Chuck',   email: 'chuck@goknown.io' },
-  { name: 'Dr. Lu',  email: 'drlu@goknown.io' },
-  { name: 'Dr. Sam', email: 'drsam@goknown.io' },
-  { name: 'Fiona',   email: 'fiona@goknown.io' },
+  { name: 'Dr. Lu',  email: 'drlu@goknown.io',  team: 'ERAU Team' },
+  { name: 'Dr. Sam', email: 'drsam@goknown.io', team: 'ERAU Team' },
+  { name: 'Fiona',   email: 'fiona@goknown.io', team: 'ERAU Team' },
   { name: 'Leo',     email: 'leo@goknown.io' },
   { name: 'Mike',    email: 'mike@goknown.io' },
   { name: 'Connie',  email: 'connie@goknown.io' },
