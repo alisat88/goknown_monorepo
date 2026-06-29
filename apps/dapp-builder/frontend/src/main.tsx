@@ -4,8 +4,29 @@ import './styles.css';
 import './builder.css';
 import { BuilderDashboard } from './components/BuilderDashboard';
 import { AuthProvider } from './context/AuthContext';
+import { getDashboardUrl } from './lib/navigation';
 
 const logoPath = '/assets/dappbuilder.png';
+
+function BackToDashboardBtn() {
+  const url = getDashboardUrl();
+  const handleClick = () => {
+    if (url) {
+      window.location.href = url;
+    } else {
+      window.history.back();
+    }
+  };
+  return (
+    <button
+      className="nav-back-btn"
+      onClick={handleClick}
+      aria-label="Back to DApp Genius dashboard"
+    >
+      ←&nbsp;<span className="nav-back-label">Back to Dashboard</span>
+    </button>
+  );
+}
 
 function App() {
   return (
@@ -21,6 +42,7 @@ function App() {
             <span>Decentralized app studio</span>
           </span>
         </div>
+        <BackToDashboardBtn />
       </header>
 
       <BuilderDashboard />

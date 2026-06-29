@@ -12,6 +12,7 @@ import { isWhitelisted, getWhitelist } from '../services/whitelist';
 import { SavedDApp } from '../types';
 import { FLOW_STEPS } from '../components/InstructionsPage';
 import { validateGeneratedHtml } from '../lib/generateCode';
+import { getDashboardUrl } from '../lib/navigation';
 
 function makeDApp(overrides: Partial<SavedDApp> = {}): SavedDApp {
   return {
@@ -371,5 +372,35 @@ describe('DApp Builder end-to-end flow', () => {
     const almostEmpty = '<!DOCTYPE html><html><body><h1>App</h1><button>Go</button></body></html>';
     // Short AND only 1 interactive element → should flag as incomplete
     expect(validateGeneratedHtml(almostEmpty)).not.toBeNull();
+  });
+});
+
+// ── getDashboardUrl (navigation utility) ──────────────────────────────────────
+
+describe('getDashboardUrl', () => {
+  test('returns empty string when no base URL is provided', () => {
+    expect(getDashboardUrl('')).toBe('');
+    expect(getDashboardUrl('   ')).toBe('');
+  });
+
+  test('appends /dashboard to a clean base URL', () => {
+    expect(getDashboardUrl('https://node1.goknown.app')).toBe('https://node1.goknown.app/dashboard');
+  });
+
+  test('strips trailing slash from base URL before appending /dashboard', () => {
+    expect(getDashboardUrl('https://node1.goknown.app/')).toBe('https://node1.goknown.app/dashboard');
+  });
+
+  test('works with a localhost dev URL', () => {
+    expect(getDashboardUrl('http://localhost:3000')).toBe('http://localhost:3000/dashboard');
+  });
+
+  test('works with a localhost dev URL with trailing slash', () => {
+    expect(getDashboardUrl('http://localhost:3000/')).toBe('http://localhost:3000/dashboard');
+  });
+
+  test('returns empty string (caller uses history.back()) when base is undefined', () => {
+    // Simulates the case where VITE_GOKNOWN_URL is not set in the environment.
+    expect(getDashboardUrl(undefined)).toBe('');
   });
 });

@@ -447,6 +447,10 @@ footer {
     display: none;
   }
 
+  .nav-back-label {
+    display: none;
+  }
+
   .nav-links {
     max-width: 186px;
     flex-wrap: wrap;
