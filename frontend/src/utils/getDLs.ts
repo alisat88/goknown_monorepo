@@ -162,14 +162,14 @@ export default [
   },
 
   // ============================================
-  // 🎬 TUTORIAL VIDEOS
+  // 🎬 TUTORIALS
   // ============================================
   {
     id: uuid(),
     sync_id: uuid(),
-    name: "Tutorial Videos",
+    name: "Tutorials",
     description:
-      "Watch pre-recorded walkthroughs and screen recordings of GoKnown features.",
+      "Watch walkthroughs and pre-recorded training videos.",
     icon: tutorials,
     icon_url: tutorials,
     route: "/tutorials",
