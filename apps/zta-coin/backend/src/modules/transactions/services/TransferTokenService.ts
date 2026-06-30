@@ -1,3 +1,4 @@
+import { accountService } from '../../../shared/accounts/AccountService';
 import { ledgerService } from '../../../shared/ledger/LedgerService';
 import { hashService } from '../../../shared/hash/HashService';
 
@@ -8,8 +9,6 @@ interface IRequest {
 }
 
 class TransferTokenService {
-  private balances: Record<string, number> = {};
-
   public async execute({
     from_user,
     to_user,
@@ -20,15 +19,21 @@ class TransferTokenService {
       throw new Error('Amount must be greater than 0');
     }
 
-    if (!this.balances[from_user]) this.balances[from_user] = 1000;
-    if (!this.balances[to_user]) this.balances[to_user] = 0;
+    // Read persisted balances before the transfer
+    const fromBalanceBefore = await accountService.getBalance(from_user);
+    const toBalanceBefore = await accountService.getBalance(to_user);
 
-    if (this.balances[from_user] < amount) {
+    if (fromBalanceBefore < amount) {
       throw new Error('Insufficient balance');
     }
 
-    this.balances[from_user] -= amount;
-    this.balances[to_user] += amount;
+    // Persist balance changes in the accounts table
+    await accountService.debit(from_user, amount);
+    await accountService.credit(to_user, amount);
+
+    // Read persisted balances after the transfer to record accurate snapshots
+    const fromBalanceAfter = await accountService.getBalance(from_user);
+    const toBalanceAfter = await accountService.getBalance(to_user);
 
     const timestamp = new Date().toISOString();
     const transactionType = 'KN-TEX-100';
@@ -39,12 +44,12 @@ class TransferTokenService {
       to: to_user,
       amount,
       before: {
-        from_balance: this.balances[from_user] + amount,
-        to_balance: this.balances[to_user] - amount,
+        from_balance: fromBalanceBefore,
+        to_balance: toBalanceBefore,
       },
       after: {
-        from_balance: this.balances[from_user],
-        to_balance: this.balances[to_user],
+        from_balance: fromBalanceAfter,
+        to_balance: toBalanceAfter,
       },
     };
     const transactionId = hashService.hash(transactionPayload);
@@ -65,8 +70,8 @@ class TransferTokenService {
       from_user,
       to_user,
       amount,
-      from_balance: this.balances[from_user],
-      to_balance: this.balances[to_user],
+      from_balance: fromBalanceAfter,
+      to_balance: toBalanceAfter,
       status: 'Completed',
       timestamp,
     };

@@ -6,6 +6,13 @@ import '@shared/infra/typeorm';
 import { getConnection } from 'typeorm';
 
 const runDeleteQueries = async () => {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '[clearDatabase] Refusing to run in production. ' +
+      'Set NODE_ENV to something other than "production" to use this script.',
+    );
+  }
+
   const connection = getConnection();
   const queryRunner = connection.createQueryRunner();
 

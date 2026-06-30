@@ -1,6 +1,13 @@
 import { createConnection } from 'typeorm';
 
 async function deleteData() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '[clearData] Refusing to run in production. ' +
+      'Set NODE_ENV to something other than "production" to use this script.',
+    );
+  }
+
   try {
     // Connect to database
     const connection = await createConnection();

@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { getRepository } from 'typeorm';
 import { Transaction } from '../../modules/transactions/infra/typeorm/entities/Transaction';
 
@@ -17,7 +18,7 @@ class LedgerService {
     const repo = this.getRepo();
 
     const transaction = repo.create({
-      id: tx.id,
+      id: tx.id || uuidv4(),
       type: tx.type,
       timestamp: new Date(tx.timestamp),
       from: tx.from,
