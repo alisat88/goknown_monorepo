@@ -13,6 +13,13 @@ import { SavedDApp } from '../types';
 import { FLOW_STEPS } from '../components/InstructionsPage';
 import { DAPP_BUILDER_TUTORIALS_COPY } from '../components/TutorialsPage';
 import { DAPP_BUILDER_TUTORIALS } from '../dappBuilderTutorials';
+import {
+  PROMPT_GUIDE_INTRO,
+  PROMPT_CHECKLIST,
+  PROMPT_OPENING,
+  PROMPT_SECTIONS,
+  EXAMPLE_PROMPT_RAW,
+} from '../promptGuide';
 import { validateGeneratedHtml } from '../lib/generateCode';
 import { getDashboardUrl } from '../lib/navigation';
 
@@ -475,6 +482,81 @@ describe('DApp Builder tutorial videos config', () => {
       expect(t.title.trim()).not.toBe('');
       expect(t.description.trim()).not.toBe('');
       expect(t.url.trim()).not.toBe('');
+    }
+  });
+});
+
+// ── Prompt guide data ─────────────────────────────────────────────────────────
+
+describe('Prompt guide data', () => {
+  test('PROMPT_GUIDE_INTRO is non-empty and mentions "prompt"', () => {
+    expect(PROMPT_GUIDE_INTRO.trim()).not.toBe('');
+    expect(PROMPT_GUIDE_INTRO.toLowerCase()).toMatch(/prompt/);
+  });
+
+  test('PROMPT_CHECKLIST includes required items', () => {
+    const list = PROMPT_CHECKLIST.map((i) => i.toLowerCase());
+    expect(list).toContain('app name');
+    expect(list).toContain('purpose');
+    expect(list).toContain('target user');
+    expect(list).toContain('core features');
+    expect(list).toContain('visual design');
+    expect(list).toContain('interactions');
+  });
+
+  test('PROMPT_OPENING names the example app', () => {
+    expect(PROMPT_OPENING).toMatch(/Smart Weather Planner/);
+  });
+
+  test('PROMPT_SECTIONS covers all required section IDs', () => {
+    const ids = PROMPT_SECTIONS.map((s) => s.id);
+    expect(ids).toContain('purpose');
+    expect(ids).toContain('target-user');
+    expect(ids).toContain('core-features');
+    expect(ids).toContain('weather-card');
+    expect(ids).toContain('outfit');
+    expect(ids).toContain('forecast');
+    expect(ids).toContain('visual-design');
+    expect(ids).toContain('fallback');
+    expect(ids).toContain('api');
+    expect(ids).toContain('interactions');
+    expect(ids).toContain('final');
+  });
+
+  test('every section has non-empty id, heading, and content', () => {
+    for (const s of PROMPT_SECTIONS) {
+      expect(s.id.trim(), `id blank on section "${s.id}"`).not.toBe('');
+      expect(s.heading.trim(), `heading blank on section "${s.id}"`).not.toBe('');
+      expect(s.content.trim(), `content blank on section "${s.id}"`).not.toBe('');
+    }
+  });
+
+  test('annotated sections have non-empty annotation text', () => {
+    const annotated = PROMPT_SECTIONS.filter((s) => s.annotation !== undefined);
+    expect(annotated.length).toBeGreaterThan(0);
+    for (const s of annotated) {
+      expect(s.annotation!.trim(), `annotation blank on "${s.id}"`).not.toBe('');
+    }
+  });
+
+  test('EXAMPLE_PROMPT_RAW contains the example app name', () => {
+    expect(EXAMPLE_PROMPT_RAW).toMatch(/Smart Weather Planner/);
+  });
+
+  test('EXAMPLE_PROMPT_RAW includes fallback demo data', () => {
+    expect(EXAMPLE_PROMPT_RAW).toMatch(/Fort Lauderdale/);
+    expect(EXAMPLE_PROMPT_RAW).toMatch(/84/);
+  });
+
+  test('EXAMPLE_PROMPT_RAW does not contain annotation text', () => {
+    expect(EXAMPLE_PROMPT_RAW).not.toMatch(/Why this works/i);
+    expect(EXAMPLE_PROMPT_RAW).not.toMatch(/tells DApp Builder/i);
+    expect(EXAMPLE_PROMPT_RAW).not.toMatch(/reduce ambiguity/i);
+  });
+
+  test('EXAMPLE_PROMPT_RAW covers all 10 numbered sections', () => {
+    for (let i = 1; i <= 10; i++) {
+      expect(EXAMPLE_PROMPT_RAW).toMatch(new RegExp(`${i}\\.`));
     }
   });
 });
