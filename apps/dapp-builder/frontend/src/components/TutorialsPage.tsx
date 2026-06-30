@@ -1,5 +1,6 @@
 import React from 'react';
 import { PlayCircle } from 'lucide-react';
+import { DAPP_BUILDER_TUTORIALS } from '../dappBuilderTutorials';
 
 // Exported so tests can verify copy without rendering the component.
 export const DAPP_BUILDER_TUTORIALS_COPY = {
@@ -20,11 +21,35 @@ export function TutorialsPage() {
         </p>
       </div>
 
-      <div className="tutorials-empty">
-        <PlayCircle size={48} className="tutorials-empty-icon" />
-        <p className="tutorials-empty-body">{DAPP_BUILDER_TUTORIALS_COPY.body}</p>
-        <p className="tutorials-empty-sub">{DAPP_BUILDER_TUTORIALS_COPY.subtitle}</p>
-      </div>
+      {DAPP_BUILDER_TUTORIALS.length > 0 ? (
+        <div className="tutorial-list">
+          {DAPP_BUILDER_TUTORIALS.map((tutorial) => (
+            <div key={tutorial.id} className="tutorial-card">
+              <div className="tutorial-card-icon">
+                <PlayCircle size={24} />
+              </div>
+              <div className="tutorial-card-content">
+                <p className="tutorial-card-title">{tutorial.title}</p>
+                <p className="tutorial-card-desc">{tutorial.description}</p>
+              </div>
+              <a
+                href={tutorial.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="tutorial-watch-btn"
+              >
+                Watch Tutorial
+              </a>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="tutorials-empty">
+          <PlayCircle size={48} className="tutorials-empty-icon" />
+          <p className="tutorials-empty-body">{DAPP_BUILDER_TUTORIALS_COPY.body}</p>
+          <p className="tutorials-empty-sub">{DAPP_BUILDER_TUTORIALS_COPY.subtitle}</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -2327,6 +2327,75 @@
   margin: 0;
 }
 
+/* ── TUTORIAL CARDS ────────────────────────────────── */
+
+.tutorial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.tutorial-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 160ms ease;
+}
+
+.tutorial-card:hover {
+  border-color: rgba(38, 184, 255, 0.3);
+}
+
+.tutorial-card-icon {
+  color: var(--cyan);
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.tutorial-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tutorial-card-title {
+  color: #e4f0ff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.tutorial-card-desc {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.tutorial-watch-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--cyan);
+  border-radius: 8px;
+  color: var(--cyan);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.tutorial-watch-btn:hover {
+  background: var(--cyan);
+  color: #0d1117;
+}
+
 /* ── SAVED APP CARD EXTRAS ────────────────────────── */
 
 .saved-app-badges-row {

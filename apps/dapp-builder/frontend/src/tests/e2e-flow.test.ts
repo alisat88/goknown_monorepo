@@ -12,6 +12,7 @@ import { isWhitelisted, getWhitelist } from '../services/whitelist';
 import { SavedDApp } from '../types';
 import { FLOW_STEPS } from '../components/InstructionsPage';
 import { DAPP_BUILDER_TUTORIALS_COPY } from '../components/TutorialsPage';
+import { DAPP_BUILDER_TUTORIALS } from '../dappBuilderTutorials';
 import { validateGeneratedHtml } from '../lib/generateCode';
 import { getDashboardUrl } from '../lib/navigation';
 
@@ -434,5 +435,46 @@ describe('DApp Builder Tutorials tab', () => {
     const allText = Object.values(DAPP_BUILDER_TUTORIALS_COPY).join(' ');
     expect(allText).not.toMatch(/\/tutorials/);
     expect(allText).not.toMatch(/goknown tutorials/i);
+  });
+});
+
+// ── DApp Builder tutorial videos config ───────────────────────────────────────
+
+describe('DApp Builder tutorial videos config', () => {
+  test('contains the DApp Builder Walkthrough entry', () => {
+    expect(DAPP_BUILDER_TUTORIALS).toHaveLength(1);
+    expect(DAPP_BUILDER_TUTORIALS[0].id).toBe('walkthrough-1');
+  });
+
+  test('walkthrough entry has the correct title', () => {
+    expect(DAPP_BUILDER_TUTORIALS[0].title).toBe('DApp Builder Walkthrough');
+  });
+
+  test('walkthrough entry has a non-empty description', () => {
+    expect(DAPP_BUILDER_TUTORIALS[0].description.trim()).not.toBe('');
+  });
+
+  test('walkthrough URL is the DApp Builder-specific Loom recording', () => {
+    expect(DAPP_BUILDER_TUTORIALS[0].url).toBe(
+      'https://www.loom.com/share/eeb06d45824748009ad4bd1ba387daf4'
+    );
+  });
+
+  test('tutorial entries do not reference KnownCompute or the main /tutorials page', () => {
+    const allText = DAPP_BUILDER_TUTORIALS
+      .map((t) => `${t.title} ${t.description}`)
+      .join(' ')
+      .toLowerCase();
+    expect(allText).not.toMatch(/knowncompute/);
+    expect(allText).not.toMatch(/\/tutorials/);
+  });
+
+  test('each entry has required fields: id, title, description, url', () => {
+    for (const t of DAPP_BUILDER_TUTORIALS) {
+      expect(t.id.trim()).not.toBe('');
+      expect(t.title.trim()).not.toBe('');
+      expect(t.description.trim()).not.toBe('');
+      expect(t.url.trim()).not.toBe('');
+    }
   });
 });
