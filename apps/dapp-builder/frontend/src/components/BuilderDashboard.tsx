@@ -10,6 +10,7 @@ import {
   Monitor,
   Zap,
   BookOpen,
+  PlayCircle,
   Trash2,
   Share2,
   FolderOpen,
@@ -39,6 +40,7 @@ import { DAppPreview } from './DAppPreview';
 import { GeneratedAppRenderer } from './GeneratedAppRenderer';
 import { DemoFlowPanel } from './DemoFlowPanel';
 import { InstructionsPage } from './InstructionsPage';
+import { TutorialsPage } from './TutorialsPage';
 import { CreateDAppWizard } from './CreateDAppWizard';
 import { SharePanel } from './SharePanel';
 
@@ -46,6 +48,7 @@ import { SharePanel } from './SharePanel';
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'instructions', label: 'How It Works',    icon: BookOpen },
+  { id: 'tutorials',    label: 'Tutorials',        icon: PlayCircle },
   { id: 'dashboard',    label: 'My Apps',         icon: LayoutDashboard },
   { id: 'templates',   label: 'Templates',        icon: Library },
   { id: 'apis',        label: 'API Components',   icon: Plug },
@@ -751,6 +754,7 @@ export function BuilderDashboard() {
         {activeTab === 'instructions' && (
           <InstructionsPage onNavigate={setActiveTab} />
         )}
+        {activeTab === 'tutorials' && <TutorialsPage />}
         {activeTab === 'dashboard' && currentUser && (
           <DashboardPane
             savedApps={savedApps}

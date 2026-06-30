@@ -32,6 +32,7 @@ export interface DemoUser {
 
 export type TabId =
   | 'instructions'
+  | 'tutorials'
   | 'dashboard'
   | 'templates'
   | 'apis'

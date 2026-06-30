@@ -11,6 +11,7 @@ import {
 import { isWhitelisted, getWhitelist } from '../services/whitelist';
 import { SavedDApp } from '../types';
 import { FLOW_STEPS } from '../components/InstructionsPage';
+import { DAPP_BUILDER_TUTORIALS_COPY } from '../components/TutorialsPage';
 import { validateGeneratedHtml } from '../lib/generateCode';
 import { getDashboardUrl } from '../lib/navigation';
 
@@ -402,5 +403,36 @@ describe('getDashboardUrl', () => {
   test('returns empty string (caller uses history.back()) when base is undefined', () => {
     // Simulates the case where VITE_GOKNOWN_URL is not set in the environment.
     expect(getDashboardUrl(undefined)).toBe('');
+  });
+});
+
+// ── DApp Builder Tutorials tab ────────────────────────────────────────────────
+
+describe('DApp Builder Tutorials tab', () => {
+  test('title is "DApp Builder Tutorials"', () => {
+    expect(DAPP_BUILDER_TUTORIALS_COPY.title).toBe('DApp Builder Tutorials');
+  });
+
+  test('body mentions videos appearing here soon', () => {
+    expect(DAPP_BUILDER_TUTORIALS_COPY.body).toMatch(/tutorial videos will appear here soon/i);
+  });
+
+  test('subtitle covers DApp Builder-specific topics', () => {
+    const sub = DAPP_BUILDER_TUTORIALS_COPY.subtitle.toLowerCase();
+    expect(sub).toMatch(/templates/);
+    expect(sub).toMatch(/workflows/);
+    expect(sub).toMatch(/apis/);
+  });
+
+  test('copy contains no KnownCompute references or external Loom links', () => {
+    const allText = Object.values(DAPP_BUILDER_TUTORIALS_COPY).join(' ').toLowerCase();
+    expect(allText).not.toMatch(/knowncompute/);
+    expect(allText).not.toMatch(/loom\.com/);
+  });
+
+  test('copy does not reference the main /tutorials page', () => {
+    const allText = Object.values(DAPP_BUILDER_TUTORIALS_COPY).join(' ');
+    expect(allText).not.toMatch(/\/tutorials/);
+    expect(allText).not.toMatch(/goknown tutorials/i);
   });
 });
