@@ -8,7 +8,7 @@ import {
   shareApp,
   seedDemoApps,
 } from '../services/storage';
-import { isWhitelisted, getWhitelist } from '../services/whitelist';
+import { isWhitelisted, getWhitelist, getShareValidationError } from '../services/whitelist';
 import { SavedDApp } from '../types';
 import { FLOW_STEPS } from '../components/InstructionsPage';
 import { DAPP_BUILDER_TUTORIALS_COPY } from '../components/TutorialsPage';
@@ -256,6 +256,104 @@ describe('DApp Builder end-to-end flow', () => {
     const updated = getApp(app.id);
     // ownerId is never modified by shareApp
     expect(updated!.ownerId).toBe('alisa@goknown.io');
+  });
+
+  // ── Share validation (getShareValidationError) ───────────────────────────────
+
+  test('share validation — invalid email returns exact required error message', () => {
+    const app = makeDApp();
+    expect(getShareValidationError(app, 'fakeuser@example.com')).toBe('This email is not a valid user.');
+    expect(getShareValidationError(app, 'nobody@evil.io')).toBe('This email is not a valid user.');
+  });
+
+  test('share validation — valid whitelisted email returns null (no error)', () => {
+    const app = makeDApp();
+    expect(getShareValidationError(app, 'connie@goknown.io')).toBeNull();
+    expect(getShareValidationError(app, 'chuck@goknown.io')).toBeNull();
+  });
+
+  test('share validation — email check is case-insensitive', () => {
+    const app = makeDApp();
+    expect(getShareValidationError(app, 'CONNIE@GOKNOWN.IO')).toBeNull();
+    expect(getShareValidationError(app, 'FAKEUSER@EXAMPLE.COM')).toBe('This email is not a valid user.');
+  });
+
+  test('share validation — duplicate email returns "already on share list" error', () => {
+    const app = makeDApp({ sharedWith: ['connie@goknown.io'] });
+    const err = getShareValidationError(app, 'connie@goknown.io');
+    expect(err).not.toBeNull();
+    expect(err).toContain('already');
+  });
+
+  test('share validation — invalid email does not mutate app.sharedWith', () => {
+    const app = makeDApp();
+    const before = [...app.sharedWith];
+    getShareValidationError(app, 'fakeuser@example.com');
+    expect(app.sharedWith).toEqual(before);
+  });
+
+  test('"Shared with Me" — shared app appears in recipient list, not in unrelated user list', () => {
+    const app = makeDApp({
+      ownerId: 'alisa@goknown.io',
+      ownerName: 'Alisa',
+      sharedWith: ['connie@goknown.io'],
+      sharedAccess: [{ email: 'connie@goknown.io', role: 'Viewer' }],
+    });
+    saveApp(app);
+
+    const all = loadSavedApps();
+
+    // Connie's "Shared with Me" list includes the app
+    const conniesShared = all.filter(
+      (a) =>
+        a.ownerId !== 'connie@goknown.io' &&
+        a.sharedWith.map((e) => e.toLowerCase()).includes('connie@goknown.io'),
+    );
+    expect(conniesShared).toHaveLength(1);
+    expect(conniesShared[0].id).toBe(app.id);
+
+    // Mike has no shared apps (not in sharedWith)
+    const mikesShared = all.filter(
+      (a) =>
+        a.ownerId !== 'mike@goknown.io' &&
+        a.sharedWith.map((e) => e.toLowerCase()).includes('mike@goknown.io'),
+    );
+    expect(mikesShared).toHaveLength(0);
+  });
+
+  test('"My Apps" — owner still sees own app after sharing it with a recipient', () => {
+    const app = makeDApp({ ownerId: 'alisa@goknown.io', ownerName: 'Alisa' });
+    saveApp(app);
+    shareApp(app.id, 'connie@goknown.io', { email: 'connie@goknown.io', role: 'Viewer' });
+
+    const all = loadSavedApps();
+    const alisasOwned = all.filter((a) => a.ownerId === 'alisa@goknown.io');
+    expect(alisasOwned).toHaveLength(1);
+    expect(alisasOwned[0].sharedWith).toContain('connie@goknown.io');
+    // Alisa is not in the Shared-with-Me bucket for her own app
+    const alisasShared = all.filter(
+      (a) =>
+        a.ownerId !== 'alisa@goknown.io' &&
+        a.sharedWith.map((e) => e.toLowerCase()).includes('alisa@goknown.io'),
+    );
+    expect(alisasShared).toHaveLength(0);
+  });
+
+  test('duplicate sharing — shareApp is idempotent; sharedWith has no duplicate entries', () => {
+    const app = makeDApp({ ownerId: 'alisa@goknown.io' });
+    saveApp(app);
+
+    shareApp(app.id, 'connie@goknown.io', { email: 'connie@goknown.io', role: 'Viewer' });
+    shareApp(app.id, 'connie@goknown.io', { email: 'connie@goknown.io', role: 'Builder' });
+
+    const updated = getApp(app.id);
+    const conniesEntries = updated!.sharedWith.filter(
+      (e) => e.toLowerCase() === 'connie@goknown.io',
+    );
+    expect(conniesEntries).toHaveLength(1); // no duplicate
+    // Role is updated to the latest value
+    const access = updated!.sharedAccess.find((a) => a.email === 'connie@goknown.io');
+    expect(access?.role).toBe('Builder');
   });
 
   // ── "How it works" messaging tests ───────────────────────────────────────────

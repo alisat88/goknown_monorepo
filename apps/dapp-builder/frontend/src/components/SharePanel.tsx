@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Send, X } from 'lucide-react';
 import { SavedDApp, SharedRole, SharedAccess } from '../types';
 import { shareApp, updateApp } from '../services/storage';
-import { isWhitelisted } from '../services/whitelist';
+import { getShareValidationError } from '../services/whitelist';
 
 interface Props {
   app: SavedDApp;
@@ -27,16 +27,9 @@ export function SharePanel({ app, onUpdated, onClose }: Props) {
     const email = emailInput.trim().toLowerCase();
     if (!email) return;
 
-    if (app.sharedWith.map((e) => e.toLowerCase()).includes(email)) {
-      setFeedback({ type: 'error', message: `${email} is already on the share list.` });
-      return;
-    }
-
-    if (!isWhitelisted(email)) {
-      setFeedback({
-        type: 'error',
-        message: 'This email is not whitelisted for DAppGenius access.',
-      });
+    const validationError = getShareValidationError(app, email);
+    if (validationError) {
+      setFeedback({ type: 'error', message: validationError });
       return;
     }
 
@@ -91,7 +84,7 @@ export function SharePanel({ app, onUpdated, onClose }: Props) {
           value={emailInput}
           onChange={(e) => setEmailInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleShare()}
-          placeholder="Enter whitelisted email address"
+          placeholder="Enter a DAppGenius user email"
           style={{ flex: 1, padding: '8px 12px', fontSize: '0.84rem' }}
         />
         <select
@@ -143,7 +136,7 @@ export function SharePanel({ app, onUpdated, onClose }: Props) {
       )}
 
       <p className="share-panel-note">
-        Only whitelisted DAppGenius users can be granted access.
+        Only valid DAppGenius users can be granted access.
         Sharing is enforced by the access control service in production.
       </p>
     </div>
