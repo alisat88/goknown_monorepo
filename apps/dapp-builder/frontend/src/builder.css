@@ -1406,6 +1406,7 @@
   font-size: 0.9rem;
   font-family: inherit;
   cursor: pointer;
+  text-decoration: none;
   transition: all 170ms ease;
 }
 .nav-back-btn:hover {

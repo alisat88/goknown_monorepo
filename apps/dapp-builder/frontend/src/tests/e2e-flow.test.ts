@@ -408,9 +408,10 @@ describe('getDashboardUrl', () => {
     expect(getDashboardUrl('http://localhost:3000/')).toBe('http://localhost:3000/dashboard');
   });
 
-  test('returns empty string (caller uses history.back()) when base is undefined', () => {
-    // Simulates the case where VITE_GOKNOWN_URL is not set in the environment.
-    expect(getDashboardUrl(undefined)).toBe('');
+  test('falls back to production URL when no base override and env var not set', () => {
+    // VITE_GOKNOWN_URL is not set in the test environment (import.meta.env is empty),
+    // so getDashboardUrl() should use the hardcoded production fallback.
+    expect(getDashboardUrl(undefined)).toBe('https://node1.goknown.app/dashboard');
   });
 });
 

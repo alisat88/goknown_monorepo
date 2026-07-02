@@ -10,21 +10,14 @@ const logoPath = '/assets/dappbuilder.png';
 
 function BackToDashboardBtn() {
   const url = getDashboardUrl();
-  const handleClick = () => {
-    if (url) {
-      window.location.href = url;
-    } else {
-      window.history.back();
-    }
-  };
   return (
-    <button
+    <a
+      href={url}
       className="nav-back-btn"
-      onClick={handleClick}
       aria-label="Back to DApp Genius dashboard"
     >
       ←&nbsp;<span className="nav-back-label">Back to Dashboard</span>
-    </button>
+    </a>
   );
 }
 
