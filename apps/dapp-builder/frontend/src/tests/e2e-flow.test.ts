@@ -411,7 +411,7 @@ describe('getDashboardUrl', () => {
   test('falls back to production URL when no base override and env var not set', () => {
     // VITE_GOKNOWN_URL is not set in the test environment (import.meta.env is empty),
     // so getDashboardUrl() should use the hardcoded production fallback.
-    expect(getDashboardUrl(undefined)).toBe('https://node1.goknown.app/dashboard');
+    expect(getDashboardUrl(undefined)).toBe('https://dappgenius.dev/dashboard');
   });
 });
 
