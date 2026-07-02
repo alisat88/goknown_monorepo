@@ -98,14 +98,19 @@ const Dashboard: React.FC = () => {
     return format(selectedDate, "MMMM dd, y");
   }, [selectedDate]);
 
-  const visibleApps = useMemo(
-    () =>
-      Defaultdls.filter((dl) => {
-        if (!dl.roles) return true;
-        return dl.roles.includes(user.role);
-      }),
-    [user.role]
-  );
+  const visibleApps = useMemo(() => {
+    const apps = Defaultdls.filter((dl) => {
+      if (!dl.roles) return true;
+      return dl.roles.includes(user.role);
+    });
+    console.log(
+      "[Dashboard] user:",
+      { id: user.id, email: user.email, role: user.role },
+      "| visible apps:",
+      apps.map((a) => a.name)
+    );
+    return apps;
+  }, [user.role, user.id, user.email]);
 
   const assetCount = dashboard?.adminAssets?.assets?.length || 0;
 

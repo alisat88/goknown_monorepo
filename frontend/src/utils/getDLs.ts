@@ -125,7 +125,6 @@ export default [
     route: "/payments", // ✅ INTERNAL ROUTE
     externalUrl: ZTA_COIN_URL,
     flag: "payments",
-    roles: "admin",
   },
 
   // ============================================
@@ -142,7 +141,6 @@ export default [
     route: "/workflow", // ✅ INTERNAL ROUTE
     externalUrl: KNOWNCOMPUTE_URL,
     flag: "workflow",
-    roles: "admin",
   },
 
   // ============================================
