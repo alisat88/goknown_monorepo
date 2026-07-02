@@ -392,26 +392,31 @@ describe('getDashboardUrl', () => {
     expect(getDashboardUrl('   ')).toBe('');
   });
 
-  test('appends /dashboard to a clean base URL', () => {
-    expect(getDashboardUrl('https://node1.goknown.app')).toBe('https://node1.goknown.app/dashboard');
+  test('returns the base URL as-is without appending /dashboard', () => {
+    expect(getDashboardUrl('https://dappgenius.dev')).toBe('https://dappgenius.dev');
   });
 
-  test('strips trailing slash from base URL before appending /dashboard', () => {
-    expect(getDashboardUrl('https://node1.goknown.app/')).toBe('https://node1.goknown.app/dashboard');
+  test('strips trailing slash from base URL', () => {
+    expect(getDashboardUrl('https://dappgenius.dev/')).toBe('https://dappgenius.dev');
+  });
+
+  test('strips /dashboard suffix if accidentally set in base URL', () => {
+    expect(getDashboardUrl('https://dappgenius.dev/dashboard')).toBe('https://dappgenius.dev');
+    expect(getDashboardUrl('https://dappgenius.dev/dashboard/')).toBe('https://dappgenius.dev');
   });
 
   test('works with a localhost dev URL', () => {
-    expect(getDashboardUrl('http://localhost:3000')).toBe('http://localhost:3000/dashboard');
+    expect(getDashboardUrl('http://localhost:3000')).toBe('http://localhost:3000');
   });
 
   test('works with a localhost dev URL with trailing slash', () => {
-    expect(getDashboardUrl('http://localhost:3000/')).toBe('http://localhost:3000/dashboard');
+    expect(getDashboardUrl('http://localhost:3000/')).toBe('http://localhost:3000');
   });
 
   test('falls back to production URL when no base override and env var not set', () => {
     // VITE_GOKNOWN_URL is not set in the test environment (import.meta.env is empty),
     // so getDashboardUrl() should use the hardcoded production fallback.
-    expect(getDashboardUrl(undefined)).toBe('https://dappgenius.dev/dashboard');
+    expect(getDashboardUrl(undefined)).toBe('https://dappgenius.dev');
   });
 });
 
