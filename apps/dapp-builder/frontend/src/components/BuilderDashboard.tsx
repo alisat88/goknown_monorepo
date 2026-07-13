@@ -535,13 +535,7 @@ export function BuilderDashboard() {
   const [wizardStep,     setWizardStep]     = useState<1 | 2 | 3>(1);
   const [editingApp,     setEditingApp]     = useState<SavedDApp | null>(null);
   const [savedApps,      setSavedApps]      = useState<SavedDApp[]>([]);
-  const [apiKey,         setApiKey]         = useState(
-    (import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined) ?? ''
-  );
   const [previewApp,     setPreviewApp]     = useState<SavedDApp | null>(null);
-  // currentUser is null until the auth context resolves or a demo user is selected.
-  // It is never pre-set to DEMO_USERS[0] (Alisa) — the active user always comes
-  // from the authenticated session or an explicit demo selection.
   const [currentUser,    setCurrentUser]    = useState<DemoUser | null>(null);
 
   // Sync currentUser from the authenticated session when it becomes available.
@@ -707,8 +701,6 @@ export function BuilderDashboard() {
           onWorkflowChange={setWorkflowSteps}
           wizardStep={wizardStep}
           onStepChange={setWizardStep}
-          apiKey={apiKey}
-          onApiKeyChange={setApiKey}
           onClose={handleCloseWizard}
           editingApp={editingApp ?? undefined}
           onSaveApp={handleSaveApp}
@@ -793,9 +785,8 @@ export function BuilderDashboard() {
           <CodeGenerationPreview
             selectedTemplate={selectedTemplate}
             workflowSteps={workflowSteps}
-            apiKey={apiKey}
-            onApiKeyChange={setApiKey}
             onSaveApp={handleSaveApp}
+            onGoToLibrary={handleGoToLibrary}
             currentUserEmail={currentUser?.email ?? ''}
           />
         )}

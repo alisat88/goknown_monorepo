@@ -20,7 +20,7 @@ import {
   PROMPT_SECTIONS,
   EXAMPLE_PROMPT_RAW,
 } from '../promptGuide';
-import { validateGeneratedHtml } from '../lib/generateCode';
+import { validateGeneratedHtml, buildEditUserPrompt } from '../lib/generateCode';
 import { getDashboardUrl } from '../lib/navigation';
 
 function makeDApp(overrides: Partial<SavedDApp> = {}): SavedDApp {
@@ -479,6 +479,67 @@ describe('DApp Builder end-to-end flow', () => {
     const almostEmpty = '<!DOCTYPE html><html><body><h1>App</h1><button>Go</button></body></html>';
     // Short AND only 1 interactive element → should flag as incomplete
     expect(validateGeneratedHtml(almostEmpty)).not.toBeNull();
+  });
+
+  // ── buildEditUserPrompt ───────────────────────────────────────────────────────
+
+  test('buildEditUserPrompt — includes the app name in the prompt', () => {
+    const result = buildEditUserPrompt('<html><body><button>Go</button></body></html>', 'Change the header to red', 'My Token Tracker');
+    expect(result).toContain('"My Token Tracker"');
+  });
+
+  test('buildEditUserPrompt — includes the follow-up prompt text', () => {
+    const result = buildEditUserPrompt('<html><body><button>Go</button></body></html>', 'Add a dark mode toggle button', 'Test App');
+    expect(result).toContain('Add a dark mode toggle button');
+  });
+
+  test('buildEditUserPrompt — includes the current HTML', () => {
+    const html = '<!DOCTYPE html><html><body><h1>Ledger</h1><button>Submit</button></body></html>';
+    const result = buildEditUserPrompt(html, 'Change button color to green', 'Ledger App');
+    expect(result).toContain(html);
+  });
+
+  test('buildEditUserPrompt — trims leading/trailing whitespace from follow-up prompt', () => {
+    const result = buildEditUserPrompt('<html/>', '  make the font larger  ', 'App');
+    expect(result).toContain('make the font larger');
+    expect(result).not.toContain('  make the font larger  ');
+  });
+
+  // ── Save-to-library flow ──────────────────────────────────────────────────
+
+  test('save-to-library — updateApp persists the latest edited HTML, not the original', () => {
+    const originalHtml = '<html><body><button>Original</button></body></html>';
+    const editedHtml   = '<html><body><button>Edited</button></body></html>';
+    const app = makeDApp({ generatedCode: originalHtml });
+    saveApp(app);
+
+    updateApp(app.id, { generatedCode: editedHtml });
+
+    const saved = getApp(app.id);
+    expect(saved!.generatedCode).toBe(editedHtml);
+    expect(saved!.generatedCode).not.toBe(originalHtml);
+  });
+
+  test('save-to-library — multiple edits preserve only the most recent version, no duplicates', () => {
+    const app = makeDApp({ generatedCode: '<html><body>v1</body></html>' });
+    saveApp(app);
+
+    updateApp(app.id, { generatedCode: '<html><body>v2</body></html>' });
+    updateApp(app.id, { generatedCode: '<html><body>v3</body></html>' });
+
+    const saved = getApp(app.id);
+    expect(saved!.generatedCode).toBe('<html><body>v3</body></html>');
+    expect(loadSavedApps()).toHaveLength(1);
+  });
+
+  test('save-to-library — status is updated to Generated on explicit save', () => {
+    const app = makeDApp({ status: 'Draft' });
+    saveApp(app);
+
+    updateApp(app.id, { status: 'Generated' });
+
+    const saved = getApp(app.id);
+    expect(saved!.status).toBe('Generated');
   });
 });
 

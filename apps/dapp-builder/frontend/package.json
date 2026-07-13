@@ -18,6 +18,7 @@
     "vite": "^5.1.4"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
     "jsdom": "^29.1.1",

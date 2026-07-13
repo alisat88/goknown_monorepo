@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Check, Loader, ExternalLink } from 'lucide-react';
+import { Sparkles, Loader, ExternalLink } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp } from '../types';
 import { buildConfig } from '../lib/buildConfig';
-import { generateDAppCode, validateGeneratedHtml } from '../lib/generateCode';
+import { generateDAppCode, generateEditedDAppCode, validateGeneratedHtml } from '../lib/generateCode';
 import { saveApp, updateApp } from '../services/storage';
 import { DEMO_USERS } from '../data';
+import { PostGenerationActions } from './PostGenerationActions';
 
 const LOADING_MESSAGES = [
   'Generating your dApp...',
@@ -15,9 +16,6 @@ const LOADING_MESSAGES = [
 
 function classifyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  const status = msg.split(':')[0];
-  if (status === '401') return 'Invalid API key — check your key and try again';
-  if (status === '429') return 'Rate limit reached — wait a moment and try again';
   if (
     msg.toLowerCase().includes('failed to fetch') ||
     msg.toLowerCase().includes('networkerror') ||
@@ -25,24 +23,29 @@ function classifyError(err: unknown): string {
   ) {
     return 'Network error — check your connection and try again';
   }
-  return msg.includes(':') ? msg.split(':').slice(1).join(':').trim() || msg : msg;
+  // Backend forwards Anthropic errors as "STATUS:detail"
+  const statusMatch = msg.match(/^(\d{3}):(.*)/s);
+  if (statusMatch) {
+    const [, code, detail] = statusMatch;
+    if (code === '429') return 'Rate limit reached — wait a moment and try again';
+    return detail.trim() || `Server error (${code})`;
+  }
+  return msg;
 }
 
 interface Props {
   selectedTemplate: Template | null;
   workflowSteps: WorkflowBlock[];
-  apiKey: string;
-  onApiKeyChange: (key: string) => void;
   onSaveApp?: () => void;
+  onGoToLibrary?: () => void;
   currentUserEmail?: string;
 }
 
 export function CodeGenerationPreview({
   selectedTemplate,
   workflowSteps,
-  apiKey,
-  onApiKeyChange,
   onSaveApp,
+  onGoToLibrary,
   currentUserEmail,
 }: Props) {
   const [userPrompt, setUserPrompt] = useState('');
@@ -50,8 +53,7 @@ export function CodeGenerationPreview({
   const [generating, setGenerating] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0]);
   const [genError, setGenError] = useState<string | null>(null);
-  const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
-  const [localKey, setLocalKey] = useState(apiKey);
+  const [savedAppId, setSavedAppId] = useState<string | null>(null);
 
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -61,23 +63,14 @@ export function CodeGenerationPreview({
     };
   }, []);
 
-  useEffect(() => { setLocalKey(apiKey); }, [apiKey]);
-
-  const handleKeyChange = (k: string) => {
-    setLocalKey(k);
-    onApiKeyChange(k);
-  };
-
   const config = buildConfig(selectedTemplate, workflowSteps);
 
   const handleGenerate = async () => {
-    const key = localKey.trim();
-    if (!key || !selectedTemplate) return;
+    if (!selectedTemplate) return;
 
     setGenerating(true);
     setGenError(null);
     setGeneratedCode(null);
-    setSavedConfirmation(null);
     setLoadingMsg(LOADING_MESSAGES[0]);
 
     let msgIdx = 0;
@@ -87,17 +80,14 @@ export function CodeGenerationPreview({
     }, 2000);
 
     try {
-      const html = await generateDAppCode(
-        {
-          dappName: config.dappName,
-          description: userPrompt.trim() || undefined,
-          template: config.template,
-          apis: config.apis,
-          workflow: config.workflow,
-          userPrompt,
-        },
-        key
-      );
+      const html = await generateDAppCode({
+        dappName: config.dappName,
+        description: userPrompt.trim() || undefined,
+        template: config.template,
+        apis: config.apis,
+        workflow: config.workflow,
+        userPrompt,
+      });
 
       const validationError = validateGeneratedHtml(html);
       if (validationError) {
@@ -106,8 +96,6 @@ export function CodeGenerationPreview({
 
       setGeneratedCode(html);
 
-      // Auto-save to library immediately after successful generation
-      // TODO (production): Replace with POST /api/dapps or PUT /api/dapps/:id
       const now = new Date().toISOString();
       const existingApps: SavedDApp[] = (() => {
         try {
@@ -120,11 +108,14 @@ export function CodeGenerationPreview({
       );
       const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
 
+      let appId: string;
       if (existing) {
-        updateApp(existing.id, { generatedCode: html, apis: config.apis, workflow: config.workflow, status: 'Generated' });
+        appId = existing.id;
+        updateApp(appId, { generatedCode: html, apis: config.apis, workflow: config.workflow, status: 'Generated' });
       } else {
+        appId = `dapp_${crypto.randomUUID()}`;
         saveApp({
-          id: `dapp_${crypto.randomUUID()}`,
+          id: appId,
           dappName: config.dappName,
           description: '',
           template: config.template,
@@ -142,8 +133,8 @@ export function CodeGenerationPreview({
           version: 1,
         });
       }
+      setSavedAppId(appId);
       onSaveApp?.();
-      setSavedConfirmation(config.dappName);
     } catch (err) {
       setGenError(classifyError(err));
     } finally {
@@ -158,7 +149,22 @@ export function CodeGenerationPreview({
   const handleRegenerate = () => {
     setGeneratedCode(null);
     setGenError(null);
-    setSavedConfirmation(null);
+    setSavedAppId(null);
+  };
+
+  const handleApplyChanges = async (prompt: string) => {
+    if (!generatedCode) return;
+    const updatedHtml = await generateEditedDAppCode(generatedCode, prompt, config.dappName);
+    const validationError = validateGeneratedHtml(updatedHtml);
+    if (validationError) throw new Error(validationError);
+    setGeneratedCode(updatedHtml);
+    if (savedAppId) updateApp(savedAppId, { generatedCode: updatedHtml });
+  };
+
+  const handleSaveToLibrary = () => {
+    if (!generatedCode) return;
+    if (savedAppId) updateApp(savedAppId, { generatedCode, status: 'Generated' });
+    onSaveApp?.();
   };
 
   return (
@@ -189,33 +195,12 @@ export function CodeGenerationPreview({
         </div>
       )}
 
-      {/* API key input */}
-      {!localKey.trim() && (
-        <div className="api-key-input-wrap" style={{ marginBottom: '20px' }}>
-          <label className="wizard-field-label" htmlFor="code-tab-api-key">
-            Anthropic API key
-          </label>
-          <input
-            id="code-tab-api-key"
-            className="wizard-input wizard-input--key"
-            type="password"
-            value={localKey}
-            onChange={(e) => handleKeyChange(e.target.value)}
-            placeholder="Paste your Anthropic API key to enable code generation"
-            autoComplete="off"
-          />
-          <div className="wizard-field-hint">
-            Key is held in memory only — never stored or sent anywhere except the Anthropic API.
-          </div>
-        </div>
-      )}
-
       {/* Generate button */}
       {!generatedCode && (
         <button
           className="wizard-generate-btn"
           onClick={handleGenerate}
-          disabled={generating || !localKey.trim() || !selectedTemplate}
+          disabled={generating || !selectedTemplate}
         >
           {generating ? (
             <>
@@ -274,16 +259,14 @@ export function CodeGenerationPreview({
             />
           </div>
 
-          {/* Auto-save confirmation */}
-          {savedConfirmation && (
-            <div className="save-toast" style={{ marginTop: '12px' }}>
-              ✓ Saved to My Library as <strong>{savedConfirmation}</strong>
-            </div>
-          )}
+          <PostGenerationActions
+            onApplyChanges={handleApplyChanges}
+            onSave={handleSaveToLibrary}
+            onGoToLibrary={onGoToLibrary}
+          />
 
           <button
-            className="wizard-generate-btn"
-            style={{ marginTop: '14px', background: 'rgba(38,184,255,0.06)' }}
+            className="wizard-generate-btn codegen-regen-btn"
             onClick={handleRegenerate}
           >
             <Sparkles size={14} />

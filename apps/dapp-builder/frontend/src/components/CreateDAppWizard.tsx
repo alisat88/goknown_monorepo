@@ -4,10 +4,12 @@ import {
 } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp, ProjectStatus } from '../types';
 import { buildConfig } from '../lib/buildConfig';
-import { generateDAppCode, validateGeneratedHtml } from '../lib/generateCode';
+import { generateDAppCode, generateEditedDAppCode, validateGeneratedHtml } from '../lib/generateCode';
+
 import { saveApp, updateApp } from '../services/storage';
 import { WORKFLOW_BLOCKS, TEMPLATE_DEFAULT_BLOCKS, DEMO_USERS, API_COMPONENTS } from '../data';
 import { WorkflowBuilder } from './WorkflowBuilder';
+import { PostGenerationActions } from './PostGenerationActions';
 
 const LOADING_MESSAGES = [
   'Generating your app...',
@@ -25,9 +27,6 @@ function countWords(text: string): number {
 
 function classifyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  const status = msg.split(':')[0];
-  if (status === '401') return 'Invalid API key — check your key and try again';
-  if (status === '429') return 'Rate limit reached — wait a moment and try again';
   if (
     msg.toLowerCase().includes('failed to fetch') ||
     msg.toLowerCase().includes('networkerror') ||
@@ -35,7 +34,14 @@ function classifyError(err: unknown): string {
   ) {
     return 'Network error — check your connection and try again';
   }
-  return msg.includes(':') ? msg.split(':').slice(1).join(':').trim() || msg : msg;
+  // Backend forwards Anthropic errors as "STATUS:detail"
+  const statusMatch = msg.match(/^(\d{3}):(.*)/s);
+  if (statusMatch) {
+    const [, code, detail] = statusMatch;
+    if (code === '429') return 'Rate limit reached — wait a moment and try again';
+    return detail.trim() || `Server error (${code})`;
+  }
+  return msg;
 }
 
 interface Props {
@@ -44,8 +50,6 @@ interface Props {
   onWorkflowChange: (steps: WorkflowBlock[]) => void;
   wizardStep: 1 | 2 | 3;
   onStepChange: (s: 1 | 2 | 3) => void;
-  apiKey: string;
-  onApiKeyChange: (key: string) => void;
   onClose: () => void;
   editingApp?: SavedDApp;
   onSaveApp?: () => void;
@@ -81,8 +85,6 @@ export function CreateDAppWizard({
   onWorkflowChange,
   wizardStep,
   onStepChange,
-  apiKey,
-  onApiKeyChange,
   onClose,
   editingApp,
   onSaveApp,
@@ -104,8 +106,7 @@ export function CreateDAppWizard({
     editingApp?.generatedCode || null
   );
   const [genError, setGenError] = useState<string | null>(null);
-  const [localKey, setLocalKey] = useState(apiKey);
-  const [savedConfirmation, setSavedConfirmation] = useState<string | null>(null);
+  const [draftSaveMsg, setDraftSaveMsg] = useState<string | null>(null);
   const [lastSavedApp, setLastSavedApp] = useState<SavedDApp | null>(null);
 
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -116,13 +117,6 @@ export function CreateDAppWizard({
   useEffect(() => {
     return () => { if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current); };
   }, []);
-
-  useEffect(() => { setLocalKey(apiKey); }, [apiKey]);
-
-  const handleKeyChange = (k: string) => {
-    setLocalKey(k);
-    onApiKeyChange(k);
-  };
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
@@ -308,13 +302,10 @@ export function CreateDAppWizard({
       setGenError(`Please keep the app prompt under ${MAX_PROMPT_WORDS} words (currently ${promptWordCount}).`);
       return;
     }
-    const key = localKey.trim();
-    if (!key) return;
 
     setGenerating(true);
     setGenError(null);
     setGeneratedCode(null);
-    setSavedConfirmation(null);
     setLoadingMsg(LOADING_MESSAGES[0]);
 
     let msgIdx = 0;
@@ -324,17 +315,14 @@ export function CreateDAppWizard({
     }, 2000);
 
     try {
-      const html = await generateDAppCode(
-        {
-          dappName: config.dappName,
-          description,
-          template: config.template,
-          apis: effectiveApis,
-          workflow: config.workflow,
-          userPrompt,
-        },
-        key
-      );
+      const html = await generateDAppCode({
+        dappName: config.dappName,
+        description,
+        template: config.template,
+        apis: effectiveApis,
+        workflow: config.workflow,
+        userPrompt,
+      });
 
       const validationError = validateGeneratedHtml(html);
       if (validationError) {
@@ -346,7 +334,6 @@ export function CreateDAppWizard({
       const saved = persistApp('Generated', html);
       setLastSavedApp(saved);
       onSaveApp?.();
-      setSavedConfirmation(saved.dappName);
     } catch (err) {
       setGenError(classifyError(err));
     } finally {
@@ -361,7 +348,6 @@ export function CreateDAppWizard({
   const handleRegenerate = () => {
     setGeneratedCode(null);
     setGenError(null);
-    setSavedConfirmation(null);
     setLastSavedApp(null);
   };
 
@@ -369,9 +355,9 @@ export function CreateDAppWizard({
     const app = persistApp('Draft', null);
     setLastSavedApp(app);
     onSaveApp?.();
-    setSavedConfirmation(app.dappName);
+    setDraftSaveMsg(app.dappName);
     setTimeout(() => {
-      setSavedConfirmation(null);
+      setDraftSaveMsg(null);
       onClose();
     }, 1500);
   };
@@ -380,6 +366,24 @@ export function CreateDAppWizard({
     if (lastSavedApp && onCreateSuccess) {
       onCreateSuccess(lastSavedApp);
     }
+  };
+
+  const handleApplyChanges = async (prompt: string) => {
+    if (!generatedCode) return;
+    const updatedHtml = await generateEditedDAppCode(generatedCode, prompt, config.dappName);
+    const validationError = validateGeneratedHtml(updatedHtml);
+    if (validationError) throw new Error(validationError);
+    setGeneratedCode(updatedHtml);
+    if (lastSavedApp) {
+      updateApp(lastSavedApp.id, { generatedCode: updatedHtml });
+      setLastSavedApp({ ...lastSavedApp, generatedCode: updatedHtml });
+    }
+  };
+
+  const handleSaveToLibrary = () => {
+    if (!generatedCode || !lastSavedApp) return;
+    updateApp(lastSavedApp.id, { generatedCode, status: 'Generated' });
+    onSaveApp?.();
   };
 
   return (
@@ -550,31 +554,12 @@ export function CreateDAppWizard({
                 </div>
               )}
 
-              {/* API key input */}
-              {!localKey.trim() && (
-                <div className="api-key-input-wrap">
-                  <label className="wizard-field-label" htmlFor="wizard-api-key">Anthropic API key</label>
-                  <input
-                    id="wizard-api-key"
-                    className="wizard-input wizard-input--key"
-                    type="password"
-                    value={localKey}
-                    onChange={(e) => handleKeyChange(e.target.value)}
-                    placeholder="Paste your Anthropic API key to enable code generation"
-                    autoComplete="off"
-                  />
-                  <div className="wizard-field-hint">
-                    Key is held in memory only — never stored or sent anywhere except the Anthropic API.
-                  </div>
-                </div>
-              )}
-
               {/* Generate button */}
               {!generatedCode && (
                 <button
                   className="wizard-generate-btn"
                   onClick={handleGenerate}
-                  disabled={generating || !localKey.trim() || promptOverLimit}
+                  disabled={generating || promptOverLimit}
                 >
                   {generating ? (
                     <><Loader size={15} className="spin" />{loadingMsg}</>
@@ -626,12 +611,11 @@ export function CreateDAppWizard({
                     />
                   </div>
 
-                  {savedConfirmation && (
-                    <div className="save-toast" style={{ marginTop: '12px' }}>
-                      <Check size={13} style={{ display: 'inline', marginRight: '4px' }} />
-                      Your app is ready — <strong>{savedConfirmation}</strong> has been saved to My Library
-                    </div>
-                  )}
+                  <PostGenerationActions
+                    onApplyChanges={handleApplyChanges}
+                    onSave={handleSaveToLibrary}
+                    onGoToLibrary={onGoToLibrary}
+                  />
                 </div>
               )}
             </div>
@@ -642,7 +626,7 @@ export function CreateDAppWizard({
         <div className="wizard-footer">
 
           {/* ── Step 3 footer: after code generation ── */}
-          {wizardStep === 3 && savedConfirmation && (
+          {wizardStep === 3 && !!generatedCode && (
             <>
               <button className="wizard-nav-btn wizard-nav-btn--back" onClick={handleRegenerate}>
                 ↺ Regenerate
@@ -665,7 +649,7 @@ export function CreateDAppWizard({
           )}
 
           {/* ── Step 3 footer: before generation or while generating ── */}
-          {wizardStep === 3 && !savedConfirmation && (
+          {wizardStep === 3 && !generatedCode && (
             <button
               className="wizard-nav-btn wizard-nav-btn--back"
               onClick={() => onStepChange(2)}

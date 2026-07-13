@@ -24,12 +24,15 @@ import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.rout
 import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
 import consensusRouter from '@modules/consensus/infra/http/routes/consensus.routes';
 import paymentsRouter from "./payments.routes";
+import dappBuilderRouter from '@modules/dappbuilder/infra/http/routes/dappbuilder.routes';
 
 const routes = Router();
 
-routes.use('/health', (request, response) => {
+routes.use('/health', (_request, response) => {
   response.json(`Server Connected on node ${process.env.NODE_NUMBER || 1} `);
 });
+
+routes.use('/dapp-builder', dappBuilderRouter);
 
 routes.use('/sessions', sessionsRouter);
 routes.use('/', pinRouter);
