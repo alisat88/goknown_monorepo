@@ -63,8 +63,10 @@ app.use(compression());
 
 /**
  * indicate express to accept json files
+ * 256kb covers the largest /dapp-builder/edit payloads (generated HTML ≤ ~50kb).
+ * Requests over this limit receive a 413 before reaching any route handler.
  */
-app.use(express.json());
+app.use(express.json({ limit: '256kb' }));
 
 /**
  * static route to avatars

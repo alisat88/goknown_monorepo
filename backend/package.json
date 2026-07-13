@@ -31,6 +31,8 @@
     "@babel/preset-typescript": "^7.12.1",
     "aws-sdk": "^2.783.0",
     "axios": "^0.21.1",
+    "babel-plugin-module-resolver": "^4.0.0",
+    "babel-plugin-transform-typescript-metadata": "^0.3.1",
     "bcryptjs": "^2.4.3",
     "bee-queue": "^1.2.2",
     "celebrate": "^13.0.3",
@@ -43,6 +45,7 @@
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "express-async-errors": "^3.1.1",
+    "express-rate-limit": "^8.5.2",
     "handlebars": "^4.7.6",
     "ioredis": "^4.24.2",
     "jsonwebtoken": "^8.5.1",
@@ -60,9 +63,7 @@
     "tsyringe": "^4.3.0",
     "twilio": "^3.71.1",
     "typeorm": "0.2.41",
-    "uuid": "^8.3.2",
-    "babel-plugin-module-resolver": "^4.0.0",
-    "babel-plugin-transform-typescript-metadata": "^0.3.1"
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@babel/node": "^7.12.6",
