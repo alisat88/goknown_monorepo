@@ -22,6 +22,12 @@ const WHITELISTED_EMAILS = [
   'issoufof@my.erau.edu',
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmailFormat(email: string): boolean {
+  return EMAIL_REGEX.test(email);
+}
+
 export function isWhitelisted(email: string): boolean {
   return WHITELISTED_EMAILS.includes(email.trim().toLowerCase());
 }
@@ -35,15 +41,30 @@ export function getWhitelist(): string[] {
  * Returns the error string if the share attempt is invalid, or null if valid.
  *
  * Checks (in order):
- *  1. Email not in whitelist → 'This email is not a valid user.'
- *  2. Email already on sharedWith list → '… is already on the share list.'
- *  3. No problem → null
+ *  1. Invalid email format  → 'Enter a valid email address.'
+ *  2. Self-share            → 'You already own this app.'
+ *  3. Not a known demo user → 'No demo user found with that email.'
+ *  4. Already shared        → 'This user already has access.'
+ *  5. No problem            → null
  */
 export function getShareValidationError(app: SavedDApp, email: string): string | null {
   const normalized = email.trim().toLowerCase();
-  if (!isWhitelisted(normalized)) return 'This email is not a valid user.';
-  if (app.sharedWith.map((e) => e.toLowerCase()).includes(normalized)) {
-    return `${normalized} is already on the share list.`;
+
+  if (!isValidEmailFormat(normalized)) {
+    return 'Enter a valid email address.';
   }
+
+  if (normalized === (app.ownerId ?? '').toLowerCase()) {
+    return 'You already own this app.';
+  }
+
+  if (!isWhitelisted(normalized)) {
+    return 'No demo user found with that email.';
+  }
+
+  if ((app.sharedWith ?? []).map((e) => e.toLowerCase()).includes(normalized)) {
+    return 'This user already has access.';
+  }
+
   return null;
 }

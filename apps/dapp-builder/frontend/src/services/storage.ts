@@ -28,6 +28,7 @@ function migrate(raw: Partial<SavedDApp>): SavedDApp {
     ownerName: '',
     version: 1,
     ownerId: '',
+    sharedWith: [],
     sharedAccess: [],
     ...raw,
     id,

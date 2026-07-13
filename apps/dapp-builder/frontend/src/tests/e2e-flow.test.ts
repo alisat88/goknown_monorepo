@@ -260,10 +260,10 @@ describe('DApp Builder end-to-end flow', () => {
 
   // ── Share validation (getShareValidationError) ───────────────────────────────
 
-  test('share validation — invalid email returns exact required error message', () => {
+  test('share validation — unrecognized email returns "No demo user found" error', () => {
     const app = makeDApp();
-    expect(getShareValidationError(app, 'fakeuser@example.com')).toBe('This email is not a valid user.');
-    expect(getShareValidationError(app, 'nobody@evil.io')).toBe('This email is not a valid user.');
+    expect(getShareValidationError(app, 'fakeuser@example.com')).toBe('No demo user found with that email.');
+    expect(getShareValidationError(app, 'nobody@evil.io')).toBe('No demo user found with that email.');
   });
 
   test('share validation — valid whitelisted email returns null (no error)', () => {
@@ -275,14 +275,12 @@ describe('DApp Builder end-to-end flow', () => {
   test('share validation — email check is case-insensitive', () => {
     const app = makeDApp();
     expect(getShareValidationError(app, 'CONNIE@GOKNOWN.IO')).toBeNull();
-    expect(getShareValidationError(app, 'FAKEUSER@EXAMPLE.COM')).toBe('This email is not a valid user.');
+    expect(getShareValidationError(app, 'FAKEUSER@EXAMPLE.COM')).toBe('No demo user found with that email.');
   });
 
-  test('share validation — duplicate email returns "already on share list" error', () => {
+  test('share validation — duplicate email returns "This user already has access."', () => {
     const app = makeDApp({ sharedWith: ['connie@goknown.io'] });
-    const err = getShareValidationError(app, 'connie@goknown.io');
-    expect(err).not.toBeNull();
-    expect(err).toContain('already');
+    expect(getShareValidationError(app, 'connie@goknown.io')).toBe('This user already has access.');
   });
 
   test('share validation — invalid email does not mutate app.sharedWith', () => {
@@ -290,6 +288,27 @@ describe('DApp Builder end-to-end flow', () => {
     const before = [...app.sharedWith];
     getShareValidationError(app, 'fakeuser@example.com');
     expect(app.sharedWith).toEqual(before);
+  });
+
+  test('share validation — invalid email format is rejected', () => {
+    const app = makeDApp();
+    expect(getShareValidationError(app, 'not-an-email')).toBe('Enter a valid email address.');
+    expect(getShareValidationError(app, 'missingatsign')).toBe('Enter a valid email address.');
+    expect(getShareValidationError(app, '')).toBe('Enter a valid email address.');
+    expect(getShareValidationError(app, '@nodomain')).toBe('Enter a valid email address.');
+  });
+
+  test('share validation — whitespace is trimmed before validation', () => {
+    const app = makeDApp();
+    expect(getShareValidationError(app, '  connie@goknown.io  ')).toBeNull();
+    expect(getShareValidationError(app, '  CONNIE@GOKNOWN.IO  ')).toBeNull();
+  });
+
+  test('share validation — self-sharing is rejected', () => {
+    // makeDApp() has ownerId: 'mike@goknown.io'
+    const app = makeDApp();
+    expect(getShareValidationError(app, 'mike@goknown.io')).toBe('You already own this app.');
+    expect(getShareValidationError(app, 'MIKE@GOKNOWN.IO')).toBe('You already own this app.');
   });
 
   test('"Shared with Me" — shared app appears in recipient list, not in unrelated user list', () => {
