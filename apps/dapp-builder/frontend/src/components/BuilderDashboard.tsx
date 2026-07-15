@@ -64,29 +64,29 @@ const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 const DEMO_SEED_OWNERSHIP: Record<string, { ownerId: string; sharedWith: string[]; sharedAccess: SharedAccess[] }> = {
   'aviation-ledger': {
-    ownerId: 'chuck@goknown.io',
-    sharedWith: ['alisa@goknown.io', 'fiona@goknown.io'],
+    ownerId: 'cgardner@enterprise-kc.com',
+    sharedWith: ['atiselska@goknown.com', 'issoufof@my.erau.edu'],
     sharedAccess: [
-      { email: 'alisa@goknown.io', role: 'Reviewer' },
-      { email: 'fiona@goknown.io', role: 'Viewer' },
+      { email: 'atiselska@goknown.com',  role: 'Reviewer' },
+      { email: 'issoufof@my.erau.edu',   role: 'Viewer' },
     ],
   },
   'token-rewards': {
-    ownerId: 'alisa@goknown.io',
-    sharedWith: ['chuck@goknown.io'],
-    sharedAccess: [{ email: 'chuck@goknown.io', role: 'Builder' }],
+    ownerId: 'atiselska@goknown.com',
+    sharedWith: ['cgardner@enterprise-kc.com'],
+    sharedAccess: [{ email: 'cgardner@enterprise-kc.com', role: 'Builder' }],
   },
   'dao-voting-demo': {
-    ownerId: 'drlu@goknown.io',
-    sharedWith: ['drsam@goknown.io'],
-    sharedAccess: [{ email: 'drsam@goknown.io', role: 'Reviewer' }],
+    ownerId: 'hong.liu14@gmail.com',
+    sharedWith: ['samindu@gmail.com'],
+    sharedAccess: [{ email: 'samindu@gmail.com', role: 'Reviewer' }],
   },
   'escrow-flow': {
-    ownerId: 'mike@goknown.io',
-    sharedWith: ['leo@goknown.io', 'connie@goknown.io'],
+    ownerId: 'mharold@goknown.com',
+    sharedWith: ['leopoldojacobsen@gmail.com', 'cerlanger@goknown.com'],
     sharedAccess: [
-      { email: 'leo@goknown.io',    role: 'Reviewer' },
-      { email: 'connie@goknown.io', role: 'Viewer' },
+      { email: 'leopoldojacobsen@gmail.com', role: 'Reviewer' },
+      { email: 'cerlanger@goknown.com',      role: 'Viewer' },
     ],
   },
 };
@@ -559,7 +559,7 @@ export function BuilderDashboard() {
         .filter((b) => defaultBlockIds.includes(b.id))
         .map((b) => b.id);
       const ownership = DEMO_SEED_OWNERSHIP[p.id] ?? {
-        ownerId: 'alisa@goknown.io',
+        ownerId: 'atiselska@goknown.com',
         sharedWith: [],
         sharedAccess: [],
       };

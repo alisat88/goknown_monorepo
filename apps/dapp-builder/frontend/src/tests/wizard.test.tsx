@@ -32,7 +32,7 @@ const defaultProps = {
   wizardStep: 3 as const,
   onStepChange: vi.fn(),
   onClose: vi.fn(),
-  currentUserEmail: 'alisa@goknown.io',
+  currentUserEmail: 'atiselska@goknown.com',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -126,7 +126,7 @@ describe('CreateDAppWizard — post-generation follow-up flow', () => {
     fireEvent.click(screen.getByText('No edits needed — save to library'));
 
     const apps = loadSavedApps();
-    const saved = apps.find((a) => a.ownerId === 'alisa@goknown.io');
+    const saved = apps.find((a) => a.ownerId === 'atiselska@goknown.com');
     expect(saved).toBeDefined();
     expect(saved!.generatedCode).toBe(GENERATED_HTML);
   });
@@ -151,7 +151,7 @@ describe('CreateDAppWizard — post-generation follow-up flow', () => {
     });
 
     const apps = loadSavedApps();
-    const saved = apps.find((a) => a.ownerId === 'alisa@goknown.io');
+    const saved = apps.find((a) => a.ownerId === 'atiselska@goknown.com');
     expect(saved!.generatedCode).toBe(EDITED_HTML);
     expect(saved!.generatedCode).not.toBe(GENERATED_HTML);
   });

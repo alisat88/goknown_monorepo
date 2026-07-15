@@ -1,22 +1,18 @@
-// TODO (production): This list is managed by the Permissioning API service
-// (/api/permissions/check-access). The hardcoded values here are for demo purposes only.
+// Sharing authorization is independent of DEMO_USERS.
+// Source of truth: the Render/backend permission service.
+// This static list is the frontend development/demo fallback only — it must contain
+// exactly the same ten addresses that are authorized in the backend.
 
 import { SavedDApp } from '../types';
 
-const WHITELISTED_EMAILS = [
-  // GoKnown team
-  'alisa@goknown.io',
-  'mike@goknown.io',
-  'connie@goknown.io',
-  'chuck@goknown.io',
-  'drlu@goknown.io',
-  'drsam@goknown.io',
-  'fiona@goknown.io',
-  'leo@goknown.io',
-  // Demo participants (external)
-  'chuck@example.com',
-  'fiona@example.com',
-  'leo@example.com',
+const WHITELISTED_EMAILS: string[] = [
+  'cgardner@enterprise-kc.com',
+  'leopoldojacobsen@gmail.com',
+  'mharold@goknown.com',
+  'cerlanger@goknown.com',
+  'atiselska@goknown.com',
+  'ed.bohlke@gmail.com',
+  'ilene@tanendirected.com',
   'hong.liu14@gmail.com',
   'samindu@gmail.com',
   'issoufof@my.erau.edu',
@@ -41,11 +37,11 @@ export function getWhitelist(): string[] {
  * Returns the error string if the share attempt is invalid, or null if valid.
  *
  * Checks (in order):
- *  1. Invalid email format  → 'Enter a valid email address.'
- *  2. Self-share            → 'You already own this app.'
- *  3. Not a known demo user → 'No demo user found with that email.'
- *  4. Already shared        → 'This user already has access.'
- *  5. No problem            → null
+ *  1. Invalid email format         → 'Enter a valid email address.'
+ *  2. Self-share                   → 'You already own this app.'
+ *  3. Not an authorized recipient  → 'This email is not authorized for sharing.'
+ *  4. Already shared               → 'This user already has access.'
+ *  5. No problem                   → null
  */
 export function getShareValidationError(app: SavedDApp, email: string): string | null {
   const normalized = email.trim().toLowerCase();
@@ -59,7 +55,7 @@ export function getShareValidationError(app: SavedDApp, email: string): string |
   }
 
   if (!isWhitelisted(normalized)) {
-    return 'No demo user found with that email.';
+    return 'This email is not authorized for sharing.';
   }
 
   if ((app.sharedWith ?? []).map((e) => e.toLowerCase()).includes(normalized)) {

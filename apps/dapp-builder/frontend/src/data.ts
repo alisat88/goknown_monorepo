@@ -202,12 +202,12 @@ export const DEMO_PROJECT_DESCRIPTIONS: Record<string, string> = {
 };
 
 export const DEMO_USERS: DemoUser[] = [
-  { name: 'Alisa',   email: 'alisa@goknown.io' },
-  { name: 'Chuck',   email: 'chuck@goknown.io' },
-  { name: 'Dr. Lu',  email: 'drlu@goknown.io',  team: 'ERAU Team' },
-  { name: 'Dr. Sam', email: 'drsam@goknown.io', team: 'ERAU Team' },
-  { name: 'Fiona',   email: 'fiona@goknown.io', team: 'ERAU Team' },
-  { name: 'Leo',     email: 'leo@goknown.io' },
-  { name: 'Mike',    email: 'mike@goknown.io' },
-  { name: 'Connie',  email: 'connie@goknown.io' },
+  { name: 'Alisa',   email: 'atiselska@goknown.com' },
+  { name: 'Mike',    email: 'mharold@goknown.com' },
+  { name: 'Leo',     email: 'leopoldojacobsen@gmail.com' },
+  { name: 'Connie',  email: 'cerlanger@goknown.com' },
+  { name: 'Chuck',   email: 'cgardner@enterprise-kc.com' },
+  { name: 'Dr. Lu',  email: 'hong.liu14@gmail.com',      team: 'ERAU Team' },
+  { name: 'Dr. Sam', email: 'samindu@gmail.com',          team: 'ERAU Team' },
+  { name: 'Fiona',   email: 'issoufof@my.erau.edu',       team: 'ERAU Team' },
 ];
