@@ -106,10 +106,13 @@ export function CreateDAppWizard({
     editingApp?.generatedCode || null
   );
   const [genError, setGenError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [draftSaveMsg, setDraftSaveMsg] = useState<string | null>(null);
   const [lastSavedApp, setLastSavedApp] = useState<SavedDApp | null>(null);
 
   const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Stable client-id generated once per generation attempt; reused on Retry Save.
+  const pendingClientIdRef = useRef<string | null>(null);
 
   const promptWordCount = countWords(userPrompt);
   const promptOverLimit = promptWordCount > MAX_PROMPT_WORDS;
@@ -305,8 +308,14 @@ export function CreateDAppWizard({
 
     setGenerating(true);
     setGenError(null);
+    setSaveError(null);
     setGeneratedCode(null);
     setLoadingMsg(LOADING_MESSAGES[0]);
+
+    // Stable ID for this generation attempt — reused by Retry Save.
+    if (!editingApp) {
+      pendingClientIdRef.current = `dapp_${crypto.randomUUID()}`;
+    }
 
     let msgIdx = 0;
     loadingIntervalRef.current = setInterval(() => {
@@ -315,27 +324,36 @@ export function CreateDAppWizard({
     }, 2000);
 
     try {
-      const html = await generateDAppCode({
-        dappName: config.dappName,
-        description,
-        template: config.template,
-        apis: effectiveApis,
-        workflow: config.workflow,
-        userPrompt,
-      });
-
-      const validationError = validateGeneratedHtml(html);
-      if (validationError) {
-        throw new Error(validationError);
+      // ── Generation phase ───────────────────────────────────────────────────
+      let html: string;
+      try {
+        html = await generateDAppCode({
+          dappName: config.dappName,
+          description,
+          template: config.template,
+          apis: effectiveApis,
+          workflow: config.workflow,
+          userPrompt,
+        });
+        const validationError = validateGeneratedHtml(html);
+        if (validationError) throw new Error(validationError);
+      } catch (genErr) {
+        setGenError(classifyError(genErr));
+        return;
       }
 
+      // Generation succeeded — preview is shown regardless of what comes next.
       setGeneratedCode(html);
 
-      const saved = await persistApp('Generated', html);
-      setLastSavedApp(saved);
-      onSaveApp?.();
-    } catch (err) {
-      setGenError(classifyError(err));
+      // ── Persistence phase (separate error — does not hide the preview) ─────
+      try {
+        const overrideId = pendingClientIdRef.current ?? undefined;
+        const saved = await persistApp('Generated', html, overrideId ? { overrideId } : undefined);
+        setLastSavedApp(saved);
+        onSaveApp?.();
+      } catch (persistErr) {
+        setSaveError(classifyError(persistErr));
+      }
     } finally {
       if (loadingIntervalRef.current) {
         clearInterval(loadingIntervalRef.current);
@@ -345,10 +363,25 @@ export function CreateDAppWizard({
     }
   };
 
+  const handleRetrySave = async () => {
+    if (!generatedCode) return;
+    setSaveError(null);
+    const overrideId = pendingClientIdRef.current ?? lastSavedApp?.id ?? (editingApp?.id ?? undefined);
+    try {
+      const saved = await persistApp('Generated', generatedCode, overrideId ? { overrideId } : undefined);
+      setLastSavedApp(saved);
+      onSaveApp?.();
+    } catch (err) {
+      setSaveError(classifyError(err));
+    }
+  };
+
   const handleRegenerate = () => {
     setGeneratedCode(null);
     setGenError(null);
+    setSaveError(null);
     setLastSavedApp(null);
+    pendingClientIdRef.current = null;
   };
 
   const handleSaveDraft = async () => {
@@ -362,7 +395,7 @@ export function CreateDAppWizard({
         onClose();
       }, 1500);
     } catch (err) {
-      setGenError(classifyError(err));
+      setSaveError(classifyError(err));
     }
   };
 
@@ -575,12 +608,13 @@ export function CreateDAppWizard({
                 </button>
               )}
 
-              {/* Error */}
-              {genError && (
+              {/* Generation error — only when no preview exists */}
+              {genError && !generatedCode && (
                 <div className="wizard-gen-error">
                   <strong>We couldn't generate the app preview.</strong> {genError}
                   {!promptOverLimit && (
                     <button
+                      type="button"
                       style={{ marginLeft: '12px', background: 'none', border: 'none', color: '#ff8855', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline' }}
                       onClick={() => { setGenError(null); handleGenerate(); }}
                     >
@@ -623,6 +657,35 @@ export function CreateDAppWizard({
                     onGoToLibrary={onGoToLibrary}
                   />
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Save error — shared across all steps; heading and action vary by context */}
+          {saveError && (
+            <div className="wizard-gen-error wizard-save-error">
+              <strong>
+                {generatedCode
+                  ? "Your app was generated, but it couldn't be saved to My Apps."
+                  : "Your draft couldn't be saved to My Apps."}
+              </strong>{' '}
+              {saveError}
+              {generatedCode ? (
+                <button
+                  type="button"
+                  style={{ marginLeft: '12px', background: 'none', border: 'none', color: '#ff8855', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline' }}
+                  onClick={handleRetrySave}
+                >
+                  Retry Save
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  style={{ marginLeft: '12px', background: 'none', border: 'none', color: '#ff8855', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', textDecoration: 'underline' }}
+                  onClick={handleSaveDraft}
+                >
+                  Try again
+                </button>
               )}
             </div>
           )}

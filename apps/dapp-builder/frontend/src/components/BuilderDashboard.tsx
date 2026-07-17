@@ -23,6 +23,7 @@ import {
   Template, WorkflowBlock, TabId, SavedDApp, DemoUser, SharedRole, SharedAccess, ProjectStatus,
 } from '../types';
 import { useAuth, AuthUser } from '../context/AuthContext';
+import { ApiError } from '../services/api';
 import {
   TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS,
   DEMO_USERS, DEMO_PROJECT_DESCRIPTIONS,
@@ -561,12 +562,36 @@ export function BuilderDashboard() {
       const apps = await loadSavedApps();
       setSavedApps(apps);
       setAppsError(null);
+      setAppsAuthRequired(false);
     } catch (err) {
-      setAppsError(err instanceof Error ? err.message : 'Failed to load apps');
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        setAppsAuthRequired(true);
+        setAppsError(null);
+      } else if (err instanceof ApiError && err.status >= 500) {
+        setAppsError('My Apps is temporarily unavailable. Please try again.');
+      } else if (
+        err instanceof Error &&
+        (err.message.toLowerCase().includes('failed to fetch') ||
+          err.message.toLowerCase().includes('networkerror') ||
+          err.message.toLowerCase().includes('network error'))
+      ) {
+        setAppsError('My Apps is temporarily unavailable. Please try again.');
+      } else {
+        setAppsError('Your apps could not be loaded. Please try again.');
+      }
     } finally {
       setAppsLoading(false);
     }
   }, []);
+
+  // Switches the active tab and — for the "My Apps" tab — triggers a fresh load
+  // so the user always sees up-to-date data without needing a manual refresh.
+  const handleTabClick = useCallback((tabId: TabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'dashboard' && authUser) {
+      void reloadApps();
+    }
+  }, [authUser, reloadApps]);
 
   // On mount (after auth resolves): migrate localStorage apps if authenticated,
   // then load. When not authenticated, seed demo apps first.
@@ -774,10 +799,11 @@ export function BuilderDashboard() {
           return (
             <button
               key={tab.id}
+              type="button"
               role="tab"
               aria-selected={activeTab === tab.id}
               className={`builder-tab${activeTab === tab.id ? ' active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
             >
               <Icon size={14} />
               {tab.label}
