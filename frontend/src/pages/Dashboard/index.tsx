@@ -23,6 +23,7 @@ import { useToast } from "../../hooks/toast";
 import api from "../../services/api";
 import { Avatar } from "../../styles/global";
 import Defaultdls from "../../utils/getDLs";
+import { launchExternalApp } from "../../utils/launchApp";
 import { IUserData } from "../DataForms/store";
 import {
   ContentDigitalAssets,
@@ -128,22 +129,21 @@ const Dashboard: React.FC = () => {
   const handleLaunchApp = useCallback(
     (app: (typeof Defaultdls)[number]) => {
       if (app.externalUrl) {
-        let url = app.externalUrl;
-        // Pass the current session JWT as a URL fragment so DApp Builder can
-        // authenticate API calls without requiring a separate login.
-        // Fragment is never sent to the server, so this is safe to transport.
-        if (app.flag === "dapp_builder") {
-          const token = localStorage.getItem("@GoKnown:token");
-          if (token) url = `${url}#token=${token}`;
-        }
-        window.open(url, "_blank", "noopener,noreferrer");
+        launchExternalApp(app.externalUrl, app.flag, {
+          onMissingToken: () =>
+            addToast({
+              type: "error",
+              title: "Session expired",
+              description: "Please sign in to DAppGenius to open DApp Builder.",
+            }),
+        });
         setSidebarOpen(false);
         return;
       }
 
       handleGoTo(app.route, app.oldPage);
     },
-    [handleGoTo]
+    [handleGoTo, addToast]
   );
 
   const handleSignOut = useCallback(() => {
@@ -196,13 +196,10 @@ const Dashboard: React.FC = () => {
             {visibleApps.map((dl) =>
               dl.externalUrl ? (
                 <SidebarNavItem
-                  as="a"
                   key={dl.sync_id}
-                  href={dl.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
                   $isActive={false}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => handleLaunchApp(dl)}
                 >
                   <img src={dl.icon_url} alt="" />
                   <span>{dl.name}</span>

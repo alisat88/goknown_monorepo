@@ -3,7 +3,9 @@ import { useHistory } from "react-router-dom";
 // import { V4Options } from "uuid";
 
 import { useAuth } from "../../hooks/auth";
+import { useToast } from "../../hooks/toast";
 import { IDL } from "../../pages/Organizations/types";
+import { launchExternalApp } from "../../utils/launchApp";
 import LoaderDLs from "../ContentLoader/LoaderDLs";
 import { Card, CardContent, Container } from "./styles";
 
@@ -21,8 +23,23 @@ const DLs: React.FC<React.PropsWithChildren<IDlsProps>> = ({
   loading = false,
 }: IDlsProps) => {
   const { user } = useAuth();
-
   const history = useHistory();
+  const { addToast } = useToast();
+
+  const handleLaunchExternal = useCallback(
+    (dl: IDL) => {
+      if (!dl.externalUrl) return;
+      launchExternalApp(dl.externalUrl, dl.flag, {
+        onMissingToken: () =>
+          addToast({
+            type: "error",
+            title: "Session expired",
+            description: "Please sign in to DAppGenius to open DApp Builder.",
+          }),
+      });
+    },
+    [addToast]
+  );
 
   const renderUnRead = useCallback(
     (name: string) => {
@@ -55,11 +72,10 @@ const DLs: React.FC<React.PropsWithChildren<IDlsProps>> = ({
             if (dl.externalUrl) {
               return (
                 <Card
-                  as="a"
+                  as="button"
+                  type="button"
                   key={index}
-                  href={dl.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => handleLaunchExternal(dl)}
                 >
                   <img src={dl.icon_url} alt="dls" width="72" />
                   <p>{dl.name}</p>
