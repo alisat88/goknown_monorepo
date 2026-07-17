@@ -83,10 +83,12 @@ export class AddMissingTransactionColumns1760610000000
     // display-side semantics.
     await queryRunner.query(`
       UPDATE "transactions"
-         SET "transactionType" = CASE
-               WHEN "from_user_id" IS NULL THEN 'received'
-               ELSE 'sent'
-             END
+         SET "transactionType" = (
+               CASE
+                 WHEN "from_user_id" IS NULL THEN 'received'
+                 ELSE 'sent'
+               END
+             )::"transactions_transactiontype_enum"
        WHERE "transactionType" IS NULL;
     `);
 
