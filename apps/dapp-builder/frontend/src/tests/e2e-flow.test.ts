@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, vi } from 'vitest';
 import {
   loadSavedApps,
   saveApp,
@@ -47,13 +47,17 @@ function makeDApp(overrides: Partial<SavedDApp> = {}): SavedDApp {
 }
 
 describe('DApp Builder end-to-end flow', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    // These tests exercise the localStorage (demo-mode) path.
+    vi.stubEnv('VITE_DEMO_MODE', 'true');
+  });
 
-  test('createAndSaveApp — saves to localStorage and reloads correctly', () => {
+  test('createAndSaveApp — saves to localStorage and reloads correctly', async () => {
     const app = makeDApp({ dappName: 'Aviation Ledger' });
-    saveApp(app);
+    await saveApp(app);
 
-    const loaded = loadSavedApps();
+    const loaded = await loadSavedApps();
     expect(loaded).toHaveLength(1);
     expect(loaded[0].id).toBe(app.id);
     expect(loaded[0].dappName).toBe('Aviation Ledger');
@@ -61,26 +65,26 @@ describe('DApp Builder end-to-end flow', () => {
     expect(loaded[0].generatedCode).toBe(app.generatedCode);
   });
 
-  test('persistence — saved apps survive a simulated page reload', () => {
+  test('persistence — saved apps survive a simulated page reload', async () => {
     const app = makeDApp({ dappName: 'Persistent dApp' });
-    saveApp(app);
+    await saveApp(app);
 
     // Simulate page reload: load from localStorage fresh
-    const reloaded = loadSavedApps();
+    const reloaded = await loadSavedApps();
     expect(reloaded).toHaveLength(1);
     expect(reloaded[0].dappName).toBe('Persistent dApp');
   });
 
-  test('updateApp — updatedAt changes, other fields preserved', () => {
+  test('updateApp — updatedAt changes, other fields preserved', async () => {
     // Use a fixed past date so updateApp's new Date() is always different.
     const app = makeDApp({ dappName: 'Original Name', status: 'Draft', updatedAt: '2020-01-01T00:00:00.000Z' });
-    saveApp(app);
+    await saveApp(app);
 
     const originalUpdatedAt = app.updatedAt;
     // 'Preview' is a legacy status remapped to 'Saved' by migrate() — use 'Generated' instead
-    updateApp(app.id, { dappName: 'Updated Name', status: 'Generated' });
+    await updateApp(app.id, { dappName: 'Updated Name', status: 'Generated' });
 
-    const updated = getApp(app.id);
+    const updated = await getApp(app.id);
     expect(updated).not.toBeNull();
     expect(updated!.dappName).toBe('Updated Name');
     expect(updated!.status).toBe('Generated');
@@ -88,26 +92,26 @@ describe('DApp Builder end-to-end flow', () => {
     expect(updated!.updatedAt).not.toBe(originalUpdatedAt);
   });
 
-  test('deleteApp — removed from localStorage, not returned by loadSavedApps', () => {
+  test('deleteApp — removed from localStorage, not returned by loadSavedApps', async () => {
     const a = makeDApp({ dappName: 'App A' });
     const b = makeDApp({ dappName: 'App B' });
-    saveApp(a);
-    saveApp(b);
-    expect(loadSavedApps()).toHaveLength(2);
+    await saveApp(a);
+    await saveApp(b);
+    expect(await loadSavedApps()).toHaveLength(2);
 
-    deleteApp(a.id);
-    const remaining = loadSavedApps();
+    await deleteApp(a.id);
+    const remaining = await loadSavedApps();
     expect(remaining).toHaveLength(1);
     expect(remaining[0].dappName).toBe('App B');
-    expect(getApp(a.id)).toBeNull();
+    expect(await getApp(a.id)).toBeNull();
   });
 
-  test('shareApp — whitelisted email is added to sharedWith array', () => {
+  test('shareApp — whitelisted email is added to sharedWith array', async () => {
     const app = makeDApp();
-    saveApp(app);
+    await saveApp(app);
 
-    shareApp(app.id, 'cerlanger@goknown.com');
-    const updated = getApp(app.id);
+    await shareApp(app.id, 'cerlanger@goknown.com');
+    const updated = await getApp(app.id);
     expect(updated!.sharedWith).toContain('cerlanger@goknown.com');
   });
 
@@ -129,7 +133,7 @@ describe('DApp Builder end-to-end flow', () => {
     expect(isWhitelisted('OUTSIDER@EXAMPLE.COM')).toBe(false);
   });
 
-  test('pre-seeded demo apps — present on first load, not duplicated on second load', () => {
+  test('pre-seeded demo apps — present on first load, not duplicated on second load', async () => {
     const seed: SavedDApp[] = [
       makeDApp({ id: 'demo-1', dappName: 'Demo App One' }),
       makeDApp({ id: 'demo-2', dappName: 'Demo App Two' }),
@@ -137,18 +141,18 @@ describe('DApp Builder end-to-end flow', () => {
 
     // First call: key does not exist → seeds
     seedDemoApps(seed);
-    expect(loadSavedApps()).toHaveLength(2);
-    expect(loadSavedApps()[0].dappName).toBe('Demo App One');
+    expect(await loadSavedApps()).toHaveLength(2);
+    expect((await loadSavedApps())[0].dappName).toBe('Demo App One');
 
     // Second call: key exists → no-op, no duplication
     seedDemoApps(seed);
-    expect(loadSavedApps()).toHaveLength(2);
+    expect(await loadSavedApps()).toHaveLength(2);
   });
 
-  test('corrupt localStorage — loadSavedApps returns [] without throwing', () => {
+  test('corrupt localStorage — loadSavedApps returns [] without throwing', async () => {
     localStorage.setItem('dappbuilder:saved_apps', 'not-valid-json{{{{');
-    expect(() => loadSavedApps()).not.toThrow();
-    expect(loadSavedApps()).toEqual([]);
+    await expect(loadSavedApps()).resolves.not.toThrow();
+    expect(await loadSavedApps()).toEqual([]);
   });
 
   test('getWhitelist — returns exactly the ten canonical authorized addresses', () => {
@@ -242,15 +246,15 @@ describe('DApp Builder end-to-end flow', () => {
 
   // ── Auth / ownership tests ────────────────────────────────────────────────
 
-  test('ownership — Mike creates a draft and draft owner is Mike, not Alisa', () => {
+  test('ownership — Mike creates a draft and draft owner is Mike, not Alisa', async () => {
     const app = makeDApp({
       dappName: 'Mikes App',
       ownerId: 'mharold@goknown.com',
       ownerName: 'Mike',
     });
-    saveApp(app);
+    await saveApp(app);
 
-    const loaded = getApp(app.id);
+    const loaded = await getApp(app.id);
     expect(loaded).not.toBeNull();
     expect(loaded!.ownerId).toBe('mharold@goknown.com');
     expect(loaded!.ownerName).toBe('Mike');
@@ -258,7 +262,7 @@ describe('DApp Builder end-to-end flow', () => {
     expect(loaded!.ownerName).not.toBe('Alisa');
   });
 
-  test('migrate — apps missing ownerId do not default to Alisa after storage.ts fix', () => {
+  test('migrate — apps missing ownerId do not default to Alisa after storage.ts fix', async () => {
     // Simulate an old record saved without ownerId / ownerName
     const legacyRecord: Partial<SavedDApp> = {
       id: 'legacy-001',
@@ -276,32 +280,32 @@ describe('DApp Builder end-to-end flow', () => {
     // Write raw partial (bypasses saveApp type check)
     localStorage.setItem('dappbuilder:saved_apps', JSON.stringify([legacyRecord]));
 
-    const loaded = loadSavedApps();
+    const loaded = await loadSavedApps();
     expect(loaded).toHaveLength(1);
     // After fix: migrate() defaults to '' not 'atiselska@goknown.com'
     expect(loaded[0].ownerId).not.toBe('atiselska@goknown.com');
     expect(loaded[0].ownerName).not.toBe('Alisa');
   });
 
-  test('ownership — ownerId is preserved through save / load / update cycle', () => {
+  test('ownership — ownerId is preserved through save / load / update cycle', async () => {
     const app = makeDApp({ ownerId: 'mharold@goknown.com', ownerName: 'Mike' });
-    saveApp(app);
+    await saveApp(app);
 
-    updateApp(app.id, { dappName: 'Updated Name' });
+    await updateApp(app.id, { dappName: 'Updated Name' });
 
-    const updated = getApp(app.id);
+    const updated = await getApp(app.id);
     expect(updated!.ownerId).toBe('mharold@goknown.com');
     expect(updated!.ownerName).toBe('Mike');
     expect(updated!.dappName).toBe('Updated Name');
   });
 
-  test('access control — a user cannot see apps they do not own and are not shared with', () => {
+  test('access control — a user cannot see apps they do not own and are not shared with', async () => {
     const mikesApp  = makeDApp({ dappName: 'Mikes App',  ownerId: 'mharold@goknown.com',  ownerName: 'Mike' });
     const alisasApp = makeDApp({ dappName: 'Alisas App', ownerId: 'atiselska@goknown.com', ownerName: 'Alisa' });
-    saveApp(mikesApp);
-    saveApp(alisasApp);
+    await saveApp(mikesApp);
+    await saveApp(alisasApp);
 
-    const all = loadSavedApps();
+    const all = await loadSavedApps();
 
     // Only mikesApp is owned by mike
     const mikeOwned = all.filter((a) => a.ownerId === 'mharold@goknown.com');
@@ -316,27 +320,27 @@ describe('DApp Builder end-to-end flow', () => {
     expect(mikeShared).toHaveLength(0);
   });
 
-  test('sharing — shared viewer is recorded with Viewer role, owner stays unchanged', () => {
+  test('sharing — shared viewer is recorded with Viewer role, owner stays unchanged', async () => {
     const app = makeDApp({ ownerId: 'atiselska@goknown.com', ownerName: 'Alisa' });
-    saveApp(app);
+    await saveApp(app);
 
-    shareApp(app.id, 'mharold@goknown.com', { email: 'mharold@goknown.com', role: 'Viewer' });
+    await shareApp(app.id, 'mharold@goknown.com', { email: 'mharold@goknown.com', role: 'Viewer' });
 
-    const updated = getApp(app.id);
+    const updated = await getApp(app.id);
     expect(updated!.ownerId).toBe('atiselska@goknown.com');
     expect(updated!.sharedWith).toContain('mharold@goknown.com');
     expect(updated!.sharedAccess[0].role).toBe('Viewer');
     expect(updated!.sharedAccess[0].email).toBe('mharold@goknown.com');
   });
 
-  test('sharing — owner cannot be demoted to Viewer via shareApp', () => {
+  test('sharing — owner cannot be demoted to Viewer via shareApp', async () => {
     const app = makeDApp({ ownerId: 'atiselska@goknown.com', ownerName: 'Alisa' });
-    saveApp(app);
+    await saveApp(app);
 
     // Attempting to share back with the owner does not change ownerId
-    shareApp(app.id, 'atiselska@goknown.com', { email: 'atiselska@goknown.com', role: 'Viewer' });
+    await shareApp(app.id, 'atiselska@goknown.com', { email: 'atiselska@goknown.com', role: 'Viewer' });
 
-    const updated = getApp(app.id);
+    const updated = await getApp(app.id);
     // ownerId is never modified by shareApp
     expect(updated!.ownerId).toBe('atiselska@goknown.com');
   });
@@ -399,16 +403,16 @@ describe('DApp Builder end-to-end flow', () => {
     expect(getShareValidationError(app, 'MHAROLD@GOKNOWN.COM')).toBe('You already own this app.');
   });
 
-  test('"Shared with Me" — shared app appears in recipient list, not in unrelated user list', () => {
+  test('"Shared with Me" — shared app appears in recipient list, not in unrelated user list', async () => {
     const app = makeDApp({
       ownerId: 'atiselska@goknown.com',
       ownerName: 'Alisa',
       sharedWith: ['cerlanger@goknown.com'],
       sharedAccess: [{ email: 'cerlanger@goknown.com', role: 'Viewer' }],
     });
-    saveApp(app);
+    await saveApp(app);
 
-    const all = loadSavedApps();
+    const all = await loadSavedApps();
 
     // Connie's "Shared with Me" list includes the app
     const conniesShared = all.filter(
@@ -428,12 +432,12 @@ describe('DApp Builder end-to-end flow', () => {
     expect(mikesShared).toHaveLength(0);
   });
 
-  test('"My Apps" — owner still sees own app after sharing it with a recipient', () => {
+  test('"My Apps" — owner still sees own app after sharing it with a recipient', async () => {
     const app = makeDApp({ ownerId: 'atiselska@goknown.com', ownerName: 'Alisa' });
-    saveApp(app);
-    shareApp(app.id, 'cerlanger@goknown.com', { email: 'cerlanger@goknown.com', role: 'Viewer' });
+    await saveApp(app);
+    await shareApp(app.id, 'cerlanger@goknown.com', { email: 'cerlanger@goknown.com', role: 'Viewer' });
 
-    const all = loadSavedApps();
+    const all = await loadSavedApps();
     const alisasOwned = all.filter((a) => a.ownerId === 'atiselska@goknown.com');
     expect(alisasOwned).toHaveLength(1);
     expect(alisasOwned[0].sharedWith).toContain('cerlanger@goknown.com');
@@ -446,14 +450,14 @@ describe('DApp Builder end-to-end flow', () => {
     expect(alisasShared).toHaveLength(0);
   });
 
-  test('duplicate sharing — shareApp is idempotent; sharedWith has no duplicate entries', () => {
+  test('duplicate sharing — shareApp is idempotent; sharedWith has no duplicate entries', async () => {
     const app = makeDApp({ ownerId: 'atiselska@goknown.com' });
-    saveApp(app);
+    await saveApp(app);
 
-    shareApp(app.id, 'cerlanger@goknown.com', { email: 'cerlanger@goknown.com', role: 'Viewer' });
-    shareApp(app.id, 'cerlanger@goknown.com', { email: 'cerlanger@goknown.com', role: 'Builder' });
+    await shareApp(app.id, 'cerlanger@goknown.com', { email: 'cerlanger@goknown.com', role: 'Viewer' });
+    await shareApp(app.id, 'cerlanger@goknown.com', { email: 'cerlanger@goknown.com', role: 'Builder' });
 
-    const updated = getApp(app.id);
+    const updated = await getApp(app.id);
     const conniesEntries = updated!.sharedWith.filter(
       (e) => e.toLowerCase() === 'cerlanger@goknown.com',
     );
@@ -614,38 +618,38 @@ describe('DApp Builder end-to-end flow', () => {
 
   // ── Save-to-library flow ──────────────────────────────────────────────────
 
-  test('save-to-library — updateApp persists the latest edited HTML, not the original', () => {
+  test('save-to-library — updateApp persists the latest edited HTML, not the original', async () => {
     const originalHtml = '<html><body><button>Original</button></body></html>';
     const editedHtml   = '<html><body><button>Edited</button></body></html>';
     const app = makeDApp({ generatedCode: originalHtml });
-    saveApp(app);
+    await saveApp(app);
 
-    updateApp(app.id, { generatedCode: editedHtml });
+    await updateApp(app.id, { generatedCode: editedHtml });
 
-    const saved = getApp(app.id);
+    const saved = await getApp(app.id);
     expect(saved!.generatedCode).toBe(editedHtml);
     expect(saved!.generatedCode).not.toBe(originalHtml);
   });
 
-  test('save-to-library — multiple edits preserve only the most recent version, no duplicates', () => {
+  test('save-to-library — multiple edits preserve only the most recent version, no duplicates', async () => {
     const app = makeDApp({ generatedCode: '<html><body>v1</body></html>' });
-    saveApp(app);
+    await saveApp(app);
 
-    updateApp(app.id, { generatedCode: '<html><body>v2</body></html>' });
-    updateApp(app.id, { generatedCode: '<html><body>v3</body></html>' });
+    await updateApp(app.id, { generatedCode: '<html><body>v2</body></html>' });
+    await updateApp(app.id, { generatedCode: '<html><body>v3</body></html>' });
 
-    const saved = getApp(app.id);
+    const saved = await getApp(app.id);
     expect(saved!.generatedCode).toBe('<html><body>v3</body></html>');
-    expect(loadSavedApps()).toHaveLength(1);
+    expect(await loadSavedApps()).toHaveLength(1);
   });
 
-  test('save-to-library — status is updated to Generated on explicit save', () => {
+  test('save-to-library — status is updated to Generated on explicit save', async () => {
     const app = makeDApp({ status: 'Draft' });
-    saveApp(app);
+    await saveApp(app);
 
-    updateApp(app.id, { status: 'Generated' });
+    await updateApp(app.id, { status: 'Generated' });
 
-    const saved = getApp(app.id);
+    const saved = await getApp(app.id);
     expect(saved!.status).toBe('Generated');
   });
 });

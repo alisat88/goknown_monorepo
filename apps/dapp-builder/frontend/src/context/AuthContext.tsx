@@ -1,18 +1,20 @@
 // Auth context for DApp Builder.
 //
-// DAppGenius opens the builder with the authenticated user's identity in the URL:
-//   ?userId=<id>&userName=<name>&userEmail=<email>
+// Token handoff from DAppGenius:
+//   DAppGenius opens the builder with the JWT in the URL fragment:
+//     https://app-builder-sqqz.onrender.com#token=<JWT>
 //
-// On load, URL params are read and stored in sessionStorage so navigation within
-// the same tab keeps the user context without repeating the handoff.
+// The fragment is never sent to the server (browser security), so it is safe
+// to transport the token this way. On load we:
+//   1. Read window.location.hash for #token=...
+//   2. Store it in sessionStorage under DAPPBUILDER_TOKEN_KEY
+//   3. Immediately remove it from the displayed URL via history.replaceState
 //
-// If neither URL params nor sessionStorage are present, currentUser is null —
-// the builder shows a demo identity selector but never defaults to any named user.
-//
-// TODO (production): Replace URL params with a signed JWT or server-side session
-// cookie so the handoff is tamper-proof.
+// Fallback for local dev: URL query params (?userId=...&userEmail=...) still
+// work so existing dev/demo flows are unaffected.
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { setToken } from '../services/api';
 
 export interface AuthUser {
   userId: string;
@@ -23,11 +25,38 @@ export interface AuthUser {
 interface AuthContextValue {
   currentUser: AuthUser | null;
   isLoading: boolean;
+  token: string | null;
 }
 
-const AuthContext = createContext<AuthContextValue>({ currentUser: null, isLoading: true });
+const AuthContext = createContext<AuthContextValue>({
+  currentUser: null,
+  isLoading: true,
+  token: null,
+});
 
 const SESSION_KEY = 'dappbuilder:auth_user';
+
+// ── Fragment token handoff ────────────────────────────────────────────────────
+
+function extractAndConsumeToken(): string | null {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#')) return null;
+
+  const params = new URLSearchParams(hash.slice(1));
+  const token = params.get('token');
+  if (!token) return null;
+
+  // Remove token from hash immediately so it doesn't stay in browser history.
+  // Remove ALL hash params that we consumed; keep any non-token ones.
+  params.delete('token');
+  const remaining = params.toString();
+  const newUrl = window.location.pathname + window.location.search + (remaining ? '#' + remaining : '');
+  window.history.replaceState(null, '', newUrl);
+
+  return token;
+}
+
+// ── Legacy query-param handoff (dev/demo only) ────────────────────────────────
 
 function readUserFromUrl(): AuthUser | null {
   const params = new URLSearchParams(window.location.search);
@@ -54,15 +83,24 @@ function saveUserToSession(user: AuthUser): void {
   try {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
   } catch {
-    // sessionStorage unavailable (e.g. restricted private browsing) — silently ignore
+    // sessionStorage unavailable — silently ignore
   }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isLoading,   setIsLoading]   = useState(true);
+  const [token,       setTokenState]  = useState<string | null>(null);
 
   useEffect(() => {
+    // 1. Try to extract JWT from URL fragment (production handoff)
+    const fragmentToken = extractAndConsumeToken();
+    if (fragmentToken) {
+      setToken(fragmentToken);
+      setTokenState(fragmentToken);
+    }
+
+    // 2. Resolve user identity (legacy query params → sessionStorage)
     const fromUrl = readUserFromUrl();
     if (fromUrl) {
       saveUserToSession(fromUrl);
@@ -70,11 +108,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setCurrentUser(readUserFromSession());
     }
+
     setIsLoading(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ currentUser, isLoading }}>
+    <AuthContext.Provider value={{ currentUser, isLoading, token }}>
       {children}
     </AuthContext.Provider>
   );

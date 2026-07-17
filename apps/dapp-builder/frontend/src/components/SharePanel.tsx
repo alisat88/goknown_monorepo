@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Send, X } from 'lucide-react';
-import { SavedDApp, SharedRole, SharedAccess } from '../types';
-import { shareApp, updateApp } from '../services/storage';
+import { SavedDApp, SharedRole } from '../types';
+import { shareApp, removeShare } from '../services/storage';
+import { getToken } from '../services/api';
 import { getShareValidationError } from '../services/whitelist';
 
 interface Props {
@@ -18,51 +19,67 @@ const ROLE_DESC: Record<SharedRole, string> = {
   Reviewer: 'Can preview and review config',
 };
 
+// Basic format + self-share + duplicate guard (no whitelist in authenticated mode).
+function validateShareBasic(app: SavedDApp, email: string): string | null {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return 'Enter a valid email address.';
+  }
+  if (app.ownerId?.toLowerCase() === trimmed) {
+    return 'You already own this app.';
+  }
+  if (app.sharedWith.map((e) => e.toLowerCase()).includes(trimmed)) {
+    return 'This user already has access.';
+  }
+  return null;
+}
+
 export function SharePanel({ app, onUpdated, onClose }: Props) {
   const [emailInput, setEmailInput] = useState('');
   const [selectedRole, setSelectedRole] = useState<SharedRole>('Viewer');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const email = emailInput.trim().toLowerCase();
     if (!email) return;
 
-    const validationError = getShareValidationError(app, email);
+    // Use full whitelist check in demo mode; basic checks only when authenticated.
+    const isAuth = !!getToken();
+    const validationError = isAuth
+      ? validateShareBasic(app, email)
+      : getShareValidationError(app, email);
     if (validationError) {
       setFeedback({ type: 'error', message: validationError });
       return;
     }
 
-    const access: SharedAccess = { email, role: selectedRole };
-    shareApp(app.id, email, access);
-    const newSharedAccess = [
-      ...(app.sharedAccess ?? []).filter((a) => a.email !== email),
-      access,
-    ];
-    const updated: SavedDApp = {
-      ...app,
-      sharedWith: [...app.sharedWith, email],
-      sharedAccess: newSharedAccess,
-      updatedAt: new Date().toISOString(),
-    };
-    onUpdated(updated);
-    setEmailInput('');
-    setFeedback({ type: 'success', message: `✓ Shared with ${email} as ${selectedRole}` });
-    setTimeout(() => setFeedback(null), 3000);
+    try {
+      const updated = await shareApp(app.id, email, { email, role: selectedRole });
+      onUpdated(updated);
+      setEmailInput('');
+      setFeedback({ type: 'success', message: `✓ Shared with ${email} as ${selectedRole}` });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Share failed';
+      setFeedback({ type: 'error', message: msg });
+    }
   };
 
-  const handleRemove = (email: string) => {
-    // TODO (production): DELETE /api/dapps/:id/share/:email
-    const newShared = app.sharedWith.filter((e) => e.toLowerCase() !== email.toLowerCase());
-    const newAccess = (app.sharedAccess ?? []).filter((a) => a.email !== email.toLowerCase());
-    updateApp(app.id, { sharedWith: newShared, sharedAccess: newAccess });
-    const updated: SavedDApp = {
-      ...app,
-      sharedWith: newShared,
-      sharedAccess: newAccess,
-      updatedAt: new Date().toISOString(),
-    };
-    onUpdated(updated);
+  const handleRemove = async (email: string) => {
+    // In API mode, use the userId UUID so the backend can look up the access record.
+    // In localStorage mode, userId is undefined so we fall back to the email string.
+    const accessRecord = (app.sharedAccess ?? []).find(
+      (a) => a.email === email.toLowerCase()
+    );
+    const userIdOrEmail = accessRecord?.userId ?? email.toLowerCase();
+
+    try {
+      const updated = await removeShare(app.id, userIdOrEmail);
+      onUpdated(updated);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Remove failed';
+      setFeedback({ type: 'error', message: msg });
+    }
   };
 
   const getRoleForEmail = (email: string): SharedRole | null =>

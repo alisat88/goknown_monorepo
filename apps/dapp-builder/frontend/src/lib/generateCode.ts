@@ -9,7 +9,10 @@ export interface GenerationConfig {
   userPrompt: string;
 }
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3333';
+// Exported for tests. Reads the env var at call time so vi.stubEnv() works in Vitest.
+export function getApiBase(): string {
+  return ((import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3333').replace(/\/+$/, '');
+}
 
 /**
  * Returns an error string if the generated HTML looks like a header-only shell,
@@ -64,7 +67,7 @@ export async function generateDAppCode(config: GenerationConfig): Promise<string
     })
     .join(', ');
 
-  const response = await fetch(`${API_URL}/dapp-builder/generate`, {
+  const response = await fetch(`${getApiBase()}/dapp-builder/generate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -91,7 +94,7 @@ export async function generateEditedDAppCode(
   followUpPrompt: string,
   appName: string
 ): Promise<string> {
-  const response = await fetch(`${API_URL}/dapp-builder/edit`, {
+  const response = await fetch(`${getApiBase()}/dapp-builder/edit`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ currentHtml, followUpPrompt, appName }),

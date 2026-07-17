@@ -27,8 +27,11 @@ import {
   TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS,
   DEMO_USERS, DEMO_PROJECT_DESCRIPTIONS,
 } from '../data';
-import { loadSavedApps, deleteApp, seedDemoApps, saveApp } from '../services/storage';
+import {
+  loadSavedApps, deleteApp, seedDemoApps, saveApp, migrateLocalAppsToApi,
+} from '../services/storage';
 import { buildConfig } from '../lib/buildConfig';
+import { getDashboardUrl } from '../lib/navigation';
 import { validateGeneratedHtml } from '../lib/generateCode';
 import { TemplateLibrary } from './TemplateLibrary';
 import { ApiComponentLibrary } from './ApiComponentLibrary';
@@ -535,13 +538,15 @@ export function BuilderDashboard() {
   const [wizardStep,     setWizardStep]     = useState<1 | 2 | 3>(1);
   const [editingApp,     setEditingApp]     = useState<SavedDApp | null>(null);
   const [savedApps,      setSavedApps]      = useState<SavedDApp[]>([]);
+  const [appsLoading,      setAppsLoading]      = useState(true);
+  const [appsError,        setAppsError]        = useState<string | null>(null);
+  const [appsAuthRequired, setAppsAuthRequired] = useState(false);
   const [previewApp,     setPreviewApp]     = useState<SavedDApp | null>(null);
   const [currentUser,    setCurrentUser]    = useState<DemoUser | null>(null);
 
   // Sync currentUser from the authenticated session when it becomes available.
   useEffect(() => {
     if (!authLoading && authUser) {
-      // Prefer a matching DEMO_USERS entry so demo ownership / sharing still works.
       const matched = DEMO_USERS.find(
         (u) => u.email.toLowerCase() === authUser.userEmail.toLowerCase()
       );
@@ -549,43 +554,68 @@ export function BuilderDashboard() {
     }
   }, [authLoading, authUser]);
 
-  // ── Seed demo apps on mount (re-seeds when CURRENT_SEED_VERSION changes) ──
-  // TODO (production): Replace with GET /api/dapps
-  useEffect(() => {
-    const demoSeed: SavedDApp[] = DEMO_PROJECTS.map((p) => {
-      const tmpl = TEMPLATES.find((t) => t.id === p.templateId);
-      const defaultBlockIds = TEMPLATE_DEFAULT_BLOCKS[p.templateId] ?? [];
-      const workflowIds = WORKFLOW_BLOCKS
-        .filter((b) => defaultBlockIds.includes(b.id))
-        .map((b) => b.id);
-      const ownership = DEMO_SEED_OWNERSHIP[p.id] ?? {
-        ownerId: 'atiselska@goknown.com',
-        sharedWith: [],
-        sharedAccess: [],
-      };
-      const ownerUser = DEMO_USERS.find((u) => u.email === ownership.ownerId);
-      return {
-        id: p.id,
-        dappName: p.name,
-        description: DEMO_PROJECT_DESCRIPTIONS[p.id] ?? '',
-        template: p.templateId,
-        permissionModel: tmpl?.permissionModel ?? 'role-based',
-        apis: tmpl?.apiIds ?? [],
-        workflow: workflowIds,
-        generatedCode: '',
-        createdAt: '2026-06-15T00:00:00.000Z',
-        updatedAt: '2026-06-15T00:00:00.000Z',
-        status: p.status,
-        ownerName: ownerUser?.name ?? '',
-        version: 1,
-        ...ownership,
-      };
-    });
-    seedDemoApps(demoSeed);
-    setSavedApps(loadSavedApps());
+  const reloadApps = useCallback(async () => {
+    setAppsLoading(true);
+    try {
+      const apps = await loadSavedApps();
+      setSavedApps(apps);
+      setAppsError(null);
+    } catch (err) {
+      setAppsError(err instanceof Error ? err.message : 'Failed to load apps');
+    } finally {
+      setAppsLoading(false);
+    }
   }, []);
 
-  const reloadApps = () => setSavedApps(loadSavedApps());
+  // On mount (after auth resolves): migrate localStorage apps if authenticated,
+  // then load. When not authenticated, seed demo apps first.
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (authUser) {
+      migrateLocalAppsToApi(authUser.userEmail)
+        .catch(() => { /* migration failure is non-fatal */ })
+        .then(() => reloadApps());
+    } else if ((import.meta.env as Record<string, string | undefined>).VITE_DEMO_MODE === 'true') {
+      // Demo / dev mode only: seed localStorage and load from it.
+      const demoSeed: SavedDApp[] = DEMO_PROJECTS.map((p) => {
+        const tmpl = TEMPLATES.find((t) => t.id === p.templateId);
+        const defaultBlockIds = TEMPLATE_DEFAULT_BLOCKS[p.templateId] ?? [];
+        const workflowIds = WORKFLOW_BLOCKS
+          .filter((b) => defaultBlockIds.includes(b.id))
+          .map((b) => b.id);
+        const ownership = DEMO_SEED_OWNERSHIP[p.id] ?? {
+          ownerId: 'atiselska@goknown.com',
+          sharedWith: [],
+          sharedAccess: [],
+        };
+        const ownerUser = DEMO_USERS.find((u) => u.email === ownership.ownerId);
+        return {
+          id: p.id,
+          dappName: p.name,
+          description: DEMO_PROJECT_DESCRIPTIONS[p.id] ?? '',
+          template: p.templateId,
+          permissionModel: tmpl?.permissionModel ?? 'role-based',
+          apis: tmpl?.apiIds ?? [],
+          workflow: workflowIds,
+          generatedCode: '',
+          createdAt: '2026-06-15T00:00:00.000Z',
+          updatedAt: '2026-06-15T00:00:00.000Z',
+          status: p.status,
+          ownerName: ownerUser?.name ?? '',
+          version: 1,
+          ...ownership,
+        };
+      });
+      seedDemoApps(demoSeed);
+      reloadApps();
+    } else {
+      // Production: no token. Show authentication gate — do NOT touch localStorage.
+      setAppsAuthRequired(true);
+      setAppsLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, authUser]);
 
   // ── Called when "Create App" or "Open App" is clicked in wizard ───────────
   const handleCreateSuccess = (app: SavedDApp) => {
@@ -619,12 +649,12 @@ export function BuilderDashboard() {
     setWizardOpen(true);
   };
 
-  const handleDeleteApp = (id: string) => {
-    deleteApp(id);
+  const handleDeleteApp = async (id: string) => {
+    await deleteApp(id);
     reloadApps();
   };
 
-  const handleSaveApp = () => reloadApps();
+  const handleSaveApp = () => { reloadApps(); };
 
   const handleGoToLibrary = () => {
     setWizardOpen(false);
@@ -642,7 +672,7 @@ export function BuilderDashboard() {
   };
 
   // ── Chuck demo: creates a real app for Chuck + opens preview immediately ──
-  const handleStartChuckDemo = () => {
+  const handleStartChuckDemo = async () => {
     const chuckUser = DEMO_USERS.find((u) => u.name === 'Chuck');
     if (chuckUser) setCurrentUser(chuckUser);
 
@@ -654,10 +684,9 @@ export function BuilderDashboard() {
     setWorkflowSteps(demoBlocks);
     setDemoStarted(true);
 
-    // Create a real app object for Chuck
     const now = new Date().toISOString();
     const config = buildConfig(ledgerTemplate, demoBlocks, 'Aviation Ledger App');
-    const demoAppObj: SavedDApp = {
+    const localApp: SavedDApp = {
       id: `dapp_chuck_demo_${Date.now()}`,
       dappName: 'Aviation Ledger App',
       description: 'Immutable aviation maintenance ledger — created by Chuck in the demo flow.',
@@ -675,11 +704,11 @@ export function BuilderDashboard() {
       status: 'Saved',
       version: 1,
     };
-    saveApp(demoAppObj);
-    reloadApps();
+    const savedApp = await saveApp(localApp);
+    await reloadApps();
 
-    setDemoApp(demoAppObj);
-    setPreviewApp(demoAppObj);   // opens app runtime immediately
+    setDemoApp(savedApp);
+    setPreviewApp(savedApp);   // opens app runtime immediately
   };
 
   return (
@@ -747,18 +776,52 @@ export function BuilderDashboard() {
           <InstructionsPage onNavigate={setActiveTab} />
         )}
         {activeTab === 'tutorials' && <TutorialsPage />}
-        {activeTab === 'dashboard' && currentUser && (
-          <DashboardPane
-            savedApps={savedApps}
-            currentUser={currentUser}
-            onOpen={handleOpenSavedApp}
-            onDelete={handleDeleteApp}
-            onPreview={(app) => setPreviewApp(app)}
-            onAppUpdated={(updated) => {
-              setSavedApps((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-            }}
-            onCreateNew={() => setActiveTab('templates')}
-          />
+        {activeTab === 'dashboard' && (
+          <>
+            {appsAuthRequired ? (
+              <div className="apps-auth-required" role="alert">
+                <p style={{ marginBottom: '12px' }}>
+                  Sign in to DAppGenius to save and manage your DApps.
+                </p>
+                <a
+                  href={`${getDashboardUrl()}/dashboard`}
+                  style={{ display: 'inline-block' }}
+                >
+                  Go to DAppGenius →
+                </a>
+              </div>
+            ) : currentUser ? (
+              <>
+                {appsLoading && (
+                  <div className="apps-loading-state" role="status">Loading your apps…</div>
+                )}
+                {appsError && !appsLoading && (
+                  <div className="apps-error-state" role="alert">
+                    <strong>Could not load apps:</strong> {appsError}
+                    <button
+                      style={{ marginLeft: '12px', cursor: 'pointer' }}
+                      onClick={() => reloadApps()}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {!appsLoading && !appsError && (
+                  <DashboardPane
+                    savedApps={savedApps}
+                    currentUser={currentUser}
+                    onOpen={handleOpenSavedApp}
+                    onDelete={handleDeleteApp}
+                    onPreview={(app) => setPreviewApp(app)}
+                    onAppUpdated={(updated) => {
+                      setSavedApps((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+                    }}
+                    onCreateNew={() => setActiveTab('templates')}
+                  />
+                )}
+              </>
+            ) : null}
+          </>
         )}
         {activeTab === 'templates' && (
           <TemplateLibrary

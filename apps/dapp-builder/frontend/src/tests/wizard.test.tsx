@@ -2,16 +2,24 @@ import React from 'react';
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CreateDAppWizard } from '../components/CreateDAppWizard';
-import { loadSavedApps } from '../services/storage';
 import { TEMPLATES } from '../data';
 
-// ── API mocks ─────────────────────────────────────────────────────────────────
+// ── Module mocks ──────────────────────────────────────────────────────────────
 
 vi.mock('../lib/generateCode', () => ({
   generateDAppCode: vi.fn(),
   generateEditedDAppCode: vi.fn(),
   validateGeneratedHtml: vi.fn(() => null),
   buildEditUserPrompt: vi.fn(),
+}));
+
+// Mock storage so wizard tests stay unit tests (storage behavior is in e2e tests).
+const mockSaveApp    = vi.fn((app: unknown) => Promise.resolve(app));
+const mockUpdateApp  = vi.fn((id: unknown, updates: unknown) => Promise.resolve(updates));
+vi.mock('../services/storage', () => ({
+  saveApp:     (app: unknown) => mockSaveApp(app),
+  updateApp:   (id: unknown, updates: unknown) => mockUpdateApp(id, updates),
+  loadSavedApps: vi.fn(() => Promise.resolve([])),
 }));
 
 // jsdom lacks these browser APIs used inside the component
@@ -55,6 +63,8 @@ describe('CreateDAppWizard — post-generation follow-up flow', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    mockSaveApp.mockImplementation((app: unknown) => Promise.resolve(app));
+    mockUpdateApp.mockImplementation((_id: unknown, updates: unknown) => Promise.resolve(updates));
   });
 
   test('follow-up textarea appears after successful generation', async () => {
@@ -120,15 +130,25 @@ describe('CreateDAppWizard — post-generation follow-up flow', () => {
     });
   });
 
-  test('"No edits needed — save to library" persists the generated HTML to localStorage', async () => {
+  test('"No edits needed — save to library" calls saveApp or updateApp with the generated HTML', async () => {
     await renderAndGenerate();
 
     fireEvent.click(screen.getByText('No edits needed — save to library'));
 
-    const apps = loadSavedApps();
-    const saved = apps.find((a) => a.ownerId === 'atiselska@goknown.com');
-    expect(saved).toBeDefined();
-    expect(saved!.generatedCode).toBe(GENERATED_HTML);
+    await waitFor(() => {
+      const savedOrUpdated = mockSaveApp.mock.calls.length > 0 || mockUpdateApp.mock.calls.length > 0;
+      expect(savedOrUpdated).toBe(true);
+    });
+
+    // Verify the HTML was persisted (either via save or update)
+    const allCalls = [
+      ...mockSaveApp.mock.calls.map(([a]: [unknown]) => a),
+      ...mockUpdateApp.mock.calls.map(([, u]: [unknown, unknown]) => u),
+    ] as Array<Record<string, unknown>>;
+    const htmlPersisted = allCalls.some(
+      (call) => typeof call === 'object' && (call?.generatedCode === GENERATED_HTML || call?.generatedCode === GENERATED_HTML)
+    );
+    expect(htmlPersisted).toBe(true);
   });
 
   test('save persists the EDITED HTML after applying changes', async () => {
@@ -150,9 +170,11 @@ describe('CreateDAppWizard — post-generation follow-up flow', () => {
       expect(screen.getByText(/App saved to your library/)).toBeDefined();
     });
 
-    const apps = loadSavedApps();
-    const saved = apps.find((a) => a.ownerId === 'atiselska@goknown.com');
-    expect(saved!.generatedCode).toBe(EDITED_HTML);
-    expect(saved!.generatedCode).not.toBe(GENERATED_HTML);
+    // Verify the EDITED HTML was ultimately persisted (the last updateApp call should have it)
+    const updateCalls = mockUpdateApp.mock.calls as Array<[unknown, Record<string, unknown>]>;
+    const lastUpdate = updateCalls[updateCalls.length - 1];
+    const finalHtml = lastUpdate?.[1]?.generatedCode;
+    expect(finalHtml).toBe(EDITED_HTML);
+    expect(finalHtml).not.toBe(GENERATED_HTML);
   });
 });

@@ -3,7 +3,7 @@ import { Sparkles, Loader, ExternalLink } from 'lucide-react';
 import { Template, WorkflowBlock, SavedDApp } from '../types';
 import { buildConfig } from '../lib/buildConfig';
 import { generateDAppCode, generateEditedDAppCode, validateGeneratedHtml } from '../lib/generateCode';
-import { saveApp, updateApp } from '../services/storage';
+import { loadSavedApps, saveApp, updateApp } from '../services/storage';
 import { DEMO_USERS } from '../data';
 import { PostGenerationActions } from './PostGenerationActions';
 
@@ -97,25 +97,21 @@ export function CodeGenerationPreview({
       setGeneratedCode(html);
 
       const now = new Date().toISOString();
-      const existingApps: SavedDApp[] = (() => {
-        try {
-          const raw = localStorage.getItem('dappbuilder:saved_apps');
-          return raw ? (JSON.parse(raw) as SavedDApp[]) : [];
-        } catch { return []; }
-      })();
+      const existingApps = await loadSavedApps().catch(() => [] as SavedDApp[]);
       const existing = existingApps.find(
         (a) => a.dappName === config.dappName && a.template === config.template
       );
       const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
 
-      let appId: string;
+      let resultId: string;
       if (existing) {
-        appId = existing.id;
-        updateApp(appId, { generatedCode: html, apis: config.apis, workflow: config.workflow, status: 'Generated' });
+        const updated = await updateApp(existing.id, {
+          generatedCode: html, apis: config.apis, workflow: config.workflow, status: 'Generated',
+        });
+        resultId = updated?.id ?? existing.id;
       } else {
-        appId = `dapp_${crypto.randomUUID()}`;
-        saveApp({
-          id: appId,
+        const newApp: SavedDApp = {
+          id: `dapp_${crypto.randomUUID()}`,
           dappName: config.dappName,
           description: '',
           template: config.template,
@@ -131,9 +127,11 @@ export function CodeGenerationPreview({
           ownerName: ownerUser?.name ?? '',
           status: 'Generated',
           version: 1,
-        });
+        };
+        const saved = await saveApp(newApp);
+        resultId = saved.id;
       }
-      setSavedAppId(appId);
+      setSavedAppId(resultId);
       onSaveApp?.();
     } catch (err) {
       setGenError(classifyError(err));
@@ -158,12 +156,12 @@ export function CodeGenerationPreview({
     const validationError = validateGeneratedHtml(updatedHtml);
     if (validationError) throw new Error(validationError);
     setGeneratedCode(updatedHtml);
-    if (savedAppId) updateApp(savedAppId, { generatedCode: updatedHtml });
+    if (savedAppId) await updateApp(savedAppId, { generatedCode: updatedHtml });
   };
 
-  const handleSaveToLibrary = () => {
+  const handleSaveToLibrary = async () => {
     if (!generatedCode) return;
-    if (savedAppId) updateApp(savedAppId, { generatedCode, status: 'Generated' });
+    if (savedAppId) await updateApp(savedAppId, { generatedCode, status: 'Generated' });
     onSaveApp?.();
   };
 

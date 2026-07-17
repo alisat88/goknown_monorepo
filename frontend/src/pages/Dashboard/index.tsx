@@ -128,7 +128,15 @@ const Dashboard: React.FC = () => {
   const handleLaunchApp = useCallback(
     (app: (typeof Defaultdls)[number]) => {
       if (app.externalUrl) {
-        window.open(app.externalUrl, "_blank", "noopener,noreferrer");
+        let url = app.externalUrl;
+        // Pass the current session JWT as a URL fragment so DApp Builder can
+        // authenticate API calls without requiring a separate login.
+        // Fragment is never sent to the server, so this is safe to transport.
+        if (app.flag === "dapp_builder") {
+          const token = localStorage.getItem("@GoKnown:token");
+          if (token) url = `${url}#token=${token}`;
+        }
+        window.open(url, "_blank", "noopener,noreferrer");
         setSidebarOpen(false);
         return;
       }

@@ -22,6 +22,7 @@ export type SharedRole = 'Viewer' | 'Builder' | 'Reviewer';
 export interface SharedAccess {
   email: string;
   role: SharedRole;
+  userId?: string;  // backend UUID — present when loaded from the API
 }
 
 export interface DemoUser {

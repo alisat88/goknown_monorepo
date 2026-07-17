@@ -143,12 +143,13 @@ export function CreateDAppWizard({
   const config = buildConfig(template, workflowSteps, dappName);
   const effectiveApis = selectedApis.length > 0 ? selectedApis : config.apis;
 
-  // Build and persist the saved app object.
-  const persistApp = (
+  // Build and persist the saved app object. Returns the server record (may have
+  // a different id than the local one when authenticated).
+  const persistApp = async (
     status: ProjectStatus,
     code: string | null,
     opts?: { overrideId?: string }
-  ): SavedDApp => {
+  ): Promise<SavedDApp> => {
     const now = new Date().toISOString();
     const effectiveName = dappName.trim() || (template.id === 'custom' ? 'My Custom App' : `My ${template.name}`);
     const ownerUser = DEMO_USERS.find((u) => u.email === currentUserEmail);
@@ -185,8 +186,8 @@ export function CreateDAppWizard({
         ownerName: editingApp.ownerName,
         version: (editingApp.version ?? 0) + 1,
       };
-      updateApp(editingApp.id, updated);
-      return updated;
+      const result = await updateApp(editingApp.id, updated);
+      return result ?? updated;
     } else {
       const newApp: SavedDApp = {
         id,
@@ -209,13 +210,12 @@ export function CreateDAppWizard({
         status,
         version: 1,
       };
-      saveApp(newApp);
-      return newApp;
+      return saveApp(newApp);
     }
   };
 
   // "Create App" — saves immediately (no generated code), opens app runtime.
-  const handleCreateApp = () => {
+  const handleCreateApp = async () => {
     if (promptOverLimit) {
       setGenError(`Please keep the app prompt under ${MAX_PROMPT_WORDS} words (currently ${promptWordCount}).`);
       return;
@@ -251,7 +251,7 @@ export function CreateDAppWizard({
 
     let app: SavedDApp;
     if (editingApp) {
-      app = {
+      const draft: SavedDApp = {
         ...editingApp,
         dappName: effectiveName,
         description,
@@ -266,9 +266,9 @@ export function CreateDAppWizard({
         status: editingApp.sharedWith.length > 0 ? 'Shared' : 'Saved',
         version: (editingApp.version ?? 0) + 1,
       };
-      updateApp(editingApp.id, app);
+      app = (await updateApp(editingApp.id, draft)) ?? draft;
     } else {
-      app = {
+      const draft: SavedDApp = {
         id,
         dappName: effectiveName,
         description,
@@ -289,7 +289,7 @@ export function CreateDAppWizard({
         status: 'Saved',
         version: 1,
       };
-      saveApp(app);
+      app = await saveApp(draft);
     }
 
     setLastSavedApp(app);
@@ -331,7 +331,7 @@ export function CreateDAppWizard({
 
       setGeneratedCode(html);
 
-      const saved = persistApp('Generated', html);
+      const saved = await persistApp('Generated', html);
       setLastSavedApp(saved);
       onSaveApp?.();
     } catch (err) {
@@ -351,8 +351,8 @@ export function CreateDAppWizard({
     setLastSavedApp(null);
   };
 
-  const handleSaveDraft = () => {
-    const app = persistApp('Draft', null);
+  const handleSaveDraft = async () => {
+    const app = await persistApp('Draft', null);
     setLastSavedApp(app);
     onSaveApp?.();
     setDraftSaveMsg(app.dappName);
@@ -375,14 +375,15 @@ export function CreateDAppWizard({
     if (validationError) throw new Error(validationError);
     setGeneratedCode(updatedHtml);
     if (lastSavedApp) {
-      updateApp(lastSavedApp.id, { generatedCode: updatedHtml });
-      setLastSavedApp({ ...lastSavedApp, generatedCode: updatedHtml });
+      const updated = await updateApp(lastSavedApp.id, { generatedCode: updatedHtml });
+      setLastSavedApp(updated ?? { ...lastSavedApp, generatedCode: updatedHtml });
     }
   };
 
-  const handleSaveToLibrary = () => {
+  const handleSaveToLibrary = async () => {
     if (!generatedCode || !lastSavedApp) return;
-    updateApp(lastSavedApp.id, { generatedCode, status: 'Generated' });
+    const updated = await updateApp(lastSavedApp.id, { generatedCode, status: 'Generated' });
+    if (updated) setLastSavedApp(updated);
     onSaveApp?.();
   };
 
