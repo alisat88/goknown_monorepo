@@ -527,7 +527,7 @@ function DashboardPane({
 // ── BuilderDashboard ─────────────────────────────────────────────────────────
 
 export function BuilderDashboard() {
-  const { currentUser: authUser, isLoading: authLoading } = useAuth();
+  const { currentUser: authUser, isLoading: authLoading, authError } = useAuth();
 
   const [activeTab,      setActiveTab]      = useState<TabId>('instructions');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -543,6 +543,7 @@ export function BuilderDashboard() {
   const [appsAuthRequired, setAppsAuthRequired] = useState(false);
   const [previewApp,     setPreviewApp]     = useState<SavedDApp | null>(null);
   const [currentUser,    setCurrentUser]    = useState<DemoUser | null>(null);
+  const isDemoMode = (import.meta.env as Record<string, string | undefined>).VITE_DEMO_MODE === 'true';
 
   // Sync currentUser from the authenticated session when it becomes available.
   useEffect(() => {
@@ -741,15 +742,29 @@ export function BuilderDashboard() {
 
       <CurrentUserBar currentUser={currentUser} authUser={authUser} onChange={setCurrentUser} />
 
-      {/* When no user is selected, show a clear prompt and suppress user-specific tabs */}
+      {/* When no user is selected, show the auth gate or a server-error banner */}
       {!currentUser && !authLoading && (
-        <div className="auth-required" role="status">
-          <p>
-            <strong>Select your name from the list</strong> to access the DApp Builder library and create apps.
-          </p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
-            Signing in from DApp Genius sets your identity automatically.
-          </p>
+        <div className={authError ? 'auth-error' : 'auth-required'} role={authError ? 'alert' : 'status'}>
+          {authError ? (
+            <>
+              <p><strong>Unable to sign you in.</strong></p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>{authError}</p>
+            </>
+          ) : isDemoMode ? (
+            <>
+              <p>
+                <strong>Select your name from the list</strong> to access the DApp Builder library and create apps.
+              </p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
+                Signing in from DApp Genius sets your identity automatically.
+              </p>
+            </>
+          ) : (
+            <p>
+              <strong>Sign in to DAppGenius to access DApp Builder.</strong>{' '}
+              <a href={`${getDashboardUrl()}/dashboard`}>Go to DAppGenius →</a>
+            </p>
+          )}
         </div>
       )}
 

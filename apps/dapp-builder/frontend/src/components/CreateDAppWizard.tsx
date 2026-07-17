@@ -352,14 +352,18 @@ export function CreateDAppWizard({
   };
 
   const handleSaveDraft = async () => {
-    const app = await persistApp('Draft', null);
-    setLastSavedApp(app);
-    onSaveApp?.();
-    setDraftSaveMsg(app.dappName);
-    setTimeout(() => {
-      setDraftSaveMsg(null);
-      onClose();
-    }, 1500);
+    try {
+      const app = await persistApp('Draft', null);
+      setLastSavedApp(app);
+      onSaveApp?.();
+      setDraftSaveMsg(app.dappName);
+      setTimeout(() => {
+        setDraftSaveMsg(null);
+        onClose();
+      }, 1500);
+    } catch (err) {
+      setGenError(classifyError(err));
+    }
   };
 
   const handleOpenApp = () => {
@@ -558,6 +562,7 @@ export function CreateDAppWizard({
               {/* Generate button */}
               {!generatedCode && (
                 <button
+                  type="button"
                   className="wizard-generate-btn"
                   onClick={handleGenerate}
                   disabled={generating || promptOverLimit}
