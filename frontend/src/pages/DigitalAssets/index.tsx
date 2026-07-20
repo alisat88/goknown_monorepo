@@ -186,6 +186,7 @@ const Item: React.FC<React.PropsWithChildren<IPropsItems>> = ({
 
 const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [folders, setFolders] = useState<IFoldersItem[]>([]);
   const [assets, setAssets] = useState<IAssetsState>({
     filteredMy: [],
@@ -294,18 +295,21 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
             response.data.map((folder: any) => ({ ...folder, shared: true }))
           );
         } else {
+          setLoadError(null);
           const _myassets = response.data.myassets
             ?.map((asset: any) => ({
               ...asset,
               created_at: format(parseISO(asset.created_at), "M/d/yyyy h:mm a"),
             }))
-            .filter((asset: any) => asset.room_id === null);
+            // eslint-disable-next-line eqeqeq
+            .filter((asset: any) => asset.room_id == null);
           const _publicassets = response.data.publicassets
             ?.map((asset: any) => ({
               ...asset,
               created_at: format(parseISO(asset.created_at), "M/d/yyyy h:mm a"),
             }))
-            .filter((asset: any) => asset.room_id === null);
+            // eslint-disable-next-line eqeqeq
+            .filter((asset: any) => asset.room_id == null);
 
           const _folders = response.data.folders
             .map((folder: any) => ({
@@ -317,7 +321,8 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
                 (!!folder.shared_groups && folder.shared_groups.length > 0)
               ),
             }))
-            .filter((folder: any) => folder.room_id === null);
+            // eslint-disable-next-line eqeqeq
+            .filter((folder: any) => folder.room_id == null);
 
           setAssets({
             filteredMy: _myassets,
@@ -330,6 +335,7 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
       })
       .catch((err) => {
         console.log(err);
+        setLoadError("Could not load your digital assets. Please try again.");
         addToast({
           title: "Error",
           type: "error",
@@ -411,7 +417,18 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
       </header>
       <Content>
         <Schedule>
+          {loadError && (
+            <p role="alert" style={{ color: "red", marginBottom: "1rem" }}>
+              {loadError}
+            </p>
+          )}
           {loading && <ListItemLoader />}
+          {!loading && !loadError && folders.length === 0 && (
+            <p>
+              No folders yet. Create your first folder using the button on the
+              right.
+            </p>
+          )}
           {!loading &&
             folders.map((folder) => (
               <FolderList
@@ -425,7 +442,9 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
                 }
                 onClick={() =>
                   handleGoTo(
-                    `${baseNavigationPath}/folder/${folder.sync_id}/preview`
+                    idRoom
+                      ? `${baseNavigationPath}/folder/${folder.sync_id}/preview`
+                      : `/digitalassets/folders/${folder.sync_id}`
                   )
                 }
                 status={
@@ -577,7 +596,14 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
         <RigthSection>
           <section>
             <BigButton
-              onClick={() => handleGoTo(`${baseNavigationPath}/folder`)}
+              data-testid="new-folder-btn"
+              onClick={() =>
+                handleGoTo(
+                  idRoom
+                    ? `${baseNavigationPath}/folder`
+                    : `/digitalassets/folders/new`
+                )
+              }
             >
               <FiPlus /> New Folder
             </BigButton>

@@ -210,7 +210,7 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
     (to: string, folder?: string) =>
       history.push(to, {
         folderId: folder,
-        oldPage: `/folder/${folderId}/preview`,
+        oldPage: `/digitalassets/folders/${folderId}`,
       }),
     [folderId, history]
   );
@@ -445,7 +445,7 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
               onClick={() =>
                 !folder?.editable
                   ? {}
-                  : handleGoTo(`${baseNavigationPath}/folder/${folderId}/edit`)
+                  : handleGoTo(`/digitalassets/folders/${folderId}/edit`)
               }
               disabled={!folder?.editable}
             >

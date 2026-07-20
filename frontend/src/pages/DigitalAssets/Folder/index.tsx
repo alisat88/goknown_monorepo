@@ -205,7 +205,7 @@ export default function Folder() {
             description: "Your folder has been edited",
           });
 
-          history.push(`${baseNavigationPath}/folder/${folderId}/preview`);
+          history.push(`/digitalassets/folders/${folderId}`);
         } else {
           await api.post("/me/folders", formData);
 
@@ -216,7 +216,7 @@ export default function Folder() {
           });
         }
         if (folderId) {
-          history.push(`${baseNavigationPath}/folder/${folderId}/preview`);
+          history.push(`/digitalassets/folders/${folderId}`);
         } else {
           history.push(`${baseNavigationPath}/digitalassets`);
         }
@@ -256,7 +256,7 @@ export default function Folder() {
               api
                 .delete(`/me/folders/${selectedFolder?.sync_id}`)
                 .then((response) => {
-                  history.push(`/folder/${folderId}/preview`);
+                  history.push(`/digitalassets/folders/${folderId}`);
                 }),
             showLoaderOnConfirm: true,
             errorMessage: "something didn't go right",
@@ -356,7 +356,7 @@ export default function Folder() {
             }
             goTo={
               folderId
-                ? `${baseNavigationPath}/folder/${folderId}/preview`
+                ? `/digitalassets/folders/${folderId}`
                 : `${baseNavigationPath}/digitalassets`
             }
           />

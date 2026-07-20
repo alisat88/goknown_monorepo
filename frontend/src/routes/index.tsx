@@ -82,6 +82,12 @@ const Routes: React.FC<React.PropsWithChildren<unknown>> = () => (
       isPrivate
     />
     <Route
+      path="/digitalassets/folders/new"
+      exact
+      component={Folder}
+      isPrivate
+    />
+    <Route
       path="/digitalassets/folders/:id"
       exact
       component={FolderPreview}
