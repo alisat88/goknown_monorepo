@@ -443,7 +443,7 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
                 onClick={() =>
                   handleGoTo(
                     idRoom
-                      ? `${baseNavigationPath}/folder/${folder.sync_id}/preview`
+                      ? `${baseNavigationPath}/folders/${folder.sync_id}`
                       : `/digitalassets/folders/${folder.sync_id}`
                   )
                 }
@@ -600,7 +600,7 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
               onClick={() =>
                 handleGoTo(
                   idRoom
-                    ? `${baseNavigationPath}/folder`
+                    ? `${baseNavigationPath}/folders/new`
                     : `/digitalassets/folders/new`
                 )
               }
@@ -657,7 +657,13 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
       <Footer>
         <Button
           color="accent"
-          onClick={() => handleGoTo(`${baseNavigationPath}/folder`)}
+          onClick={() =>
+            handleGoTo(
+              idRoom
+                ? `${baseNavigationPath}/folders/new`
+                : `/digitalassets/folders/new`
+            )
+          }
         >
           <FiPlus /> New Folder
         </Button>

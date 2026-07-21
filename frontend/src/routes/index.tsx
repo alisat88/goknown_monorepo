@@ -173,6 +173,24 @@ const Routes: React.FC<React.PropsWithChildren<unknown>> = () => (
       isPrivate
     />
     <Route
+      path="/organizations/:idOrganization/groups/:idGroup/rooms/:idRoom/folders/new"
+      exact
+      component={Folder}
+      isPrivate
+    />
+    <Route
+      path="/organizations/:idOrganization/groups/:idGroup/rooms/:idRoom/folders/:id/edit"
+      exact
+      component={Folder}
+      isPrivate
+    />
+    <Route
+      path="/organizations/:idOrganization/groups/:idGroup/rooms/:idRoom/folders/:id"
+      exact
+      component={FolderPreview}
+      isPrivate
+    />
+    <Route
       path="/organizations/:idOrganization/groups/:idGroup/rooms/:idRoom/digitalassets/new"
       exact
       component={DigitalAssetsCreate}

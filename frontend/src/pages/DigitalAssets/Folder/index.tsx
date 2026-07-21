@@ -205,7 +205,11 @@ export default function Folder() {
             description: "Your folder has been edited",
           });
 
-          history.push(`/digitalassets/folders/${folderId}`);
+          history.push(
+            baseNavigationPath
+              ? `${baseNavigationPath}/folders/${folderId}`
+              : `/digitalassets/folders/${folderId}`
+          );
         } else {
           await api.post("/me/folders", formData);
 
@@ -214,10 +218,6 @@ export default function Folder() {
             type: "success",
             description: "Your folder has been created",
           });
-        }
-        if (folderId) {
-          history.push(`/digitalassets/folders/${folderId}`);
-        } else {
           history.push(`${baseNavigationPath}/digitalassets`);
         }
       } catch (err: any) {
@@ -356,7 +356,9 @@ export default function Folder() {
             }
             goTo={
               folderId
-                ? `/digitalassets/folders/${folderId}`
+                ? baseNavigationPath
+                  ? `${baseNavigationPath}/folders/${folderId}`
+                  : `/digitalassets/folders/${folderId}`
                 : `${baseNavigationPath}/digitalassets`
             }
           />

@@ -230,10 +230,11 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
           ),
         };
 
-        setAssets({
-          filteredMy: response.data.assets,
-          my: response.data.assets,
-        });
+        setAssets((prev) => ({
+          ...prev,
+          filteredMy: response.data.assets ?? [],
+          my: response.data.assets ?? [],
+        }));
 
         setFolder(_folder);
       })
@@ -249,40 +250,40 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
   }, [addToast, folderId, user.id]);
 
   useEffect(() => {
-    setAssets({
-      ...assets,
+    setAssets((prev) => ({
+      ...prev,
       filteredMy:
         filter.length > 0
-          ? assets.my.filter((f) => filter.includes(f.mimetype))
-          : assets.my,
-    });
+          ? prev.my.filter((f) => filter.includes(f.mimetype))
+          : prev.my,
+    }));
   }, [filter]);
 
   useEffect(() => {
     if (order) {
-      setAssets({
-        ...assets,
-        filteredMy: assets.filteredMy.sort((a, b) =>
+      setAssets((prev) => ({
+        ...prev,
+        filteredMy: [...prev.filteredMy].sort((a, b) =>
           order === "A-Z"
             ? a.name.localeCompare(b.name)
             : b.name.localeCompare(a.name)
         ),
-      });
+      }));
     }
   }, [order]);
 
   useEffect(() => {
     if (orderDate) {
-      setAssets({
-        ...assets,
-        filteredMy: assets.filteredMy.sort((a, b) =>
+      setAssets((prev) => ({
+        ...prev,
+        filteredMy: [...prev.filteredMy].sort((a, b) =>
           orderDate === "Newest"
             ? new Date(b.created_at).getTime() -
               new Date(a.created_at).getTime()
             : new Date(a.created_at).getTime() -
               new Date(b.created_at).getTime()
         ),
-      });
+      }));
     }
   }, [orderDate]);
 
@@ -445,7 +446,11 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
               onClick={() =>
                 !folder?.editable
                   ? {}
-                  : handleGoTo(`/digitalassets/folders/${folderId}/edit`)
+                  : handleGoTo(
+                      idRoom
+                        ? `${baseNavigationPath}/folders/${folderId}/edit`
+                        : `/digitalassets/folders/${folderId}/edit`
+                    )
               }
               disabled={!folder?.editable}
             >
@@ -504,7 +509,11 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
         <Button
           color="accent"
           onClick={() =>
-            handleGoTo(`${baseNavigationPath}/folder/${folderId}/edit`)
+            handleGoTo(
+              idRoom
+                ? `${baseNavigationPath}/folders/${folderId}/edit`
+                : `/digitalassets/folders/${folderId}/edit`
+            )
           }
         >
           <FiEdit /> Edit Folder

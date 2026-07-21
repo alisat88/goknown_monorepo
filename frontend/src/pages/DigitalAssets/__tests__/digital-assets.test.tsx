@@ -1,11 +1,11 @@
 // Tests for Digital Assets navigation and filter fixes.
 //
 // Covers:
-//   1. room_id == null filter: folders with null AND undefined room_id both appear
-//   2. Navigation: "New Folder" routes to /digitalassets/folders/new
-//   3. Navigation: folder click routes to /digitalassets/folders/:id
-//   4. Empty state: shown when no folders
-//   5. Error state: shown when API fails
+//   da-1..da-8: personal-context navigation, filtering, empty/error states
+//   da-9:  Footer "New Folder" (personal) → /digitalassets/folders/new
+//   da-10: RightSection "New Folder" (room) → room-prefixed folders/new
+//   da-11: Footer "New Folder" (room) → room-prefixed folders/new
+//   da-12: folder click (room) → room-prefixed folders/:sync_id
 
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -260,6 +260,111 @@ test("da-8: clicking a folder card navigates to /digitalassets/folders/:sync_id"
   await waitFor(() => {
     expect(capturedHistoryLocation.pathname).toBe(
       "/digitalassets/folders/folder-sync-abc"
+    );
+  });
+});
+
+// ── Room context helpers ───────────────────────────────────────────────────────
+
+const ROOM_BASE = "/organizations/org-1/groups/grp-1/rooms/room-1";
+const ROOM_PAGE_PATH = `${ROOM_BASE}/digitalassets`;
+
+function renderRoomPage() {
+  capturedHistoryLocation = { pathname: ROOM_PAGE_PATH };
+  return render(
+    <MemoryRouter initialEntries={[ROOM_PAGE_PATH]}>
+      <Route
+        render={({ history }) => {
+          capturedHistoryLocation = history.location;
+          return null;
+        }}
+      />
+      <Switch>
+        <Route
+          path="/organizations/:idOrganization/groups/:idGroup/rooms/:idRoom/digitalassets"
+          exact
+          component={DigitalAssets}
+        />
+      </Switch>
+    </MemoryRouter>
+  );
+}
+
+// ── da-9: Footer "New Folder" (personal context) ──────────────────────────────
+
+test("da-9: Footer 'New Folder' button (personal context) navigates to /digitalassets/folders/new", async () => {
+  mockGet.mockResolvedValueOnce({ data: EMPTY_RESPONSE });
+  capturedHistoryLocation = { pathname: "/digitalassets" };
+
+  renderPage();
+
+  await waitFor(() => expect(mockGet).toHaveBeenCalled());
+
+  // Footer is display:none by default (mobile-only); use hidden:true to reach it.
+  // BigButton is a styled.div (no button role), so this uniquely finds the Footer button.
+  const footerBtn = screen.getByRole("button", { name: /new folder/i, hidden: true });
+  fireEvent.click(footerBtn);
+
+  await waitFor(() => {
+    expect(capturedHistoryLocation.pathname).toBe("/digitalassets/folders/new");
+  });
+});
+
+// ── da-10: RightSection "New Folder" (room context) ──────────────────────────
+
+test("da-10: RightSection 'New Folder' BigButton (room context) navigates to room-prefixed folders/new", async () => {
+  mockGet.mockResolvedValueOnce({ data: [] });
+  capturedHistoryLocation = { pathname: ROOM_PAGE_PATH };
+
+  renderRoomPage();
+
+  await waitFor(() => expect(mockGet).toHaveBeenCalled());
+
+  // BigButton is a styled.div with data-testid
+  fireEvent.click(screen.getByTestId("new-folder-btn"));
+
+  await waitFor(() => {
+    expect(capturedHistoryLocation.pathname).toBe(`${ROOM_BASE}/folders/new`);
+  });
+});
+
+// ── da-11: Footer "New Folder" (room context) ─────────────────────────────────
+
+test("da-11: Footer 'New Folder' button (room context) navigates to room-prefixed folders/new", async () => {
+  mockGet.mockResolvedValueOnce({ data: [] });
+  capturedHistoryLocation = { pathname: ROOM_PAGE_PATH };
+
+  renderRoomPage();
+
+  await waitFor(() => expect(mockGet).toHaveBeenCalled());
+
+  // Footer is display:none by default; hidden:true reaches it
+  const footerBtn = screen.getByRole("button", { name: /new folder/i, hidden: true });
+  fireEvent.click(footerBtn);
+
+  await waitFor(() => {
+    expect(capturedHistoryLocation.pathname).toBe(`${ROOM_BASE}/folders/new`);
+  });
+});
+
+// ── da-12: folder click (room context) ───────────────────────────────────────
+
+test("da-12: clicking a folder card in room context navigates to room-prefixed folders/:sync_id", async () => {
+  const folder = makeFolder({ sync_id: "room-folder-sync", name: "Room Folder A" });
+  mockGet.mockResolvedValueOnce({ data: [folder] });
+  capturedHistoryLocation = { pathname: ROOM_PAGE_PATH };
+
+  renderRoomPage();
+
+  await waitFor(() => {
+    expect(screen.getByText("Room Folder A")).toBeTruthy();
+  });
+
+  fireEvent.click(screen.getByText(/room folder a/i));
+
+  await waitFor(() => {
+    expect(capturedHistoryLocation.pathname).toBe(
+      `${ROOM_BASE}/folders/room-folder-sync`
     );
   });
 });
