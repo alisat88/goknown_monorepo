@@ -33,6 +33,7 @@ import dlsRouter from '@modules/dls/infra/http/routes/dls.routes';
 import adminRouter from '@modules/admin/infra/http/routes/admin.routes';
 import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.routes';
 import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
+import { isDatabaseReady } from '@shared/infra/typeorm';
 
 const routes = Router();
 
@@ -41,6 +42,17 @@ const routes = Router();
  */
 routes.get('/health', (request, response) => {
   return response.json(`Server Connected on node ${process.env.NODE_NUMBER || 1}`);
+});
+
+routes.get('/health/live', (_request, response) => {
+  return response.json({ status: 'live' });
+});
+
+routes.get('/health/ready', async (_request, response) => {
+  const ready = await isDatabaseReady();
+  return response
+    .status(ready ? 200 : 503)
+    .json({ status: ready ? 'ready' : 'not_ready', database: ready ? 'connected' : 'unavailable' });
 });
 
 /**

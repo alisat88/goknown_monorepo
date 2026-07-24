@@ -11,9 +11,13 @@
     "swagger": "node dist/shared/infra/http/swagger.js",
     "clear:database": "node dist/shared/infra/http/clearDatabase.js",
     "build": "babel src --extensions \".js,.ts\" --out-dir dist --copy-files",
+    "migration:run": "node ./node_modules/typeorm/cli.js migration:run",
+    "migration:revert": "node ./node_modules/typeorm/cli.js migration:revert",
+    "seed:zta": "node dist/shared/infra/typeorm/seeds/ztaSystemAccounts.js",
+    "test:zta": "ts-node-dev -r tsconfig-paths/register --transpile-only src/__tests__/transfer-persistence.integration.ts",
     "dev:server": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/server.ts",
     "dev:queue": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/queue.ts",
-    "typeorm": "ts-node-dev -r tsconfig-paths/register ./node_modules/typeorm/cli.js"
+    "typeorm": "node ./node_modules/typeorm/cli.js"
   },
   "resolutions": {
     "@babel/core": "7.13.15",

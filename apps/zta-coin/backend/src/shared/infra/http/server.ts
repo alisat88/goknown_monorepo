@@ -1,6 +1,5 @@
 import 'reflect-metadata';
 import 'dotenv/config';
-import '@shared/infra/typeorm';
 import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
 import cors from 'cors';
@@ -17,17 +16,9 @@ import '@shared/container';
 import uploadConfig from '@config/upload';
 import AppError from '@shared/errors/AppError';
 import SocketServer from './socketIO';
+import { initializeDatabase } from '@shared/infra/typeorm';
 // import swaggerUi from 'swagger-ui-express';
 // import swaggerFile from '../../../swagger_output.json';
-
-// Check if environment variables are defined
-console.log('>>> Server Variables:');
-console.log('DATABASE_URL:', process.env.DATABASE_URL);
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_PORT:', process.env.DB_PORT);
-console.log('DB_USER:', process.env.DB_USER);
-console.log('DB_PASS:', process.env.DB_PASS);
-// console.log('DB_NAME:', process.env.DB_NAME?.replace(/#/g, ''));
 
 /**
  * CLUSTERING SETUP
@@ -92,7 +83,7 @@ app.use((err: Error, request: Request, response: Response, _: NextFunction) => {
       .json({ status: 'error', message: err.message });
   }
 
-  console.log(err);
+  console.error('Unhandled ZTA request error');
   return response
     .status(500)
     .json({ status: 'error', message: 'Internal Server Error' });
@@ -120,7 +111,21 @@ if (process.env.NODE_NAME === 'NODE1') {
  * RUN SERVER
  */
 const PORT = process.env.PORT || 3333;
-server.listen(PORT, () => {
-  console.log(`Worker ${process.pid} started on port ${PORT}`);
-});
+
+export async function startServer(): Promise<void> {
+  try {
+    await initializeDatabase();
+  } catch {
+    console.error('ZTA database initialization failed; HTTP server not started');
+    process.exit(1);
+  }
+
+  server.listen(PORT, () => {
+    console.log(`Worker ${process.pid} started on port ${PORT}`);
+  });
+}
+
+if (require.main === module) {
+  void startServer();
+}
 // }

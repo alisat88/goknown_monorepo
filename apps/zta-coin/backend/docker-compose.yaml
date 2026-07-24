@@ -63,10 +63,7 @@ services:
       - DB_PASS=${DB_PASS:-your_aiven_password_here}
       - DB_NAME=defaultdb
       - DATABASE_URL=${DATABASE_URL:-your_database_url_here}
-    command: >
-      yarn typeorm migration:run &&
-      yarn build &&
-      yarn start
+    command: yarn start
     networks:
       - goknown-network
 

@@ -1,5 +1,9 @@
 import { Router } from 'express';
 import { ledgerService } from '@shared/ledger/LedgerService';
+import {
+  databaseUnavailableResponse,
+  isDatabaseInfrastructureError,
+} from '@shared/infra/typeorm/databaseErrors';
 
 const velocityRouter = Router();
 
@@ -11,8 +15,11 @@ velocityRouter.get('/:accountId', async (request, response) => {
 
     return response.json(data);
   } catch (error) {
+    if (isDatabaseInfrastructureError(error)) {
+      return databaseUnavailableResponse(response);
+    }
     return response.status(500).json({
-      error: error.message,
+      error: 'Unable to load account velocity.',
     });
   }
 });

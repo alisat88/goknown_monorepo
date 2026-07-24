@@ -11,15 +11,19 @@
 
 import 'reflect-metadata';
 import 'dotenv/config';
-import '@shared/infra/typeorm';
 import assert from 'assert';
-import { getRepository } from 'typeorm';
+import { getConnection, getRepository } from 'typeorm';
 import { Account } from '../modules/transactions/infra/typeorm/entities/Account';
 import { Transaction } from '../modules/transactions/infra/typeorm/entities/Transaction';
 import { accountService } from '../shared/accounts/AccountService';
 import { ledgerService } from '../shared/ledger/LedgerService';
 import TransferTokenService from '../modules/transactions/services/TransferTokenService';
 import MintTokenService from '../modules/transactions/services/MintTokenService';
+import { initializeDatabase } from '../shared/infra/typeorm';
+import {
+  normalizeTokenAmount,
+  tokenAmountToNumber,
+} from '../shared/amounts/TokenAmount';
 
 const SENDER = '__TEST__MIKE';
 const RECEIVER = '__TEST__CONNIE';
@@ -70,20 +74,70 @@ async function testMintPersistence() {
   // Mint only works with KN_ISSUER, which credits KNOWN_SYSTEM.
   // We verify the pattern by minting and checking SYSTEM account balance.
   const balanceBefore = await accountService.getBalance(SYSTEM);
+  const ledgerCountBefore = (await ledgerService.getByAccount(SYSTEM)).length;
   await mintService.execute({ user_id: ISSUER, amount: 50 });
   const balanceAfter = await accountService.getBalance(SYSTEM);
+  const entries = await ledgerService.getByAccount(SYSTEM);
 
   ok('Balance increased by minted amount', balanceAfter === balanceBefore + 50,
     `before=${balanceBefore} after=${balanceAfter}`);
+  ok('Exactly one ledger entry was added', entries.length === ledgerCountBefore + 1);
 
-  const entries = await ledgerService.getByAccount(SYSTEM);
   const latest = entries[0];
   ok('Ledger entry recorded', !!latest, 'no entry found');
   if (latest) {
     ok('Ledger entry type is KN-MNT-000', latest.type === 'KN-MNT-000');
-    ok('Ledger entry amount matches', latest.amount === 50);
+    ok('Ledger entry amount matches', tokenAmountToNumber(latest.amount) === 50);
     ok('Ledger entry has before snapshot', typeof latest.before === 'object');
     ok('Ledger entry has after snapshot', typeof latest.after === 'object');
+  }
+}
+
+async function testMintRollback() {
+  console.log('\nTest 2: Mint rolls back balance when ledger insertion fails');
+  const balanceBefore = await accountService.getBalance(SYSTEM);
+  const ledgerCountBefore = (await ledgerService.getByAccount(SYSTEM)).length;
+  const mintService = new MintTokenService(async () => {
+    throw new Error('simulated ledger failure');
+  });
+
+  let threw = false;
+  try {
+    await mintService.execute({ user_id: ISSUER, amount: 25 });
+  } catch (error) {
+    threw = true;
+  }
+
+  const balanceAfter = await accountService.getBalance(SYSTEM);
+  const ledgerCountAfter = (await ledgerService.getByAccount(SYSTEM)).length;
+  ok('Simulated ledger failure is propagated', threw);
+  ok(
+    'Balance remains unchanged after ledger failure',
+    balanceAfter === balanceBefore,
+    `before=${balanceBefore} after=${balanceAfter}`,
+  );
+  ok('Ledger remains unchanged after ledger failure', ledgerCountAfter === ledgerCountBefore);
+}
+
+async function testInvalidMintAmounts() {
+  console.log('\nTest 3: Invalid mint amounts are rejected');
+  const invalid: unknown[] = [
+    0,
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    'not-a-number',
+    '1.123456789',
+  ];
+
+  for (const amount of invalid) {
+    let threw = false;
+    try {
+      normalizeTokenAmount(amount);
+    } catch {
+      threw = true;
+    }
+    ok(`Rejects ${String(amount)}`, threw);
   }
 }
 
@@ -268,11 +322,12 @@ async function testProductionGuard() {
 // ── Runner ─────────────────────────────────────────────────────────────────
 async function main() {
   console.log('=== ZTA Coin Transfer Persistence Integration Tests ===');
-  console.log('Waiting for DB connection...');
-  await waitForConnection();
+  await initializeDatabase();
 
   try {
     await testMintPersistence();
+    await testMintRollback();
+    await testInvalidMintAmounts();
     await testTransferPersistence();
     await testLedgerSnapshots();
     await testInsufficientBalance();
@@ -283,6 +338,7 @@ async function main() {
   } finally {
     await cleanTestAccounts();
     await cleanTestLedgerEntries();
+    await getConnection().close();
   }
 
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===`);

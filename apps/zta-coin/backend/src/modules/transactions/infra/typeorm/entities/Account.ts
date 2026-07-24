@@ -1,13 +1,13 @@
 import { Entity, PrimaryColumn, Column } from "typeorm";
 
-@Entity("accounts")
+@Entity("zta_accounts")
 class Account {
 
   @PrimaryColumn()
  id: string;
 
-  @Column("float")
-  balance: number;
+  @Column("numeric", { precision: 30, scale: 8 })
+  balance: string;
 }
 
 export { Account };

@@ -1,6 +1,6 @@
 import { Entity, PrimaryColumn, Column } from "typeorm";
 
-@Entity("transactions")
+@Entity("zta_ledger_transactions")
 class Transaction {
 
   @PrimaryColumn()
@@ -18,13 +18,13 @@ class Transaction {
   @Column({ nullable: true })
   to?: string;
 
-  @Column("float")
-  amount: number;
+  @Column("numeric", { precision: 30, scale: 8 })
+  amount: string;
 
-  @Column("json")
+  @Column("jsonb")
   before: any;
 
-  @Column("json")
+  @Column("jsonb")
   after: any;
 }
 

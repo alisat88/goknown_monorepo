@@ -1,6 +1,11 @@
 import { accountService } from '../../../shared/accounts/AccountService';
 import { ledgerService } from '../../../shared/ledger/LedgerService';
 import { hashService } from '../../../shared/hash/HashService';
+import { getConnection, EntityManager } from 'typeorm';
+import {
+  normalizeTokenAmount,
+  tokenAmountToNumber,
+} from '../../../shared/amounts/TokenAmount';
 
 interface IRequest {
   user_id: string;
@@ -21,74 +26,74 @@ class MintTokenService {
   private readonly ISSUER_ACCOUNT = "KN_ISSUER";
   private readonly SYSTEM_ACCOUNT = "KNOWN_SYSTEM";
 
-  public async execute({ user_id, amount }: IRequest): Promise<ILedgerRecord> {
+  constructor(
+    private readonly recordLedger: (
+      record: any,
+      manager: EntityManager,
+    ) => Promise<void> = (record, manager) =>
+      ledgerService.record(record, manager),
+  ) {}
 
+  public async execute({ user_id, amount }: IRequest): Promise<ILedgerRecord> {
     // 🔒 Enforce issuer-only minting
     if (user_id !== this.ISSUER_ACCOUNT) {
       throw new Error("Only KN Issuer Account can mint tokens");
     }
 
-    if (amount <= 0) {
-      throw new Error("Mint amount must be greater than 0");
-    }
+    const normalizedAmount = normalizeTokenAmount(amount);
+    const apiAmount = tokenAmountToNumber(normalizedAmount);
 
-    // 📊 Before state
-    const preBalance = await accountService.getBalance(this.SYSTEM_ACCOUNT);
+    return getConnection().transaction(async manager => {
+      const preBalanceDecimal = await accountService.getBalanceDecimal(
+        this.SYSTEM_ACCOUNT,
+        manager,
+      );
+      await accountService.credit(this.SYSTEM_ACCOUNT, normalizedAmount, manager);
+      const postBalanceDecimal = await accountService.getBalanceDecimal(
+        this.SYSTEM_ACCOUNT,
+        manager,
+      );
 
-    // 💰 Mint tokens → SYSTEM account
-    await accountService.credit(this.SYSTEM_ACCOUNT, amount);
+      const preBalance = tokenAmountToNumber(preBalanceDecimal);
+      const postBalance = tokenAmountToNumber(postBalanceDecimal);
+      const timestamp = new Date().toISOString();
+      const transactionType = "KN-MNT-000";
+      const transactionPayload = {
+        type: transactionType,
+        timestamp,
+        issuer: user_id,
+        to: this.SYSTEM_ACCOUNT,
+        amount: apiAmount,
+        before: { balance: preBalance },
+        after: { balance: postBalance },
+      };
+      const transactionId = hashService.hash(transactionPayload);
+      const record: ILedgerRecord = {
+        type: transactionType,
+        timestamp,
+        transactionId,
+        issuer: user_id,
+        before: preBalance,
+        minted: apiAmount,
+        after: postBalance,
+      };
 
-    // 📊 After state
-    const postBalance = await accountService.getBalance(this.SYSTEM_ACCOUNT);
+      await this.recordLedger(
+        {
+          id: transactionId,
+          type: transactionType,
+          timestamp,
+          from: user_id,
+          to: this.SYSTEM_ACCOUNT,
+          amount: normalizedAmount,
+          before: { balance: preBalance },
+          after: { balance: postBalance },
+        },
+        manager,
+      );
 
-    // ⏱ Timestamp (UTC)
-    const timestamp = new Date().toISOString();
-
-    // 🏷 Transaction Type
-    const transactionType = "KN-MNT-000";
-
-    // 🔐 Build canonical payload
-    const transactionPayload = {
-      type: transactionType,
-      timestamp,
-      issuer: user_id,
-      to: this.SYSTEM_ACCOUNT,
-      amount,
-      before: {
-        balance: preBalance,
-      },
-      after: {
-        balance: postBalance,
-      },
-    };
-
-    // 🔑 Generate deterministic hash
-    const transactionId = hashService.hash(transactionPayload);
-
-    // 📒 Ledger record (returned to client)
-    const record: ILedgerRecord = {
-      type: transactionType,
-      timestamp,
-      transactionId,
-      issuer: user_id,
-      before: preBalance,
-      minted: amount,
-      after: postBalance,
-    };
-
-    // 📌 Store in GLOBAL ledger
-    await ledgerService.record({
-      id: transactionId,
-      type: transactionType,
-      timestamp,
-      from: user_id,
-      to: this.SYSTEM_ACCOUNT,
-      amount,
-      before: { balance: preBalance },
-      after: { balance: postBalance },
+      return record;
     });
-
-    return record;
   }
 }
 

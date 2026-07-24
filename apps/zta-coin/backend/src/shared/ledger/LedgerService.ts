@@ -1,21 +1,25 @@
 import { v4 as uuidv4 } from 'uuid';
-import { getRepository } from 'typeorm';
+import { EntityManager, getRepository, Repository } from 'typeorm';
 import { Transaction } from '../../modules/transactions/infra/typeorm/entities/Transaction';
+import {
+  normalizeTokenAmount,
+  tokenAmountToNumber,
+} from '../amounts/TokenAmount';
 
 class LedgerService {
 
   /**
    * ✅ Lazy repository initialization (CRITICAL FIX)
    */
-  private getRepo() {
-    return getRepository(Transaction);
+  private getRepo(manager?: EntityManager): Repository<Transaction> {
+    return manager ? manager.getRepository(Transaction) : getRepository(Transaction);
   }
 
   /**
    * 📝 Record a transaction
    */
-  public async record(tx: any): Promise<void> {
-    const repo = this.getRepo();
+  public async record(tx: any, manager?: EntityManager): Promise<void> {
+    const repo = this.getRepo(manager);
 
     const transaction = repo.create({
       id: tx.id || uuidv4(),
@@ -23,7 +27,7 @@ class LedgerService {
       timestamp: new Date(tx.timestamp),
       from: tx.from,
       to: tx.to,
-      amount: tx.amount,
+      amount: normalizeTokenAmount(tx.amount),
       before: tx.before,
       after: tx.after,
     });
@@ -85,16 +89,16 @@ class LedgerService {
       const ts = new Date(tx.timestamp);
 
       if (ts >= oneHourAgo) {
-        last1hrVolume += tx.amount;
+        last1hrVolume += tokenAmountToNumber(tx.amount);
       }
 
       if (ts >= fiveMinutesAgo) {
-        last5minVolume += tx.amount;
+        last5minVolume += tokenAmountToNumber(tx.amount);
         txCountLast5min++;
       }
 
       if (ts >= oneMinuteAgo) {
-        last1minVolume += tx.amount;
+        last1minVolume += tokenAmountToNumber(tx.amount);
       }
     }
 

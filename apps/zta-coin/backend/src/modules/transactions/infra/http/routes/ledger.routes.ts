@@ -1,5 +1,10 @@
 import { Router } from 'express';
 import { ledgerService } from '@shared/ledger/LedgerService';
+import { tokenAmountToNumber } from '@shared/amounts/TokenAmount';
+import {
+  databaseUnavailableResponse,
+  isDatabaseInfrastructureError,
+} from '@shared/infra/typeorm/databaseErrors';
 
 const ledgerRouter = Router();
 
@@ -16,7 +21,7 @@ ledgerRouter.get('/', async (request, response) => {
         eventCode: transaction.type,
         from: transaction.from || null,
         to: transaction.to || null,
-        amount: transaction.amount,
+        amount: tokenAmountToNumber(transaction.amount),
         status: 'Completed',
         note:
           transaction.type === 'KN-MNT-000'
@@ -25,6 +30,9 @@ ledgerRouter.get('/', async (request, response) => {
       })),
     );
   } catch (error) {
+    if (isDatabaseInfrastructureError(error)) {
+      return databaseUnavailableResponse(response);
+    }
     return response.status(500).json({
       error: 'Unable to load transaction ledger.',
     });
