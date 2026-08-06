@@ -64,6 +64,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
   const { addToast } = useToast();
 
   const location = useLocation<ILocationsProps>();
+  const folderId = location.state?.folderId;
   const { idGroup, idOrganization, idRoom } = useParams<IParams>();
 
   const baseNavigationPath = useMemo(() => {
@@ -129,10 +130,8 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
           type: "success",
           description: "Your asset has been uploaded successfully",
         });
-        if (location.state.folderId) {
-          history.push(
-            `${baseNavigationPath}/folder/${location.state.folderId}/preview`
-          );
+        if (folderId) {
+          history.push(`${baseNavigationPath}/folder/${folderId}/preview`);
         } else {
           history.push(`${baseNavigationPath}/digitalassets`);
         }
@@ -155,7 +154,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
         setLoading(false);
       }
     },
-    [addToast, baseNavigationPath, history, idRoom, location.state.folderId]
+    [addToast, baseNavigationPath, folderId, history, idRoom]
   );
 
   const loadFolders = useCallback(
@@ -195,9 +194,9 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
   );
 
   useEffect(() => {
-    if (location.state.folderId) {
+    if (folderId) {
       api
-        .get(`/me/folders/${location.state.folderId}`)
+        .get(`/me/folders/${folderId}`)
         .then((response) => {
           formRef.current?.setData({
             folder: {
@@ -208,7 +207,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
         })
         .catch((error) => console.log(error));
     }
-  }, [location.state.folderId]);
+  }, [folderId]);
 
   return (
     <Container height={170} mobileHeight={90}>
@@ -217,8 +216,8 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
           <ButtonBack
             mobileTitle="New Digital Assets"
             goTo={
-              location.state.folderId
-                ? `${baseNavigationPath}/folder/${location.state.folderId}/preview`
+              folderId
+                ? `${baseNavigationPath}/folder/${folderId}/preview`
                 : `${baseNavigationPath}/digitalassets`
             }
           />
