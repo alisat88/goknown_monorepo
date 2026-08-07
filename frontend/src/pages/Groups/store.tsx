@@ -61,6 +61,7 @@ export default function GroupStore() {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [asyncLoading, setAsyncLoading] = useState(false);
+  const [groupName, setGroupName] = useState("");
   const [selectedParticipant, setSelectedParticipant] = useState<IUserData>();
   const [participants, setParticipants] = useState<IUserData[]>(() => {
     if (user) {
@@ -130,10 +131,13 @@ export default function GroupStore() {
 
         await schema.validate(data, { abortEarly: false });
 
+        const selectedParticipants = selectedParticipant
+          ? [...participants, selectedParticipant]
+          : participants;
         const formData = {
           name: data.name,
           description: data.description,
-          shared_users_ids: participants
+          shared_users_ids: selectedParticipants
             .filter((participant) => participant.id !== user.id)
             .map((participant) => participant.sync_id),
         };
@@ -176,7 +180,15 @@ export default function GroupStore() {
         setLoadingSubmit(false);
       }
     },
-    [addToast, groupId, history, participants, user.id]
+    [
+      addToast,
+      groupId,
+      history,
+      location.state?.oldPage,
+      participants,
+      selectedParticipant,
+      user.id,
+    ]
   );
 
   const handleDelete = useCallback(
@@ -249,6 +261,7 @@ export default function GroupStore() {
             name: response.data.name,
             description: response.data.description,
           });
+          setGroupName(response.data.name);
           const loadeadParticipantes =
             (response.data.shared_users &&
               response.data.shared_users.map(
@@ -277,6 +290,10 @@ export default function GroupStore() {
     }
   }, [addToast, groupId, user.id]);
 
+  const hasParticipant =
+    !!selectedParticipant ||
+    participants.some((participant) => participant.id !== user.id);
+
   return (
     <Container mobileHeight={90} height={150}>
       <header>
@@ -298,9 +315,10 @@ export default function GroupStore() {
             placeholder="Sub group name"
             icon={FaRegFolderOpen}
             isLoading={loadingSubmit}
+            onChange={(event) => setGroupName(event.target.value)}
           />
 
-          <h3> Select a Partcipant</h3>
+          <h3> Select a Participant</h3>
           <section>
             <div>
               <ButtonTransform
@@ -310,7 +328,7 @@ export default function GroupStore() {
                 onSubmit={(setExpand) => handleAddParticipants(setExpand)}
               >
                 <AsyncSelect
-                  name="partcipant"
+                  name="participant"
                   type="avatar"
                   onChange={(value: any) =>
                     value
@@ -326,7 +344,7 @@ export default function GroupStore() {
                   }
                   isClearable
                   isLoading={asyncLoading}
-                  placeholder="Partcipant"
+                  placeholder="Participant"
                   loadOptions={loadUsers}
                 />
               </ButtonTransform>
@@ -373,7 +391,10 @@ export default function GroupStore() {
             <Button
               type="submit"
               isLoading={loadingSubmit}
-              disabled={addUserMenuOpen}
+              disabled={
+                (!groupId && (!groupName.trim() || !hasParticipant)) ||
+                (addUserMenuOpen && !selectedParticipant)
+              }
             >
               {groupId ? "EDIT GROUP" : "CREATE GROUP"}
             </Button>
