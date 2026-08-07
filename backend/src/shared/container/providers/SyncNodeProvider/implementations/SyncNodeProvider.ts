@@ -24,12 +24,13 @@ class SyncNodeProvider implements ISyncNodeProvider {
     endpoint,
     method,
     dapp,
+    forceRequestBody,
   }: ISyncNodeDTO): Promise<void> {
     const updateAuditLogNodeResponse = container.resolve(
       UpdateAuditLogNodeResponseService,
     );
     let headers = {};
-    if (request.headers.authorization) {
+    if (request.headers?.authorization) {
       headers = {
         Authorization: request.headers.authorization,
       };
@@ -42,7 +43,7 @@ class SyncNodeProvider implements ISyncNodeProvider {
           method,
           url: `${node.url}${endpoint}`,
           // data: { ...request.body, masterNode },
-          data: request.body,
+          data: forceRequestBody ?? request.body,
           headers,
           timeout: 30000,
         });

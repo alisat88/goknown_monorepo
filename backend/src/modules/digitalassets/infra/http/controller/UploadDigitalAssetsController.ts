@@ -44,23 +44,18 @@ export default class UploadDigitalAssetsController {
     // }
     // sync node
     if (request.body.masterNode) {
-      const updatedRequest = {
-        ...request,
-        body: {
-          ...request.body,
+      // mirror users across nodes
+      const syncNodeProvider = container.resolve(SyncNodeProvider);
+      await syncNodeProvider.sync({
+        dapp_token_sync_id: request.body.sync_id,
+        endpoint: '/me/digitalassets/withoutfile',
+        request,
+        forceRequestBody: {
           ...request.body,
           filename: digitalAsset.filename,
           mimetype: digitalAsset.mimetype,
           filetoken: digitalAsset.token,
         },
-      } as Request;
-
-      // mirror users across nodes
-      const syncNodeProvider = container.resolve(SyncNodeProvider);
-      await syncNodeProvider.sync({
-        dapp_token_sync_id: request.body.sync_id,
-        endpoint: '/me/digitalassets/withoutfile ',
-        request: updatedRequest,
         method: 'post',
       });
     }
