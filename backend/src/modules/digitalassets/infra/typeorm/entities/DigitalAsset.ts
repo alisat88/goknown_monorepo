@@ -97,9 +97,15 @@ class DigitalAsset {
           ? `${process.env.APP_API_URL}/files/${this.filename}`
           : null;
       case 's3':
-        return `https://${uploadConfig.config.aws.bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${this.filename}`;
       case 'digitalocean':
-        return `${process.env.DO_SPACE_URL}/nfts/${this.filename}`;
+        if (!uploadConfig.config.aws.publicUrl) {
+          return null;
+        }
+        return `${uploadConfig.config.aws.publicUrl.replace(/\/$/, '')}/${
+          uploadConfig.config.aws.keyPrefix
+            ? `${uploadConfig.config.aws.keyPrefix.replace(/^\/+|\/+$/g, '')}/`
+            : ''
+        }${encodeURIComponent(this.filename)}`;
       default:
         return null;
     }

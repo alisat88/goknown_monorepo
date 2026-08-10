@@ -18,6 +18,12 @@ interface IUploadConfig {
     disk: {};
     aws: {
       bucket: string;
+      endpoint?: string;
+      publicUrl?: string;
+      keyPrefix: string;
+      region: string;
+      accessKeyId?: string;
+      secretAccessKey?: string;
     };
     digitalocean: {
       endpoint: string;
@@ -51,7 +57,18 @@ export default {
   config: {
     disk: {},
     aws: {
-      bucket: process.env.AWS_BUCKET_NAME || '',
+      bucket:
+        process.env.S3_BUCKET ||
+        process.env.AWS_BUCKET_NAME ||
+        process.env.DO_SPACES_BUCKET ||
+        '',
+      endpoint: process.env.S3_ENDPOINT || process.env.DO_SPACES_ENDPOINT,
+      publicUrl: process.env.S3_PUBLIC_URL || process.env.DO_SPACE_URL,
+      keyPrefix: process.env.S3_KEY_PREFIX || 'nfts',
+      region: process.env.S3_REGION || process.env.AWS_REGION || 'us-east-1',
+      accessKeyId: process.env.S3_ACCESS_KEY_ID || process.env.DO_SPACES_KEY,
+      secretAccessKey:
+        process.env.S3_SECRET_ACCESS_KEY || process.env.DO_SPACES_SECRET,
     },
     digitalocean: {
       endpoint: process.env.DO_SPACES_ENDPOINT || '',

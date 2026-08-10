@@ -3,5 +3,5 @@ export default interface IStorageProvider {
     file: string,
     folder?: string,
   ): Promise<{ filename: string; mimetype: string } | undefined>;
-  deleteFile(file: string): Promise<void>;
+  deleteFile(file: string, folder?: string): Promise<void>;
 }

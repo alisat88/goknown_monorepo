@@ -92,7 +92,7 @@ class CreateDigitalAssetsService {
     // if (master_node) {
     // verify if file token exists
     if (master_node) {
-      const fileStorage = await this.storageProvider.saveFile(filename, 'nfts');
+      const fileStorage = await this.storageProvider.saveFile(filename);
       if (!fileStorage) {
         throw new AppError('Error on upload file');
       }
