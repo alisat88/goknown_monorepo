@@ -1,4 +1,4 @@
-import { container } from 'tsyringe';
+import { container, instanceCachingFactory } from 'tsyringe';
 import uploadConfig from '@config/upload';
 
 import IStorageProvider from './models/IStorageProvider';
@@ -11,7 +11,8 @@ const providers = {
   digitalocean: S3StorageProvider,
 };
 
-container.registerSingleton<IStorageProvider>(
-  'StorageProvider',
-  providers[uploadConfig.driver],
-);
+const StorageProvider = providers[uploadConfig.driver];
+
+container.register<IStorageProvider>('StorageProvider', {
+  useFactory: instanceCachingFactory(() => new StorageProvider()),
+});
