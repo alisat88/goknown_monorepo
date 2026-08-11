@@ -54,6 +54,7 @@
     "multer": "^1.4.2",
     "mysql": "^2.14.1",
     "nodemailer": "^6.4.14",
+    "p-limit": "^2.3.0",
     "pg": "^8.4.2",
     "qrcode": "^1.4.4",
     "reflect-metadata": "^0.1.13",
