@@ -20,6 +20,40 @@ export enum EnumPrivacy {
   Private = 'private',
 }
 
+function objectStorageAssetUrl(filename: string): string | null {
+  const { publicUrl, keyPrefix } = uploadConfig.config.aws;
+  if (!publicUrl) {
+    return null;
+  }
+
+  let key = filename.trim().replace(/\\/g, '/');
+
+  try {
+    if (/^https?:\/\//i.test(key)) {
+      key = new URL(key).pathname;
+    }
+    key = decodeURIComponent(key);
+  } catch {
+    // Keep malformed legacy values usable instead of failing serialization.
+  }
+
+  key = key.replace(/[?#].*$/, '').replace(/^\/+/, '');
+  key = key.replace(/^(?:files|uploads)\//, '');
+
+  const prefix = keyPrefix.replace(/^\/+|\/+$/g, '');
+  if (prefix && key.startsWith(`${prefix}/`)) {
+    key = key.slice(prefix.length + 1);
+  }
+
+  const objectKey = prefix ? `${prefix}/${key}` : key;
+  const encodedKey = objectKey
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+
+  return `${publicUrl.replace(/\/$/, '')}/${encodedKey}`;
+}
+
 @Entity('digitalassets')
 class DigitalAsset {
   @PrimaryGeneratedColumn('uuid')
@@ -98,14 +132,7 @@ class DigitalAsset {
           : null;
       case 's3':
       case 'digitalocean':
-        if (!uploadConfig.config.aws.publicUrl) {
-          return null;
-        }
-        return `${uploadConfig.config.aws.publicUrl.replace(/\/$/, '')}/${
-          uploadConfig.config.aws.keyPrefix
-            ? `${uploadConfig.config.aws.keyPrefix.replace(/^\/+|\/+$/g, '')}/`
-            : ''
-        }${encodeURIComponent(this.filename)}`;
+        return objectStorageAssetUrl(this.filename);
       default:
         return null;
     }
