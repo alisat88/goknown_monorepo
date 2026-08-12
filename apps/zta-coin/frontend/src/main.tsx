@@ -16,7 +16,7 @@ import {
 import "./styles.css";
 
 const API_URL =
-  import.meta.env.VITE_ZTA_API_URL ?? "https://dappgenius-demo-1.onrender.com";
+  import.meta.env.VITE_ZTA_API_URL ?? "https://api.zta-coin.org";
 const DAPPGENIUS_DASHBOARD_URL =
   import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev";
 
