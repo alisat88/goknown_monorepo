@@ -2,7 +2,7 @@
 //
 // Token handoff from DAppGenius:
 //   DAppGenius opens the builder with the JWT in the URL fragment:
-//     https://app-builder-sqqz.onrender.com#token=<JWT>
+//     https://dappbuilder.app#token=<JWT>
 //
 // The fragment is never sent to the server (browser security), so it is safe
 // to transport the token this way. On load we:
