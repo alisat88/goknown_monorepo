@@ -1,6 +1,6 @@
 import { buildDappBuilderUrl, launchExternalApp, GOKNOWN_TOKEN_KEY } from "./launchApp";
 
-const DAPP_BUILDER_BASE = 'https://app-builder-sqqz.onrender.com';
+const DAPP_BUILDER_BASE = 'https://dappbuilder.app';
 const SAMPLE_JWT =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9' +
   '.eyJzdWIiOiJ1c2VyLTEyMyIsImlhdCI6MTc1MH0' +

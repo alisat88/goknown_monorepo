@@ -7,12 +7,9 @@ export const GOKNOWN_TOKEN_KEY = "@GoKnown:token";
 /**
  * Build the DApp Builder URL with the session JWT in the URL fragment.
  *
- * The trailing slash before `#` is required: Render's CDN redirects a bare
- * domain (https://app-builder-sqqz.onrender.com) to the root path
- * (https://app-builder-sqqz.onrender.com/).  Browsers drop the URL fragment
- * when following that server-side 301, so the DApp Builder would receive no
- * token.  Appending `/` forces the request directly to the root path, skipping
- * the redirect entirely.
+ * The trailing slash before `#` ensures the token fragment is attached
+ * directly to the root URL. This avoids losing the fragment if the hosting
+ * platform redirects the bare domain to the root path.
  */
 export function buildDappBuilderUrl(baseUrl: string, token: string): string {
   const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
