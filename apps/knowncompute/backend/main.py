@@ -1,9 +1,10 @@
 import os
 import uuid
 import json
+import secrets
 from io import StringIO
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -360,8 +361,24 @@ def full_history(db: Session = Depends(get_db)):
 # ADMIN
 # =====================================================
 
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
+
+
+def require_admin(
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+):
+    if not ADMIN_API_KEY:
+        raise HTTPException(status_code=503, detail="Admin endpoints are disabled")
+
+    if not x_admin_key or not secrets.compare_digest(x_admin_key, ADMIN_API_KEY):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
 @app.post("/admin/soft-reset")
-def soft_reset(db: Session = Depends(get_db)):
+def soft_reset(
+    _admin: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     archived_count = db.query(TransitionAudit)\
         .filter(TransitionAudit.archived == False)\
         .update({"archived": True}, synchronize_session=False)
@@ -370,7 +387,10 @@ def soft_reset(db: Session = Depends(get_db)):
     return {"status": "ok", "archived_records": archived_count}
 
 @app.post("/admin/hard-reset")
-def hard_reset(db: Session = Depends(get_db)):
+def hard_reset(
+    _admin: None = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     deleted_audits = db.query(TransitionAudit).delete(synchronize_session=False)
     deleted_workflows = db.query(WorkflowInstance).delete(synchronize_session=False)
     deleted_models = db.query(WorkflowModel).delete(synchronize_session=False)
