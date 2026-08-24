@@ -22,7 +22,7 @@ export interface ILaunchExternalOptions {
 }
 
 /**
- * Open an external app in a new tab.
+ * Open an external app in the current tab so Back returns to the authenticated dashboard.
  *
  * For DApp Builder (flag === 'dapp_builder') the session JWT is read from
  * localStorage and appended as a URL fragment.  If no token is present,
@@ -44,12 +44,8 @@ export function launchExternalApp(
       options.onMissingToken();
       return;
     }
-    window.open(
-      buildDappBuilderUrl(externalUrl, token),
-      "_blank",
-      "noopener,noreferrer"
-    );
+    window.open(buildDappBuilderUrl(externalUrl, token), "_self");
   } else {
-    window.open(externalUrl, "_blank", "noopener,noreferrer");
+    window.open(externalUrl, "_self");
   }
 }

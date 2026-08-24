@@ -4,15 +4,13 @@ import { ZTA_COIN_URL } from "../../config/externalApps";
 
 const Payments: React.FC = () => {
   useEffect(() => {
-    window.open(ZTA_COIN_URL, "_blank", "noopener,noreferrer");
+    window.open(ZTA_COIN_URL, "_self");
   }, []);
 
   return (
     <div style={{ padding: "20px" }}>
       <h1>Redirecting to Payments...</h1>
-      <a href={ZTA_COIN_URL} target="_blank" rel="noopener noreferrer">
-        Open ZTA Coin
-      </a>
+      <a href={ZTA_COIN_URL}>Open ZTA Coin</a>
     </div>
   );
 };

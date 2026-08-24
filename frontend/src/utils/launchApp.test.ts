@@ -29,6 +29,7 @@ test('launch-1: DApp Builder tile includes #token= in the opened URL', () => {
   expect(mockWindowOpen).toHaveBeenCalledTimes(1);
   const openedUrl = mockWindowOpen.mock.calls[0][0] as string;
   expect(openedUrl).toContain('#token=');
+  expect(mockWindowOpen.mock.calls[0][1]).toBe('_self');
 });
 
 // ── Test 2: Token value is URL-encoded ───────────────────────────────────────
@@ -68,6 +69,7 @@ test('launch-4: non-DApp-Builder apps open with the raw URL and no token', () =>
   launchExternalApp('https://zta-coin.org', 'payments', { onMissingToken: jest.fn() });
 
   expect(mockWindowOpen).toHaveBeenCalledTimes(2);
+  expect(mockWindowOpen.mock.calls.every(call => call[1] === '_self')).toBe(true);
   const [url1, url2] = mockWindowOpen.mock.calls.map((c) => c[0] as string);
   expect(url1).toBe('https://knowncompute.ai');
   expect(url2).toBe('https://zta-coin.org');
