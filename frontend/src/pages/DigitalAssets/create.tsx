@@ -23,6 +23,7 @@ import Toggle from "../../components/Toggle";
 import { useToast } from "../../hooks/toast";
 import api from "../../services/api";
 import getValidationErrors from "../../utils/getValidationErrors";
+import { getDigitalAssetReturnPath } from "./navigation";
 import {
   Container,
   ToggleContent,
@@ -75,6 +76,8 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
     return "";
   }, [idGroup, idOrganization, idRoom]);
 
+  const returnPath = getDigitalAssetReturnPath(baseNavigationPath, folderId);
+
   const handleSubmit = useCallback(
     async (data: any, { reset }: any) => {
       try {
@@ -111,7 +114,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
         formData.append("folder_sync_id", data.folder);
         // used '' to validate at the backend
         // eslint-disable-next-line prettier/prettier
-        formData.append("room_syncid", idRoom || '');
+        formData.append("room_syncid", idRoom || "");
 
         setUploading(true);
         await api.post("/me/digitalassets", formData, {
@@ -130,11 +133,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
           type: "success",
           description: "Your asset has been uploaded successfully",
         });
-        if (folderId) {
-          history.push(`${baseNavigationPath}/folder/${folderId}/preview`);
-        } else {
-          history.push(`${baseNavigationPath}/digitalassets`);
-        }
+        history.push(returnPath);
       } catch (err: any) {
         if (err instanceof Yup.ValidationError) {
           const errors = getValidationErrors(err);
@@ -154,7 +153,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
         setLoading(false);
       }
     },
-    [addToast, baseNavigationPath, folderId, history, idRoom]
+    [addToast, history, idRoom, returnPath]
   );
 
   const loadFolders = useCallback(
@@ -213,14 +212,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
     <Container height={170} mobileHeight={90}>
       <header>
         <div>
-          <ButtonBack
-            mobileTitle="New Digital Assets"
-            goTo={
-              folderId
-                ? `${baseNavigationPath}/folder/${folderId}/preview`
-                : `${baseNavigationPath}/digitalassets`
-            }
-          />
+          <ButtonBack mobileTitle="New Digital Assets" goTo={returnPath} />
           <h1>New Digital Assets</h1>
         </div>
       </header>
