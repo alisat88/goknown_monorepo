@@ -401,7 +401,7 @@ export default function Folder() {
 
               {!isWelcomeFolder && (
                 <>
-                  <h3> Select a Partcipant</h3>
+                  <h3> Select a Participant</h3>
                   <section>
                     <div>
                       <ButtonTransform
@@ -414,7 +414,7 @@ export default function Folder() {
                         }
                       >
                         <AsyncSelect
-                          name="partcipant"
+                          name="participant"
                           type="avatar"
                           onChange={(value: any) =>
                             value
@@ -430,7 +430,7 @@ export default function Folder() {
                           }
                           isClearable
                           isLoading={asyncLoading}
-                          placeholder="Partcipant"
+                          placeholder="Participant"
                           loadOptions={loadUsers}
                         />
                       </ButtonTransform>
