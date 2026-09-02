@@ -5,6 +5,7 @@ import CreateUserService, {
   CreateUserResultStatus,
 } from '@modules/users/services/CreateUserService';
 import ListAllUsersService from '@modules/users/services/ListAllUsersService';
+import ListShareParticipantsService from '@modules/users/services/ListShareParticipantsService';
 import SendWelcomeEmailService from '@modules/users/services/SendWelcomeEmailService';
 import UpdateUserService from '@modules/users/services/UpdateUserService';
 import SyncNodeProvider from '@shared/container/providers/SyncNodeProvider/implementations/SyncNodeProvider';
@@ -25,6 +26,27 @@ export default class UsersController {
         offset: Number(offset),
       });
       return response.json(users);
+    } catch (err) {
+      return response.status(400).json({ error: err.message });
+    }
+  }
+
+  public async participants(
+    request: Request,
+    response: Response,
+  ): Promise<Response> {
+    try {
+      const { name = '' } = request.query;
+
+      const listShareParticipants = container.resolve(
+        ListShareParticipantsService,
+      );
+
+      const participants = await listShareParticipants.execute({
+        name: String(name),
+      });
+
+      return response.json(participants);
     } catch (err) {
       return response.status(400).json({ error: err.message });
     }

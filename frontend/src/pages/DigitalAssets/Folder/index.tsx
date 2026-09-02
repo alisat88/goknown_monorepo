@@ -128,39 +128,51 @@ export default function Folder() {
   );
 
   const loadUsers = useCallback(async (value: any) => {
-    if (value.length > 2) {
-      try {
-        // setAsyncLoading(true);
-        const response = await api.get<IUserData[]>("/users", {
-          params: { name: value },
-        });
-
-        const responseGroup = await api.get<IGroupData[]>("/me/groups", {
-          params: { name: value },
-        });
-        const groups = responseGroup.data.map((group) => ({
-          value: group.sync_id,
-          label: `${group.name}`,
-          firstName: group.name.split(" ")[0],
-          type: "group",
-          avatar_url: groupIcon,
-          sync_id: group.sync_id,
-        }));
-
-        const users = response.data.map((usu) => ({
-          value: usu.sync_id,
-          label: `${usu.name}`,
-          firstName: usu.name.split(" ")[0],
-          type: "user",
-          ...usu,
-        }));
-        setAsyncLoading(false);
-        return [...users, ...groups];
-      } catch (err: any) {
-        // setAsyncLoading(false);
-        console.log(err);
-      }
+    if (value.length <= 2) {
+      return [];
     }
+
+    setAsyncLoading(true);
+
+    let users: any[] = [];
+    let groups: any[] = [];
+
+    try {
+      const response = await api.get<IUserData[]>("/users/participants", {
+        params: { name: value },
+      });
+
+      users = response.data.map((user) => ({
+        value: user.sync_id,
+        label: `${user.name}`,
+        firstName: user.name.split(" ")[0],
+        type: "user",
+        ...user,
+      }));
+    } catch (err: any) {
+      console.log("Unable to load participant users", err);
+    }
+
+    try {
+      const response = await api.get<IGroupData[]>("/me/groups", {
+        params: { name: value },
+      });
+
+      groups = response.data.map((group) => ({
+        value: group.sync_id,
+        label: `${group.name}`,
+        firstName: group.name.split(" ")[0],
+        type: "group",
+        avatar_url: groupIcon,
+        sync_id: group.sync_id,
+      }));
+    } catch (err: any) {
+      console.log("Unable to load participant groups", err);
+    }
+
+    setAsyncLoading(false);
+
+    return [...users, ...groups];
   }, []);
 
   const handleSubmitFolder = useCallback(

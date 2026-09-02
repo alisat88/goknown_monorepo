@@ -48,6 +48,17 @@ usersRouter.get(
   usersController.index,
 );
 
+usersRouter.get(
+  '/participants',
+  celebrate({
+    [Segments.QUERY]: {
+      name: Joi.string().trim().min(3).required(),
+    },
+  }),
+  ensureAuthenticated,
+  usersController.participants,
+);
+
 usersRouter.post(
   '/',
   /*

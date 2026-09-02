@@ -36,7 +36,9 @@ class UsersRepository implements IUsersRepository {
     const nameQuery = name
       ? {
           name: Raw(
-            alias => `${alias} ILIKE '%${name}%' OR email ILIKE '%${name}%'`,
+            alias =>
+              `(${alias} ILIKE :participantName OR email ILIKE :participantName)`,
+            { participantName: `%${name}%` },
           ),
         }
       : null;
