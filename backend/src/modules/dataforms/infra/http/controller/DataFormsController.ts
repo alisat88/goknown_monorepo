@@ -57,7 +57,7 @@ export default class DataFormsController {
       const syncNodeProvider = container.resolve(SyncNodeProvider);
       await syncNodeProvider.sync({
         dapp_token_sync_id: request.body.sync_id,
-        endpoint: '/me/dataforms ',
+        endpoint: '/me/dataforms',
         request,
         method: 'post',
       });

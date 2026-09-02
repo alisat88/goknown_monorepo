@@ -48,6 +48,18 @@ class CreateDataFormsService {
       throw new AppError('User not found');
     }
 
+    const existingDataForm = await this.dataFormsRepository.findBySyncId(
+      sync_id,
+    );
+
+    if (existingDataForm) {
+      if (existingDataForm.owner_id !== user.id) {
+        throw new AppError('Data Form sync conflict', 409);
+      }
+
+      return existingDataForm;
+    }
+
     let shared_groups;
     if (!!shared_groups_ids && shared_groups_ids.length > 0) {
       shared_groups = await this.groupsRepository.findAll({

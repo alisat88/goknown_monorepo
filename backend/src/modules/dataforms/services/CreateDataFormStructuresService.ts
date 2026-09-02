@@ -47,6 +47,20 @@ class CreateDataFormStructuresService {
       throw new AppError(`Only owner can create form structure`);
     }
 
+    const existingStructure =
+      await this.dataFormStructuresRepository.findBySyncId(sync_id);
+
+    if (existingStructure) {
+      if (
+        existingStructure.form_id !== dataForm.id ||
+        existingStructure.owner_id !== user.id
+      ) {
+        throw new AppError('Data Form structure sync conflict', 409);
+      }
+
+      return existingStructure;
+    }
+
     // check if dataForm have structure
     const haveDataFormStructure =
       await this.dataFormStructuresRepository.findByDataFormId(dataForm.id);

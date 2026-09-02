@@ -47,6 +47,18 @@ class CreateDataFormRecordsService {
       throw new AppError('DataForm not found');
     }
 
+    const existingRecord = await this.dataFormRecordsRepository.findBySyncId(
+      sync_id,
+    );
+
+    if (existingRecord) {
+      if (existingRecord.form_id !== dataForm.id) {
+        throw new AppError('Data Form record sync conflict', 409);
+      }
+
+      return existingRecord;
+    }
+
     // create new data form
     const dataFormRecord = await this.dataFormRecordsRepository.create({
       sync_id,
