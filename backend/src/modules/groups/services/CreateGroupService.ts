@@ -34,6 +34,16 @@ class CreateGroupService {
       throw new AppError('User not found');
     }
 
+    const existingGroup = await this.groupsRepository.findBySyncId(sync_id);
+
+    if (existingGroup) {
+      if (existingGroup.owner_id !== user.id) {
+        throw new AppError('Group sync conflict', 409);
+      }
+
+      return existingGroup;
+    }
+
     const shared_users = await this.usersRepository.findAll({
       sync_ids: [...shared_users_ids, user_syncid],
     });
