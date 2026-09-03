@@ -75,13 +75,8 @@ export default function FormStructure() {
   const { user } = useAuth();
   const formRef = useRef<FormHandles>(null);
   const history = useHistory();
-  const {
-    id: dataFormId,
-    idRoom,
-    idOrganization,
-    idGroup,
-  } = useParams<{
-    id: string;
+  const { dataFormId, idRoom, idOrganization, idGroup } = useParams<{
+    dataFormId: string;
     idOrganization: string;
     idGroup: string;
     idRoom: string;

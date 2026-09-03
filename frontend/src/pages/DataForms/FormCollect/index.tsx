@@ -42,13 +42,8 @@ export default function FormCollect() {
 
   // hooks
   const formRef = useRef<FormHandles>(null);
-  const {
-    id: dataFormId,
-    idRoom,
-    idGroup,
-    idOrganization,
-  } = useParams<{
-    id: string;
+  const { dataFormId, idRoom, idGroup, idOrganization } = useParams<{
+    dataFormId: string;
     idRoom: string;
     idGroup: string;
     idOrganization: string;

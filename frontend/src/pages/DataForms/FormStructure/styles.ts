@@ -58,7 +58,6 @@ export const FormBuilder = styled.div`
       }
     }
   }
-  }
 
   // mobile
   @media ${device.laptopM} {

@@ -42,13 +42,8 @@ export default function FormCollect() {
   const [loading, setLoading] = useState(true);
 
   // hooks
-  const {
-    id: dataFormId,
-    idRoom,
-    idGroup,
-    idOrganization,
-  } = useParams<{
-    id: string;
+  const { dataFormId, idRoom, idGroup, idOrganization } = useParams<{
+    dataFormId: string;
     idRoom: string;
     idGroup: string;
     idOrganization: string;

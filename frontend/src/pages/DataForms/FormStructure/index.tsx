@@ -74,13 +74,8 @@ export default function FormStructure() {
   const formRef = useRef<FormHandles>(null);
   const formEditRef = useRef<FormHandles>(null);
   const location = useLocation<ILocationsProps>();
-  const {
-    id: dataFormId,
-    idRoom,
-    idGroup,
-    idOrganization,
-  } = useParams<{
-    id: string;
+  const { dataFormId, idRoom, idGroup, idOrganization } = useParams<{
+    dataFormId: string;
     idRoom: string;
     idGroup: string;
     idOrganization: string;
