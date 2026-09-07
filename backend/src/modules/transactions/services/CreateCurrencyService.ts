@@ -29,6 +29,13 @@ class CreateCurrencyService {
       throw new AppError('Organization not found');
     }
 
+    const existingCurrency =
+      await this.currenciesRepository.findByOrganizationId(organization_id);
+
+    if (existingCurrency) {
+      return existingCurrency;
+    }
+
     if (organization.enableWallet) {
       return null;
     }

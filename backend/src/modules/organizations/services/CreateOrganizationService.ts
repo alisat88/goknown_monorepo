@@ -47,6 +47,17 @@ class CreateOrganizationService {
       throw new AppError('User not found');
     }
 
+    const existingOrganization =
+      await this.organizationsRepository.findBySyncId(sync_id);
+
+    if (existingOrganization) {
+      if (existingOrganization.owner_id !== owner.id) {
+        throw new AppError('Organization sync conflict', 409);
+      }
+
+      return existingOrganization;
+    }
+
     // create organization
     const organization = await this.organizationsRepository.create({
       name,
