@@ -84,6 +84,17 @@ class CreateGroupService {
       );
     }
 
+    const existingGroup =
+      await this.organizationsGroupsRepository.findBySyncId(sync_id);
+
+    if (existingGroup) {
+      if (existingGroup.organization_id !== organization.id) {
+        throw new AppError('Organization group sync conflict', 409);
+      }
+
+      return existingGroup;
+    }
+
     // save group
     const group = await this.organizationsGroupsRepository.create({
       name,

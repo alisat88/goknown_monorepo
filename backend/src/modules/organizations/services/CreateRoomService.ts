@@ -90,6 +90,17 @@ class CreateRoomService {
       );
     }
 
+    const existingRoom =
+      await this.organizationsRoomsRepository.findBySyncId(sync_id);
+
+    if (existingRoom) {
+      if (existingRoom.group_id !== group.id) {
+        throw new AppError('Organization room sync conflict', 409);
+      }
+
+      return existingRoom;
+    }
+
     // find dls
     const dls = await this.dlsRepository.findAllBySyncId(dls_syncids);
 
