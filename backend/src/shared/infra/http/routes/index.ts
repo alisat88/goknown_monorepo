@@ -21,7 +21,8 @@ import auditLogsRouter from '@modules/auditlogs/infra/http/routes/auditlogs.rout
 import dlsRouter from '@modules/dls/infra/http/routes/dls.routes';
 import adminRouter from '@modules/admin/infra/http/routes/admin.routes';
 import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.routes';
-import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
+// Laboratory API is intentionally disabled; source code is preserved.
+// import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
 import consensusRouter from '@modules/consensus/infra/http/routes/consensus.routes';
 import paymentsRouter from "./payments.routes";
 import dappBuilderRouter from '@modules/dappbuilder/infra/http/routes/dappbuilder.routes';
@@ -67,7 +68,8 @@ routes.use('/auditlogs', auditLogsRouter);
 
 routes.use('/admin', adminRouter);
 
-routes.use('/laboratory', laboratoryRouter);
+// Laboratory API is intentionally disabled; source code is preserved.
+// routes.use('/laboratory', laboratoryRouter);
 
 routes.use("/", paymentsRouter);
 

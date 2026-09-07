@@ -32,7 +32,8 @@ import auditLogsRouter from '@modules/auditlogs/infra/http/routes/auditlogs.rout
 import dlsRouter from '@modules/dls/infra/http/routes/dls.routes';
 import adminRouter from '@modules/admin/infra/http/routes/admin.routes';
 import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.routes';
-import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
+// Laboratory API is intentionally disabled; source code is preserved.
+// import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
 import { isDatabaseReady } from '@shared/infra/typeorm';
 
 const routes = Router();
@@ -107,6 +108,7 @@ routes.use('/organizations/rooms', organizationsRoomsRouter);
 routes.use('/dls', dlsRouter);
 routes.use('/auditlogs', auditLogsRouter);
 routes.use('/admin', adminRouter);
-routes.use('/laboratory', laboratoryRouter);
+// Laboratory API is intentionally disabled; source code is preserved.
+// routes.use('/laboratory', laboratoryRouter);
 
 export default routes;

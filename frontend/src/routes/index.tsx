@@ -24,7 +24,8 @@ import ForgotPassword from "../pages/ForgotPassword";
 import Groups from "../pages/Groups";
 import GroupsStore from "../pages/Groups/store";
 import InviteUser from "../pages/InviteUser";
-import Laboratory from "../pages/Laboratory";
+// Laboratory is intentionally disabled; source code is preserved.
+// import Laboratory from "../pages/Laboratory";
 import Messenger from "../pages/Messenger";
 import Organizations from "../pages/Organizations";
 import EditOrganization from "../pages/Organizations/edit";
@@ -321,7 +322,9 @@ const Routes: React.FC<React.PropsWithChildren<unknown>> = () => (
     <Route path="/messenger" exact component={Messenger} isPrivate />
     <Route path="/auditlogs" exact component={Auditlogs} isPrivate />
     <Route path="/users" exact component={InviteUser} isPrivate />
+    {/* Laboratory is intentionally disabled; source code is preserved.
     <Route path="/labs" exact component={Laboratory} isPrivate />
+    */}
 
     <Route path="/payments" component={Payments} isPrivate />
     <Route path="/workflow" component={Workflow} isPrivate />

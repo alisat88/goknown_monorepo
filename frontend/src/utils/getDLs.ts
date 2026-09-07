@@ -6,7 +6,8 @@ import dappbuilder from "../assets/dappbuilder.png";
 import dataforms from "../assets/dataforms.svg";
 import group from "../assets/group.svg";
 import knowncompute from "../assets/KnownCompute.jpg";
-import laboratory from "../assets/laboratory.png";
+// Laboratory is intentionally disabled; its asset is preserved.
+// import laboratory from "../assets/laboratory.png";
 import nft from "../assets/nft.svg";
 import organizations from "../assets/organizations.svg";
 import team from "../assets/team.svg";
@@ -98,18 +99,19 @@ export default [
     flag: "inviteusers",
     roles: "admin",
   },
-  {
-    id: uuid(),
-    sync_id: uuid(),
-    name: "Laboratory",
-    description:
-      "Administrative tools for testing, beta operations, and controlled workspace setup.",
-    icon: laboratory,
-    icon_url: laboratory,
-    route: "/labs",
-    flag: "labs",
-    roles: "admin",
-  },
+  // Laboratory is intentionally disabled; keep this entry for restoration.
+  // {
+  //   id: uuid(),
+  //   sync_id: uuid(),
+  //   name: "Laboratory",
+  //   description:
+  //     "Administrative tools for testing, beta operations, and controlled workspace setup.",
+  //   icon: laboratory,
+  //   icon_url: laboratory,
+  //   route: "/labs",
+  //   flag: "labs",
+  //   roles: "admin",
+  // },
 
   // ============================================
   // 💳 ZTA COIN (Payments App)
