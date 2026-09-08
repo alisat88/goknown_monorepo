@@ -141,7 +141,52 @@ async function testInvalidMintAmounts() {
   }
 }
 
-// ── Test 2: Transfer debits and credits persistent accounts ────────────────
+
+async function testMintToUserThenTransfer() {
+  console.log(
+    "\nTest 4: Minting to a demo user enables a user-to-user transfer",
+  );
+
+  await cleanTestAccounts();
+  await cleanTestLedgerEntries();
+
+  const mintService = new MintTokenService();
+  await mintService.execute({
+    user_id: ISSUER,
+    to_user: SENDER,
+    amount: 100,
+  });
+
+  const transferService = new TransferTokenService();
+  await transferService.execute({
+    from_user: SENDER,
+    to_user: RECEIVER,
+    amount: 25,
+  });
+
+  const senderBalance = await accountService.getBalance(SENDER);
+  const receiverBalance = await accountService.getBalance(RECEIVER);
+
+  ok(
+    "Mint recipient has 75 tokens after transferring 25",
+    senderBalance === 75,
+    `actual=${senderBalance}`,
+  );
+  ok(
+    "Transfer receiver has 25 tokens",
+    receiverBalance === 25,
+    `actual=${receiverBalance}`,
+  );
+
+  const senderEntries = await ledgerService.getByAccount(SENDER);
+  ok(
+    "Mint and transfer ledger entries were persisted",
+    senderEntries.length === 2,
+    `actual=${senderEntries.length}`,
+  );
+}
+
+// ── Test 5: Transfer debits and credits persistent accounts ────────────────
 async function testTransferPersistence() {
   console.log('\nTest 2: Transfer debits sender and credits receiver persistently');
   await cleanTestAccounts();
@@ -328,6 +373,7 @@ async function main() {
     await testMintPersistence();
     await testMintRollback();
     await testInvalidMintAmounts();
+    await testMintToUserThenTransfer();
     await testTransferPersistence();
     await testLedgerSnapshots();
     await testInsufficientBalance();

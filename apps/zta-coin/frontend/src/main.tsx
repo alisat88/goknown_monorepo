@@ -29,8 +29,6 @@ const DEMO_USERS = [
   "Leo",
 ] as const;
 const MINT_ISSUER_ACCOUNT = "KN_ISSUER";
-const MINT_RESERVE_ACCOUNT = "KNOWN_SYSTEM";
-
 type DemoUser = (typeof DEMO_USERS)[number];
 
 type RequestState = {
@@ -258,6 +256,7 @@ function RawResponse({ state }: { state: RequestState }) {
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mintAmount, setMintAmount] = useState(100);
+  const [mintTo, setMintTo] = useState<DemoUser>("Mike");
   const [transferFrom, setTransferFrom] = useState<DemoUser>("Mike");
   const [transferTo, setTransferTo] = useState<DemoUser>("Connie");
   const [transferAmount, setTransferAmount] = useState(25);
@@ -337,12 +336,13 @@ function App() {
         method: "POST",
         body: JSON.stringify({
           user_id: MINT_ISSUER_ACCOUNT,
+          to_user: mintTo,
           amount: mintAmount,
         }),
       });
       setMintState({
         loading: false,
-        success: `Minted ${mintAmount} ZTA into ${MINT_RESERVE_ACCOUNT}.`,
+        success: `Minted ${mintAmount} ZTA to ${mintTo}.`,
         error: "",
         raw,
       });
@@ -566,7 +566,7 @@ function App() {
               <div className="panel-header">
                 <div>
                   <span>Mint token</span>
-                  <h2>Issue ZTA reserve</h2>
+                  <h2>Issue ZTA to a user</h2>
                 </div>
                 <Coins />
               </div>
@@ -576,8 +576,19 @@ function App() {
                   <input value={MINT_ISSUER_ACCOUNT} readOnly />
                 </label>
                 <label>
-                  Destination reserve
-                  <input value={MINT_RESERVE_ACCOUNT} readOnly />
+                  Destination account
+                  <select
+                    value={mintTo}
+                    onChange={(event) =>
+                      setMintTo(event.target.value as DemoUser)
+                    }
+                  >
+                    {DEMO_USERS.map((user) => (
+                      <option key={user} value={user}>
+                        {user}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   Amount

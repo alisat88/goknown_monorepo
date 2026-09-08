@@ -9,6 +9,7 @@ import {
 
 interface IRequest {
   user_id: string;
+  to_user?: string;
   amount: number;
 }
 
@@ -17,6 +18,7 @@ interface ILedgerRecord {
   timestamp: string;
   transactionId: string;
   issuer: string;
+  recipient: string;
   before: number;
   minted: number;
   after: number;
@@ -34,10 +36,24 @@ class MintTokenService {
       ledgerService.record(record, manager),
   ) {}
 
-  public async execute({ user_id, amount }: IRequest): Promise<ILedgerRecord> {
+  public async execute({
+    user_id,
+    to_user,
+    amount,
+  }: IRequest): Promise<ILedgerRecord> {
     // 🔒 Enforce issuer-only minting
     if (user_id !== this.ISSUER_ACCOUNT) {
       throw new Error("Only KN Issuer Account can mint tokens");
+    }
+
+    let destinationAccount = this.SYSTEM_ACCOUNT;
+
+    if (to_user !== undefined) {
+      if (typeof to_user !== "string" || !to_user.trim()) {
+        throw new Error("A valid destination account is required");
+      }
+
+      destinationAccount = to_user.trim();
     }
 
     const normalizedAmount = normalizeTokenAmount(amount);
@@ -45,12 +61,12 @@ class MintTokenService {
 
     return getConnection().transaction(async manager => {
       const preBalanceDecimal = await accountService.getBalanceDecimal(
-        this.SYSTEM_ACCOUNT,
+        destinationAccount,
         manager,
       );
-      await accountService.credit(this.SYSTEM_ACCOUNT, normalizedAmount, manager);
+      await accountService.credit(destinationAccount, normalizedAmount, manager);
       const postBalanceDecimal = await accountService.getBalanceDecimal(
-        this.SYSTEM_ACCOUNT,
+        destinationAccount,
         manager,
       );
 
@@ -62,7 +78,7 @@ class MintTokenService {
         type: transactionType,
         timestamp,
         issuer: user_id,
-        to: this.SYSTEM_ACCOUNT,
+        to: destinationAccount,
         amount: apiAmount,
         before: { balance: preBalance },
         after: { balance: postBalance },
@@ -73,6 +89,7 @@ class MintTokenService {
         timestamp,
         transactionId,
         issuer: user_id,
+        recipient: destinationAccount,
         before: preBalance,
         minted: apiAmount,
         after: postBalance,
@@ -84,7 +101,7 @@ class MintTokenService {
           type: transactionType,
           timestamp,
           from: user_id,
-          to: this.SYSTEM_ACCOUNT,
+          to: destinationAccount,
           amount: normalizedAmount,
           before: { balance: preBalance },
           after: { balance: postBalance },

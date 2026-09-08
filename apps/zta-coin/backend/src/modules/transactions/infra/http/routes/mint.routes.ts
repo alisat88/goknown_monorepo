@@ -11,13 +11,14 @@ const mintRouter = Router();
 
 mintRouter.post('/', async (request, response) => {
   try {
-    const { user_id, amount, organization_id } = request.body;
+    const { user_id, to_user, amount, organization_id } = request.body;
 
     // ✅ NO dependency injection
     const mintService = new MintTokenService();
 
     const transaction = await mintService.execute({
       user_id,
+      to_user,
       amount,
       organization_id,
     });
