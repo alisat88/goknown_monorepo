@@ -54,6 +54,13 @@ validateConsensusConfig();
 const app = express();
 
 /**
+ * The production API runs behind one DigitalOcean Load Balancer.
+ * Trust that proxy so Express and express-rate-limit can resolve the
+ * originating client IP from X-Forwarded-For.
+ */
+app.set('trust proxy', 1);
+
+/**
  * Cors Policy
  */
 app.use(cors());
