@@ -477,10 +477,10 @@ test('auth-15: production auth gate shows sign-in link and never shows "Select y
   expect(screen.queryByText('Select your name from the list')).toBeNull();
 }, 5000);
 
-// ── auth-16: demo mode auth gate shows "Select your name" when no URL identity is set ──
+// ── auth-16: demo mode cannot bypass authenticated identity ──
 
-test('auth-16: demo mode auth gate shows "Select your name from the list" when no identity is in the URL', async () => {
-  // No token, no URL params — only VITE_DEMO_MODE is set
+test('auth-16: demo mode still requires DAppGenius authentication', async () => {
+  // No token or URL identity; VITE_DEMO_MODE must not enable impersonation.
   vi.stubEnv('VITE_DEMO_MODE', 'true');
 
   render(
@@ -489,9 +489,11 @@ test('auth-16: demo mode auth gate shows "Select your name from the list" when n
     </AuthProvider>,
   );
 
-  // Wait for the demo-mode selector heading to appear
-  await screen.findByText('Select your name from the list', {}, { timeout: 5000 });
+  await screen.findByText(
+    /sign in to dappgenius to access dapp builder/i,
+    {},
+    { timeout: 5000 },
+  );
 
-  // Must NOT show the production sign-in link
-  expect(screen.queryByText(/sign in to dappgenius/i)).toBeNull();
+  expect(screen.queryByText(/select your name/i)).toBeNull();
 }, 5000);

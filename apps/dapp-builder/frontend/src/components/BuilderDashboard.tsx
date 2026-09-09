@@ -22,7 +22,7 @@ import {
 import {
   Template, WorkflowBlock, TabId, SavedDApp, DemoUser, SharedRole, SharedAccess, ProjectStatus,
 } from '../types';
-import { useAuth, AuthUser } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../services/api';
 import {
   TEMPLATES, WORKFLOW_BLOCKS, DEMO_PROJECTS, TEMPLATE_DEFAULT_BLOCKS,
@@ -116,69 +116,13 @@ function formatDate(iso: string): string {
 }
 
 function getUserRole(app: SavedDApp, email: string): 'Owner' | SharedRole | null {
-  if (app.ownerId === email) return 'Owner';
+  if (app.ownerId.toLowerCase() === email.toLowerCase()) return 'Owner';
   const access = (app.sharedAccess ?? []).find((a) => a.email === email.toLowerCase());
   if (access) return access.role;
   if (app.sharedWith.map((e) => e.toLowerCase()).includes(email.toLowerCase())) return 'Viewer';
   return null;
 }
 
-// ── CurrentUserBar ───────────────────────────────────────────────────────────
-// When DAppGenius hands off an authenticated user via URL params, that user is
-// pre-selected and the bar shows "Viewing as: <name>".
-// When accessed directly (no URL params), no user is pre-selected and the bar
-// shows "Select your name:" so demo participants can pick who they are.
-
-function CurrentUserBar({
-  currentUser,
-  authUser,
-  onChange,
-}: {
-  currentUser: DemoUser | null;
-  authUser: AuthUser | null;
-  onChange: (u: DemoUser) => void;
-}) {
-  // Build display order: ungrouped users first, then one group per team label.
-  const ungrouped = DEMO_USERS.filter((u) => !u.team);
-  const teamNames = Array.from(
-    new Set(DEMO_USERS.map((u) => u.team).filter((t): t is string => !!t))
-  );
-
-  return (
-    <div className="demo-user-bar">
-      <span className="demo-user-label">
-        {authUser ? 'Viewing as:' : 'Select your name:'}
-      </span>
-      <div className="demo-user-btns">
-        {ungrouped.map((u) => (
-          <button
-            key={u.email}
-            className={`demo-user-btn${currentUser?.email === u.email ? ' active' : ''}`}
-            onClick={() => onChange(u)}
-            title={u.email}
-          >
-            {u.name}
-          </button>
-        ))}
-        {teamNames.map((team) => (
-          <React.Fragment key={team}>
-            <span className="demo-user-team-label">{team}</span>
-            {DEMO_USERS.filter((u) => u.team === team).map((u) => (
-              <button
-                key={u.email}
-                className={`demo-user-btn${currentUser?.email === u.email ? ' active' : ''}`}
-                onClick={() => onChange(u)}
-                title={u.email}
-              >
-                {u.name}
-              </button>
-            ))}
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ── SavedAppPage ─────────────────────────────────────────────────────────────
 
@@ -363,11 +307,14 @@ function DashboardPane({
 }: DashboardPaneProps) {
   const [sharingAppId, setSharingAppId] = useState<string | null>(null);
 
-  const myApps = savedApps.filter((app) => app.ownerId === currentUser.email);
+  const currentUserEmail = currentUser.email.toLowerCase();
+  const myApps = savedApps.filter(
+    (app) => app.ownerId.toLowerCase() === currentUserEmail
+  );
   const sharedApps = savedApps.filter(
     (app) =>
-      app.ownerId !== currentUser.email &&
-      app.sharedWith.map((e) => e.toLowerCase()).includes(currentUser.email.toLowerCase())
+      app.ownerId.toLowerCase() !== currentUserEmail &&
+      app.sharedWith.map((e) => e.toLowerCase()).includes(currentUserEmail)
   );
 
   const renderCard = (app: SavedDApp) => {
@@ -543,18 +490,12 @@ export function BuilderDashboard() {
   const [appsError,        setAppsError]        = useState<string | null>(null);
   const [appsAuthRequired, setAppsAuthRequired] = useState(false);
   const [previewApp,     setPreviewApp]     = useState<SavedDApp | null>(null);
-  const [currentUser,    setCurrentUser]    = useState<DemoUser | null>(null);
-  const isDemoMode = (import.meta.env as Record<string, string | undefined>).VITE_DEMO_MODE === 'true';
-
-  // Sync currentUser from the authenticated session when it becomes available.
-  useEffect(() => {
-    if (!authLoading && authUser) {
-      const matched = DEMO_USERS.find(
-        (u) => u.email.toLowerCase() === authUser.userEmail.toLowerCase()
-      );
-      setCurrentUser(matched ?? { name: authUser.userName, email: authUser.userEmail });
-    }
-  }, [authLoading, authUser]);
+  // Identity is derived only from the authenticated DAppGenius session.
+  // It cannot be changed from inside DApp Builder.
+  const currentUser: DemoUser | null =
+    !authLoading && authUser
+      ? { name: authUser.userName, email: authUser.userEmail }
+      : null;
 
   const reloadApps = useCallback(async () => {
     setAppsLoading(true);
@@ -697,10 +638,9 @@ export function BuilderDashboard() {
     setEditingApp(null);
   };
 
-  // ── Chuck demo: creates a real app for Chuck + opens preview immediately ──
-  const handleStartChuckDemo = async () => {
-    const chuckUser = DEMO_USERS.find((u) => u.name === 'Chuck');
-    if (chuckUser) setCurrentUser(chuckUser);
+  // Creates the aviation demo for the authenticated user.
+  const handleStartDemo = async () => {
+    if (!currentUser) return;
 
     const ledgerTemplate = TEMPLATES.find((t) => t.id === 'ledger-app')!;
     const demoBlockIds = ['authenticate-user', 'check-dapp-permission', 'read-ledger-entries'];
@@ -713,9 +653,9 @@ export function BuilderDashboard() {
     const now = new Date().toISOString();
     const config = buildConfig(ledgerTemplate, demoBlocks, 'Aviation Ledger App');
     const localApp: SavedDApp = {
-      id: `dapp_chuck_demo_${Date.now()}`,
+      id: `dapp_aviation_demo_${Date.now()}`,
       dappName: 'Aviation Ledger App',
-      description: 'Immutable aviation maintenance ledger — created by Chuck in the demo flow.',
+      description: `Immutable aviation maintenance ledger — created by ${currentUser.name} in the demo flow.`,
       template: ledgerTemplate.id,
       permissionModel: ledgerTemplate.permissionModel,
       apis: config.apis,
@@ -725,8 +665,8 @@ export function BuilderDashboard() {
       updatedAt: now,
       sharedWith: [],
       sharedAccess: [],
-      ownerId: chuckUser?.email ?? '',
-      ownerName: chuckUser?.name ?? '',
+      ownerId: currentUser.email,
+      ownerName: currentUser.name,
       status: 'Saved',
       version: 1,
     };
@@ -765,24 +705,14 @@ export function BuilderDashboard() {
         />
       )}
 
-      <CurrentUserBar currentUser={currentUser} authUser={authUser} onChange={setCurrentUser} />
 
-      {/* When no user is selected, show the auth gate or a server-error banner */}
+      {/* Require a valid DAppGenius session before showing user-owned apps. */}
       {!currentUser && !authLoading && (
         <div className={authError ? 'auth-error' : 'auth-required'} role={authError ? 'alert' : 'status'}>
           {authError ? (
             <>
               <p><strong>Unable to sign you in.</strong></p>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>{authError}</p>
-            </>
-          ) : isDemoMode ? (
-            <>
-              <p>
-                <strong>Select your name from the list</strong> to access the DApp Builder library and create apps.
-              </p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
-                Signing in from DApp Genius sets your identity automatically.
-              </p>
             </>
           ) : (
             <p>
@@ -904,7 +834,7 @@ export function BuilderDashboard() {
             selectedTemplate={selectedTemplate}
             workflowSteps={workflowSteps}
             demoApp={demoApp}
-            onStartDemo={handleStartChuckDemo}
+            onStartDemo={handleStartDemo}
             onNavigateTab={setActiveTab}
             onViewDemo={() => demoApp && setPreviewApp(demoApp)}
           />
