@@ -826,3 +826,40 @@ button[type="submit"]:not(:disabled):hover,
     padding: 16px;
   }
 }
+.consensus-votes {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.consensus-vote {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.48);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0.75rem 0.9rem;
+}
+
+.consensus-vote.approved {
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+.consensus-vote.rejected {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.consensus-vote strong {
+  color: #6ee7b7;
+}
+
+.consensus-vote.rejected strong {
+  color: #fca5a5;
+}
+
+.consensus-vote small {
+  color: #94a3b8;
+  grid-column: 1 / -1;
+}

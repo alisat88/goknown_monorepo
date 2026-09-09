@@ -66,14 +66,24 @@ type LedgerState = {
   transactions: LedgerTransaction[];
 };
 
+type TransferConsensusVote = {
+  node?: string;
+  decision?: string;
+  reason?: string;
+};
+
 type TransferConsensus = {
+  mode?: "simulation";
   proposalId?: string;
   status?: string;
+  quorum?: number;
   approvalCount?: number;
   rejectionCount?: number;
+  votes?: TransferConsensusVote[];
 };
 
 type TransferResponse = {
+  transactionId?: string;
   consensus?: TransferConsensus;
   [key: string]: unknown;
 };
@@ -194,9 +204,11 @@ function TransferConsensusPanel({ state }: { state: RequestState }) {
   const rejectionCount =
     typeof consensus.rejectionCount === "number" ? consensus.rejectionCount : 0;
   const statusLabel = formatConsensusStatus(consensus.status);
+  const votes = Array.isArray(consensus.votes) ? consensus.votes : [];
+  const validatorCount = votes.length || 3;
   const headline =
     statusLabel === "Approved"
-      ? `Approved by ${approvalCount}/3 nodes`
+      ? `Approved by ${approvalCount}/${validatorCount} simulated validators`
       : statusLabel;
 
   return (
@@ -204,11 +216,14 @@ function TransferConsensusPanel({ state }: { state: RequestState }) {
       <div className="consensus-header">
         <ShieldCheck />
         <div>
-          <span>BFT Consensus</span>
+          <span>BFT Consensus Demo</span>
           <strong>{headline}</strong>
         </div>
       </div>
-      <p>Proposal finalized through the three-node quorum layer.</p>
+      <p>
+        Three simulated validators checked this proposal before balances were
+        updated.
+      </p>
       <dl className="consensus-details">
         <div>
           <dt>Status</dt>
@@ -222,11 +237,37 @@ function TransferConsensusPanel({ state }: { state: RequestState }) {
           <dt>Rejection count</dt>
           <dd>{rejectionCount}</dd>
         </div>
+        <div>
+          <dt>Mode</dt>
+          <dd>
+            {consensus.mode === "simulation" ? "Simulation" : "Not specified"}
+          </dd>
+        </div>
+        <div>
+          <dt>Required quorum</dt>
+          <dd>{consensus.quorum ?? 2} approvals</dd>
+        </div>
         <div className="proposal-id">
           <dt>Proposal ID</dt>
           <dd>{consensus.proposalId || "Not returned"}</dd>
         </div>
       </dl>
+      {votes.length > 0 ? (
+        <div className="consensus-votes">
+          {votes.map((vote, index) => (
+            <div
+              className={`consensus-vote ${
+                vote.decision === "approved" ? "approved" : "rejected"
+              }`}
+              key={`${vote.node || "validator"}-${index}`}
+            >
+              <span>{vote.node || `Validator ${index + 1}`}</span>
+              <strong>{formatConsensusStatus(vote.decision)}</strong>
+              <small>{vote.reason || "No reason returned"}</small>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -391,7 +432,9 @@ function App() {
       const consensus = transferResponse?.consensus;
       const consensusStatus = formatConsensusStatus(consensus?.status);
       const transactionId =
-        consensus?.proposalId || `local-transfer-${Date.now()}`;
+        transferResponse?.transactionId ||
+        consensus?.proposalId ||
+        `local-transfer-${Date.now()}`;
 
       setLocalLedgerEntries((entries) => [
         {
@@ -405,7 +448,7 @@ function App() {
           amount: transferAmount,
           status: consensus ? consensusStatus : "Completed",
           note: consensus
-            ? `Consensus ${consensusStatus.toLowerCase()} with ${consensus.approvalCount ?? 0}/3 approvals.`
+            ? `Consensus demo ${consensusStatus.toLowerCase()} with ${consensus.approvalCount ?? 0}/3 approvals.`
             : "Transfer recorded for this demo session.",
         },
         ...entries,

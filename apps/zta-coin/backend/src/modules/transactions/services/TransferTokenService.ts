@@ -7,6 +7,7 @@ import {
   normalizeTokenAmount,
   tokenAmountToNumber,
 } from '../../../shared/amounts/TokenAmount';
+import DemoBftConsensusService from './DemoBftConsensusService';
 
 interface IRequest {
   from_user: string;
@@ -15,6 +16,8 @@ interface IRequest {
 }
 
 class TransferTokenService {
+  private demoBftConsensusService = new DemoBftConsensusService();
+
   public async execute({
     from_user,
     to_user,
@@ -34,8 +37,39 @@ class TransferTokenService {
         manager,
       );
 
-      if (compareTokenAmounts(fromBeforeDecimal, normalizedAmount) < 0) {
-        throw new Error('Insufficient balance');
+      const hasSufficientBalance =
+        compareTokenAmounts(fromBeforeDecimal, normalizedAmount) >= 0;
+      const timestamp = new Date().toISOString();
+      const proposalId = hashService.hash({
+        type: 'ZTA-BFT-DEMO-PROPOSAL',
+        timestamp,
+        from: from_user,
+        to: to_user,
+        amount: apiAmount,
+        before: {
+          from_balance: tokenAmountToNumber(fromBeforeDecimal),
+          to_balance: tokenAmountToNumber(toBeforeDecimal),
+        },
+      });
+
+      const consensus = this.demoBftConsensusService.execute({
+        proposalId,
+        fromUser: from_user,
+        toUser: to_user,
+        amount: apiAmount,
+        hasSufficientBalance,
+      });
+
+      if (consensus.status !== 'approved') {
+        const rejectedVote = consensus.votes.find(
+          vote => vote.decision === 'rejected',
+        );
+
+        throw new Error(
+          rejectedVote
+            ? rejectedVote.reason
+            : 'Consensus rejected the transfer',
+        );
       }
 
       await accountService.debit(from_user, normalizedAmount, manager);
@@ -54,7 +88,6 @@ class TransferTokenService {
       const fromBalanceAfter = tokenAmountToNumber(fromAfterDecimal);
       const toBalanceAfter = tokenAmountToNumber(toAfterDecimal);
 
-      const timestamp = new Date().toISOString();
       const transactionType = 'KN-TEX-100';
       const transactionPayload = {
         type: transactionType,
@@ -96,6 +129,7 @@ class TransferTokenService {
         to_balance: toBalanceAfter,
         status: 'Completed',
         timestamp,
+        consensus,
       };
     });
   }

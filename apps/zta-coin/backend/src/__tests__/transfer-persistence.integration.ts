@@ -158,11 +158,27 @@ async function testMintToUserThenTransfer() {
   });
 
   const transferService = new TransferTokenService();
-  await transferService.execute({
+  const transferResult = await transferService.execute({
     from_user: SENDER,
     to_user: RECEIVER,
     amount: 25,
   });
+
+  ok(
+    "Transfer returns approved demo consensus",
+    transferResult.consensus?.mode === "simulation" &&
+      transferResult.consensus?.status === "approved",
+  );
+  ok(
+    "All three simulated validators approve",
+    transferResult.consensus?.approvalCount === 3 &&
+      transferResult.consensus?.rejectionCount === 0 &&
+      transferResult.consensus?.votes?.length === 3,
+  );
+  ok(
+    "Consensus requires a two-validator quorum",
+    transferResult.consensus?.quorum === 2,
+  );
 
   const senderBalance = await accountService.getBalance(SENDER);
   const receiverBalance = await accountService.getBalance(RECEIVER);
