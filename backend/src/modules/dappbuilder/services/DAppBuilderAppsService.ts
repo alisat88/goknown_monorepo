@@ -261,12 +261,8 @@ class DAppBuilderAppsService {
 
     await this.dappRepo.upsertAccess(appId, recipient.id, role);
 
-    // Set status to Shared if it wasn't already
-    if (app.status !== 'Shared') {
-      app.status = 'Shared';
-      await this.dappRepo.save(app);
-    }
-
+    // Sharing is represented by access records. Preserve the app's
+    // lifecycle status, such as Draft, Saved, or Generated.
     const full = await this.dappRepo.findById(appId);
     return formatApp(full!);
   }

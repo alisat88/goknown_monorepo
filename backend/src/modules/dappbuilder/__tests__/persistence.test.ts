@@ -260,13 +260,11 @@ test('persistence-9: owner can share app with valid recipient', async () => {
   const appRecord = makeAppRecord();
   const sharedRecord = makeAppRecord({
     access_records: [{ user_id: RECIPIENT.id, role: 'Viewer', user: RECIPIENT }],
-    status: 'Shared',
   });
   mockDAppRepo.findById
     .mockResolvedValueOnce(appRecord)
     .mockResolvedValueOnce(sharedRecord);
   mockDAppRepo.upsertAccess.mockResolvedValue({ user_id: RECIPIENT.id, role: 'Viewer' });
-  mockDAppRepo.save.mockResolvedValue({ ...appRecord, status: 'Shared' });
 
   const res = await request(makeApp())
     .post('/dapp-builder/apps/app-uuid/share')
@@ -274,7 +272,9 @@ test('persistence-9: owner can share app with valid recipient', async () => {
     .send({ email: 'recip@test.com', role: 'Viewer' });
 
   expect(res.status).toBe(200);
+  expect(res.body.status).toBe(appRecord.status);
   expect(mockDAppRepo.upsertAccess).toHaveBeenCalledWith('app-uuid', RECIPIENT.id, 'Viewer');
+  expect(mockDAppRepo.save).not.toHaveBeenCalled();
 });
 
 // ── Test 10: non-owner cannot share app (403) ─────────────────────────────────
