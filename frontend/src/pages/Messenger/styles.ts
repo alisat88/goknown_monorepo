@@ -111,6 +111,15 @@ export const ChatContent = styled.main`
 `;
 
 export const Messages = styled.div`
+  .sender-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+  header small {
+    font-size: 0.8rem;
+    font-weight: normal;
+  }
   header {
     display: flex;
     width: 100%;
@@ -234,6 +243,7 @@ export const Messages = styled.div`
 `;
 
 export const Users = styled.ul`
+  .create-group button { margin: 0; font-size: 0.85rem; }
   width: 300px;
   padding: 2rem 0 1rem;
   list-style: none;

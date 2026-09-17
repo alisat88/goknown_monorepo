@@ -1,6 +1,6 @@
 import AppError from '@shared/errors/AppError';
 import { Request, Response, NextFunction } from 'express';
-import { v5 as uuidv5 } from 'uuid';
+import { v4 } from 'uuid';
 
 export default async function syncNodeMessanger(
   request: Request,
@@ -14,13 +14,7 @@ export default async function syncNodeMessanger(
   }
 
   try {
-    // generate unique uuid
-    // create buffer with user email + timestamp
-    const id = `${request.body.name}_${new Date().getTime()}`;
-
-    const uuid = uuidv5(id || '', process.env.NODE_UUID || '');
-
-    request.body.sync_id = uuid;
+    request.body.sync_id = v4();
     request.body.masterNode = true;
 
     return next();

@@ -1,13 +1,34 @@
-import { api } from '@config/api';
-import nodes from '@config/nodes';
+import { v4 } from 'uuid';
+import CreateGroupConversationService from '@modules/messanger/services/CreateGroupConversationService';
+import SocketServer from '@shared/infra/http/socketIO';
+import GetUnreadService from '@modules/messanger/services/GetUnreadService';
 import CreateNewConversationService from '@modules/messanger/services/CreateNewConversationService';
 import FindConversationsService from '@modules/messanger/services/FindConversationsService';
 import ListAllUserConversationsService from '@modules/messanger/services/ListAllUserConversationsService';
-import { AxiosError } from 'axios';
 import { Request, Response } from 'express';
 import { container } from 'tsyringe';
 
 export default class ConversationController {
+  public async group(request: Request, response: Response): Promise<Response> {
+    SocketServer.ensureAvailable();
+    const conversation = await container
+      .resolve(CreateGroupConversationService)
+      .execute({
+        creator: request.user.sync_id,
+        name: request.body.name,
+        emails: request.body.emails,
+      });
+
+    SocketServer.conversationsChanged(conversation.members);
+    return response.status(201).json(conversation);
+  }
+
+  public async unread(request: Request, response: Response): Promise<Response> {
+    return response.json(
+      await container.resolve(GetUnreadService).execute(request.user.sync_id),
+    );
+  }
+
   public async show(request: Request, response: Response): Promise<Response> {
     const usersync_id = request.user.sync_id;
 
@@ -39,9 +60,10 @@ export default class ConversationController {
   }
 
   public async create(request: Request, response: Response): Promise<Response> {
+    SocketServer.ensureAvailable();
     const sender_id = request.user.sync_id;
 
-    const { receiver_id, sync_id, masterNode } = request.body;
+    const { receiver_id } = request.body;
 
     const createNewConversation = container.resolve(
       CreateNewConversationService,
@@ -49,27 +71,10 @@ export default class ConversationController {
     const conversation = await createNewConversation.execute({
       sender_id,
       receiver_id,
-      sync_id,
+      sync_id: v4(),
     });
 
-    if (masterNode) {
-      // mirror users across nodes
-      nodes.map(node => {
-        const url = `${node.url}/conversations`;
-
-        return api
-          .post(url, request.body, {
-            headers: {
-              Authorization: request.headers.authorization,
-              // pre_authenticated: request.headers.pre_authenticated,
-            },
-          })
-          .catch((err: AxiosError) =>
-            console.log(err.response ? err.response.data : err.message),
-          );
-      });
-    }
-
+    SocketServer.conversationsChanged(conversation.members);
     return response.json(conversation);
   }
 }

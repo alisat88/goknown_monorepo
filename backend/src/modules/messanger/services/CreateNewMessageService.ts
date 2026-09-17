@@ -2,7 +2,7 @@ import AppError from '@shared/errors/AppError';
 import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import { inject, injectable } from 'tsyringe';
 import IConversationsRepository from '../repositories/IConversationsRepository';
-import Message from '../infra/typeorm/schemas/Message';
+import Message from '../infra/typeorm/entities/Message';
 import IMessagesRepository from '../repositories/IMessagesRepository';
 
 interface IRequestDTO {
@@ -38,7 +38,7 @@ class CreateNewMessageService {
     );
 
     if (!conversation) {
-      throw new AppError('Conversation not started');
+      throw new AppError('Conversation access denied', 403);
     }
 
     const senderUser = await this.usersRepository.findBySyncId(sender);
@@ -52,10 +52,12 @@ class CreateNewMessageService {
     );
 
     if (!senderIsMember) {
-      throw new AppError('not permited');
+      throw new AppError('Conversation access denied', 403);
     }
 
-    // console.log('AQUI===================');
+    if (typeof text !== 'string' || !text.trim() || text.length > 10000) {
+      throw new AppError('Message must contain 1 to 10000 characters');
+    }
 
     const message = await this.messagesRepository.create({
       conversation_syncid,
@@ -63,16 +65,6 @@ class CreateNewMessageService {
       text,
     });
 
-    const conversationMemberIndex = conversation.members.findIndex(
-      member => member === sender,
-    );
-
-    // update new conversation
-    conversation.unread = conversation.unread.map((value, index) =>
-      conversationMemberIndex !== index ? value : value === 0 ? 1 : value + 1,
-    );
-
-    await this.conversationsRepository.save(conversation);
     return message;
   }
 }

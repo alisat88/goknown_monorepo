@@ -39,7 +39,10 @@ class ConversationsRepository implements IConversationsRepository {
   }
 
   public async create(data: ICreateConversationDTO): Promise<Conversation> {
-    const conversation = this.ormRepository.create({ ...data });
+    const conversation = this.ormRepository.create({
+      ...data,
+      unread: data.members.map(() => 0),
+    });
 
     await this.ormRepository.save(conversation);
 

@@ -1,3 +1,4 @@
+import canonicalizeAccountEmail from '@shared/utils/canonicalizeAccountEmail';
 import { injectable, inject, container } from 'tsyringe';
 
 import AppError from '@shared/errors/AppError';
@@ -33,10 +34,7 @@ class AuthenticateUserService {
   ) {}
 
   public async execute({ email, password }: IRequest): Promise<IResponse> {
-    const unAliasesEmail = email
-      .trim()
-      .replace(/(\+.*)(?=\@)/, '')
-      .toLocaleLowerCase();
+    const unAliasesEmail = canonicalizeAccountEmail(email);
 
     const user = await this.usersRepository.findByEmail(
       unAliasesEmail.toLocaleLowerCase(),

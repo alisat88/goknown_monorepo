@@ -1,17 +1,8 @@
-import { formatDistance, parseISO, parse } from "date-fns";
-import React, {
-  LiHTMLAttributes,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { formatDistance, parseISO } from "date-fns";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Avatar from "react-avatar";
-import { FiSend } from "react-icons/fi";
-import { useLocation, useParams } from "react-router-dom";
-import { v4 as uuid } from "uuid";
-import * as Yup from "yup";
+import { FiSend, FiUsers } from "react-icons/fi";
+import { useParams } from "react-router-dom";
 
 import { FormHandles, SubmitHandler } from "@unform/core";
 import { Form } from "@unform/web";
@@ -23,316 +14,193 @@ import Input from "../../components/Input";
 import { useAuth } from "../../hooks/auth";
 import { useSocket } from "../../hooks/socket";
 import api from "../../services/api";
-import getValidationErrors from "../../utils/getValidationErrors";
+import CreateGroupDialog, { messengerError } from "./CreateGroupDialog";
 import { Container, Content, ChatContent, Users, Messages } from "./styles";
-// import { useSocket } from "../../hooks/socket";
-
-interface IMessageItem {
-  _id: string;
-  text: string;
-  sender: string;
-  created_at: string | Date;
-}
-
-interface IConversationItem {
-  sync_id: string;
-  members: string[];
-  created_at: string;
-}
-
-interface IUserSocketItem {
-  usersync_id: string;
-  socket_id: string;
-}
-
-interface IUserItem {
-  id: string;
-  sync_id: string;
-  avatar_url: string;
-  online: boolean;
-  name: string;
-  email: string;
-  news: number;
-  conversation: IConversationItem;
-  messages?: IMessageItem[];
-}
-
-// const socket = io("http://localhost:3333");
-// socket.on("connect", () => console.log("IO connect new connection"));
+import {
+  IChatItem,
+  IConversationItem,
+  IMessageItem,
+  messageBelongsToConversation,
+} from "./types";
 
 export default function Messenger() {
-  // const [message, setMessage] = useState("");
-
-  // const [messages, setMessages] = useState([] as MessageItem[]);
-  const [users, setUsers] = useState([] as IUserItem[]);
-  const [onlineUsers, setOnlineUsers] = useState([] as IUserSocketItem[]);
-  const [currentChat, setCurrentChat] = useState({} as IUserItem);
-  // const [socket, setSocket] = useState<Socket>();
-  const [loading, setLoading] = useState(false);
+  const [chats, setChats] = useState<IChatItem[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<{ usersync_id: string }[]>([]);
+  const [currentChat, setCurrentChat] = useState<IChatItem>();
+  const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [arrivalMessage, setArrivalMessage] = useState({} as IMessageItem);
-
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [error, setError] = useState("");
   const formRef = useRef<FormHandles>(null);
   const scrollRef = useRef<HTMLLIElement>(null);
-  const { user, updateUser } = useAuth();
+  const activeId = useRef<string>();
+  const selection = useRef(0);
+  const historyRevision = useRef(0);
+  const listRevision = useRef(0);
+  const { user } = useAuth();
   const { socket } = useSocket();
+  const { idRoom } = useParams<{ idRoom?: string }>();
 
-  interface ILocationsProps {
-    oldPage: string;
-  }
-
-  interface IParams {
-    idOrganization: string;
-    idGroup: string;
-    idRoom: string;
-  }
-
-  const { idOrganization, idGroup, idRoom } = useParams<IParams>();
-
-  const location = useLocation<ILocationsProps>();
-  // const { socket } = useSocket();
-
-  /**
-   * USE EFFECT
-   */
-
-  useEffect(() => {
-    // socket.current = io("https://node1.dappgenius.app", { path: "/socket.io" });
-    // socket.current = io("http://127.0.0.1:3333", { path: "/socket.io" });
-    socket.on("getMessage", (data) => {
-      setArrivalMessage({
-        _id: uuid(),
-        text: data.text,
-        sender: data.sender,
-        created_at: new Date().toISOString(),
+  const refreshChats = useCallback(async () => {
+    listRevision.current += 1;
+    const revision = listRevision.current;
+    const { data } = await api.get<IChatItem[]>("/conversations", {
+      params: { room_id: idRoom },
+    });
+    if (revision === listRevision.current) {
+      setChats(data);
+      setCurrentChat((previous) => {
+        if (!previous?.conversation) return previous;
+        const updated = data.find(
+          (chat) =>
+            chat.conversation?.sync_id === previous?.conversation?.sync_id
+        );
+        return previous && updated
+          ? { ...updated, messages: previous.messages }
+          : previous;
       });
-    });
-    return () => {
-      setArrivalMessage({} as IMessageItem);
-      socket.off("getMessage");
-    };
-  }, [currentChat, socket]);
+    }
+    return data;
+  }, [idRoom]);
 
-  useEffect(() => {
-    // eslint-disable-next-line no-unused-expressions
-    !!arrivalMessage &&
-      currentChat.conversation?.members?.includes(arrivalMessage.sender) &&
-      setCurrentChat((prev) => ({
-        ...prev,
-        messages: prev.messages
-          ? [...prev.messages, arrivalMessage]
-          : [arrivalMessage],
-      }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arrivalMessage]);
-
-  useEffect(() => {
-    socket.on("getUsers", (socketUsers: IUserSocketItem[]) => {
-      // console.log("getUsers", socketUsers);
-      setOnlineUsers(socketUsers);
-      setUsers((prev) =>
-        prev.sort((a, b) => (a.online as any) - (b.online as any))
+  // Fetching history acknowledges exactly this authenticated user's read state.
+  const loadHistory = useCallback(async (id: string) => {
+    historyRevision.current += 1;
+    const revision = historyRevision.current;
+    const { data } = await api.get<IMessageItem[]>(
+      `/conversations/${id}/messages`
+    );
+    if (activeId.current === id && revision === historyRevision.current) {
+      setCurrentChat((previous) =>
+        previous ? { ...previous, messages: data } : previous
       );
-    });
-    return () => {
-      socket.off("getUsers");
-    };
-  }, [socket, user.sync_id]);
-
-  useEffect(() => {
-    socket.emit("addUser", user.sync_id);
-    return () => {
-      socket.off("addUser");
-    };
-  }, [socket, user.sync_id]);
+      setLoadingMessages(false);
+    }
+  }, []);
 
   useEffect(() => {
     setLoading(true);
-    api
-      .get<IUserItem[]>("/conversations", { params: { room_id: idRoom } })
-      .then((response) =>
-        setUsers(response.data.filter((u) => u.sync_id !== user.sync_id))
-      )
-      .catch((error) => console.log(error))
-      .finally(() => setLoading(false));
-  }, [user.sync_id]);
+    const refresh = () => {
+      refreshChats()
+        .catch((err) => setError(messengerError(err)))
+        .finally(() => setLoading(false));
+    };
+    const reconnect = () => {
+      refresh();
+      if (activeId.current)
+        loadHistory(activeId.current).catch((err) =>
+          setError(messengerError(err))
+        );
+      socket.emit("addUser"); // Request presence only; identity is authenticated by the server.
+    };
+    const receive = (message: IMessageItem) => {
+      if (
+        activeId.current &&
+        messageBelongsToConversation(message, activeId.current)
+      ) {
+        loadHistory(activeId.current).catch((err) =>
+          setError(messengerError(err))
+        );
+      }
+    };
+    const presence = (users: { usersync_id: string }[]) =>
+      setOnlineUsers(users);
+    refresh();
+    socket.emit("addUser");
+    socket.on("getMessage", receive);
+    socket.on("getUsers", presence);
+    socket.on("conversationsChanged", refresh);
+    socket.on("connect", reconnect);
+    window.addEventListener("focus", reconnect);
+    return () => {
+      listRevision.current += 1;
+      historyRevision.current += 1;
+      socket.off("getMessage", receive);
+      socket.off("getUsers", presence);
+      socket.off("conversationsChanged", refresh);
+      socket.off("connect", reconnect);
+      window.removeEventListener("focus", reconnect);
+    };
+  }, [socket, refreshChats, loadHistory]);
 
   useEffect(() => {
-    setTimeout(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollIntoView({
-          behavior: "smooth",
-          inline: "end",
-          block: "end",
-        });
-      }
-    }, 150);
-  }, [currentChat]);
+    scrollRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
+  }, [currentChat?.messages]);
 
-  /**
-   * CALLBACK FUCTIONS
-   */
-
-  function array_move(arr: any[], old_index: number, new_index: number) {
-    arr.splice(new_index, 0, arr.splice(old_index, 1)[0]);
-    return arr; // for testing
-  }
-
-  const handleFormSubmit: SubmitHandler<IMessageItem> = useCallback(
-    async (data, { reset }) => {
-      setLoadingSubmit(true);
-      try {
-        const schema = Yup.object().shape({
-          text: Yup.string().required(),
-        });
-
-        await schema.validate(data, { abortEarly: false });
-        const { text } = data;
-
-        if (text.trim() && currentChat) {
-          // alert(unread);
-          const response = await api.post<IMessageItem>(
-            `/conversations/${currentChat.conversation.sync_id}/messages`,
-            { text }
-          );
-
-          socket.emit("sendMessage", {
-            sender: user.sync_id,
-            conversation_id: currentChat.conversation.sync_id,
-            receiver_id: currentChat.conversation.members.find(
-              (member) => member !== user.sync_id
-            ),
-            text,
-          });
-          console.log(text);
-
-          const currentIndex = users.findIndex(
-            (u) =>
-              u.sync_id ===
-              currentChat.conversation.members.find(
-                (member) => member !== user.sync_id
-              )
-          );
-
-          setUsers(array_move(users, currentIndex, 0));
-
-          setCurrentChat((prev) => ({
-            ...prev,
-            messages: prev.messages
-              ? [...prev.messages, response.data]
-              : [response.data],
-          }));
-
-          // scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-          reset();
-        }
-      } catch (err) {
-        if (err instanceof Yup.ValidationError) {
-          const errors = getValidationErrors(err);
-
-          formRef.current?.setErrors(errors);
-          return;
-        }
-      } finally {
-        setLoadingSubmit(false);
-        if (formRef.current) {
-          const nameInput = formRef.current.getFieldRef("text");
-          nameInput.focus();
-        }
-      }
-    },
-    [currentChat, socket, user.sync_id, users]
-  );
-
-  const handleSelectedUserChat = useCallback(
-    async (receiver: IUserItem) => {
+  const selectChat = useCallback(
+    async (chat: IChatItem) => {
+      selection.current += 1;
+      const revision = selection.current;
+      historyRevision.current += 1;
+      activeId.current = undefined;
+      setCurrentChat(chat);
       setLoadingMessages(true);
-      let conversation_id =
-        !!receiver.conversation && receiver.conversation.sync_id
-          ? receiver.conversation.sync_id
-          : null;
+      setError("");
       try {
-        if (!conversation_id) {
-          const response = await api.post(`/conversations`, {
-            receiver_id: receiver.sync_id,
+        let { conversation } = chat;
+        if (!conversation) {
+          const { data } = await api.post<IConversationItem>("/conversations", {
+            receiver_id: chat.sync_id,
           });
-          conversation_id = response.data.sync_id;
-          setCurrentChat({ ...receiver, conversation: response.data });
-
-          const responseMessages = await api.get<IMessageItem[]>(
-            `/conversations/${conversation_id}/messages`
-          );
-          setCurrentChat({
-            ...receiver,
-            conversation: response.data,
-            messages: responseMessages.data,
-          });
-        } else {
-          const response = await api.get<IMessageItem[]>(
-            `/conversations/${conversation_id}/messages`
-          );
-
-          if (user.conversations && user.conversations[conversation_id]) {
-            const unReadChatMessages: number = user.conversations[
-              conversation_id
-            ]
-              ? user.conversations[conversation_id]
-              : 0;
-            delete user.conversations[conversation_id];
-
-            const newUnreadCount: number = user.unread - unReadChatMessages;
-
-            updateUser({
-              ...user,
-              unread: newUnreadCount < 0 ? 0 : newUnreadCount,
-              conversations: user.conversations,
-            });
-          }
-
-          setCurrentChat({
-            ...receiver,
-            messages: response.data,
-          });
+          conversation = data;
         }
+        if (selection.current !== revision) return;
+        activeId.current = conversation.sync_id;
+        setCurrentChat({ ...chat, conversation });
+        await loadHistory(conversation.sync_id);
+        await refreshChats();
       } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingMessages(false);
+        if (selection.current === revision) {
+          setError(messengerError(err));
+          setLoadingMessages(false);
+        }
       }
     },
-    [updateUser, user]
+    [loadHistory, refreshChats]
   );
 
-  const humanizeTime = (date: any) => {
-    return formatDistance(parseISO(date), new Date(), { addSuffix: true });
+  const sendMessage: SubmitHandler<{ text: string }> = async (
+    { text },
+    { reset }
+  ) => {
+    const id = activeId.current;
+    if (!id || loadingSubmit || !text?.trim()) return;
+    setLoadingSubmit(true);
+    setError("");
+    try {
+      await api.post<IMessageItem>(`/conversations/${id}/messages`, {
+        text: text.trim(),
+      });
+      // There is no client socket relay. Reload the committed history, avoiding duplicates.
+      if (activeId.current === id) {
+        reset();
+        await loadHistory(id);
+      }
+      await refreshChats();
+    } catch (err) {
+      setError(messengerError(err));
+    } finally {
+      setLoadingSubmit(false);
+    }
   };
 
-  const renderOnline = useCallback(
-    (user: any) => {
-      return onlineUsers.find((u) => u.usersync_id === user.sync_id) ? (
-        <b />
-      ) : (
-        <></>
-      );
-    },
-    [onlineUsers]
-  );
-
-  const renderUnreadConversations = useCallback(
-    (chatUser: any) => {
-      return (
-        user.conversations &&
-        chatUser.conversation &&
-        user.conversations[chatUser.conversation.sync_id] > 0 && (
-          <span className="number">
-            {user.conversations[chatUser.conversation.sync_id]}
-          </span>
-        )
-      );
-    },
-    [user.conversations]
-  );
+  const groupCreated = (conversation: IConversationItem) => {
+    setCreatingGroup(false);
+    const chat: IChatItem = {
+      id: conversation.id,
+      sync_id: conversation.sync_id,
+      name: conversation.name || "Group",
+      conversation,
+    };
+    setChats((previous) => [
+      chat,
+      ...previous.filter(
+        (item) => item.conversation?.sync_id !== conversation.sync_id
+      ),
+    ]);
+    selectChat(chat);
+  };
 
   return (
     <Container mobileHeight={90}>
@@ -343,38 +211,61 @@ export default function Messenger() {
         </div>
       </header>
       <Content>
+        {error && <p role="alert">{error}</p>}
         <ChatContent>
           <Users>
+            {!idRoom && (
+              <li className="create-group">
+                <Button type="button" onClick={() => setCreatingGroup(true)}>
+                  <FiUsers /> Create Group
+                </Button>
+              </li>
+            )}
             {loading && <UserLoader />}
             {!loading &&
-              users.map((chatUser, index) => (
-                <li
-                  key={index}
-                  className={
-                    !!currentChat && chatUser.sync_id === currentChat.sync_id
-                      ? "active"
-                      : ""
-                  }
-                  onClick={() => handleSelectedUserChat(chatUser)}
-                >
-                  <Avatar
-                    name={chatUser.name}
-                    src={chatUser.avatar_url}
-                    round
-                    size="34"
-                    maxInitials={2}
-                  />
-                  {renderOnline(chatUser)}
-
-                  <h4>
-                    {chatUser.name} {renderUnreadConversations(chatUser)}
-                  </h4>
-                </li>
-              ))}
+              chats.map((chat) => {
+                const group = chat.conversation?.type === "group";
+                const unread =
+                  user.conversations?.[chat.conversation?.sync_id || ""] ??
+                  chat.news ??
+                  0;
+                return (
+                  <li
+                    key={chat.sync_id}
+                    className={
+                      chat.sync_id === currentChat?.sync_id ? "active" : ""
+                    }
+                    onClick={() => selectChat(chat)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectChat(chat);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                  >
+                    <Avatar
+                      name={chat.name}
+                      src={chat.avatar_url}
+                      round
+                      size="34"
+                      maxInitials={2}
+                    />
+                    {!group &&
+                      onlineUsers.some(
+                        (online) => online.usersync_id === chat.sync_id
+                      ) && <b />}
+                    <h4>
+                      {group && <FiUsers aria-label="Group" />} {chat.name}
+                      {unread > 0 && <span className="number">{unread}</span>}
+                    </h4>
+                  </li>
+                );
+              })}
           </Users>
-
           <Messages>
-            {currentChat.id ? (
+            {currentChat ? (
               <>
                 <header>
                   <Avatar
@@ -384,42 +275,71 @@ export default function Messenger() {
                     size="48"
                     maxInitials={2}
                   />
-                  <h2>{currentChat.name}</h2>
+                  <h2>
+                    {currentChat.name}
+                    {currentChat.conversation?.type === "group" && (
+                      <small>
+                        {" "}
+                        · {currentChat.conversation.members.length} members
+                      </small>
+                    )}
+                  </h2>
                 </header>
-
-                <ul>
+                <ul aria-live="polite">
+                  {loadingMessages && <li>Loading messages…</li>}
                   {!loadingMessages &&
-                    !!currentChat.messages &&
-                    currentChat.messages.length > 0 &&
-                    currentChat.messages.map((m, index) => (
-                      <li
-                        ref={scrollRef}
-                        className={`list__item list__item--${
-                          m.sender === user.sync_id ? "mine" : "other"
-                        }`}
-                        key={index}
-                      >
-                        <div
-                          className={`message message--${
-                            m.sender === user.sync_id ? "mine" : "other"
+                    currentChat.messages?.map((message, index) => {
+                      const mine = message.sender === user.sync_id;
+                      return (
+                        <li
+                          ref={scrollRef}
+                          className={`list__item list__item--${
+                            mine ? "mine" : "other"
                           }`}
+                          key={message.id || message._id || index}
                         >
-                          <p>{m.text}</p>
-                          <strong>{humanizeTime(m.created_at)}</strong>
-                        </div>
-                      </li>
-                    ))}
+                          <div
+                            className={`message message--${
+                              mine ? "mine" : "other"
+                            }`}
+                          >
+                            {!mine &&
+                              currentChat.conversation?.type === "group" && (
+                                <span className="sender-name">
+                                  {currentChat.conversation.participants?.find(
+                                    (member) =>
+                                      member.sync_id === message.sender
+                                  )?.name || "Member"}
+                                </span>
+                              )}
+                            <p>{message.text}</p>
+                            <strong>
+                              {formatDistance(
+                                parseISO(message.created_at),
+                                new Date(),
+                                { addSuffix: true }
+                              )}
+                            </strong>
+                          </div>
+                        </li>
+                      );
+                    })}
                 </ul>
-
-                <Form ref={formRef} onSubmit={handleFormSubmit}>
+                <Form ref={formRef} onSubmit={sendMessage}>
                   <Input
                     autoFocus
                     name="text"
                     placeholder="Type a new message here"
                     type="text"
-                    isLoading={loadingSubmit}
+                    maxLength={10000}
+                    disabled={loadingMessages || loadingSubmit}
                   />
-                  <Button type="submit" isLoading={loadingSubmit}>
+                  <Button
+                    type="submit"
+                    aria-label="Send message"
+                    isLoading={loadingSubmit}
+                    disabled={loadingMessages || loadingSubmit}
+                  >
                     <FiSend />
                   </Button>
                 </Form>
@@ -430,6 +350,13 @@ export default function Messenger() {
           </Messages>
         </ChatContent>
       </Content>
+      {creatingGroup && (
+        <CreateGroupDialog
+          creatorEmail={user.email}
+          onClose={() => setCreatingGroup(false)}
+          onCreated={groupCreated}
+        />
+      )}
     </Container>
   );
 }

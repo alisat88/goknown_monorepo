@@ -30,6 +30,7 @@
     "@babel/plugin-proposal-private-methods": "^7.16.0",
     "@babel/preset-env": "^7.12.1",
     "@babel/preset-typescript": "^7.12.1",
+    "@socket.io/redis-adapter": "8.3.0",
     "aws-sdk": "^2.783.0",
     "axios": "^0.21.1",
     "babel-plugin-module-resolver": "^4.0.0",

@@ -2,7 +2,7 @@ import AppError from '@shared/errors/AppError';
 import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import { inject, injectable } from 'tsyringe';
 import IConversationsRepository from '../repositories/IConversationsRepository';
-import Conversation from '../infra/typeorm/schemas/Conversation';
+import Conversation from '../infra/typeorm/entities/Conversation';
 
 interface IRequestDTO {
   usersync_id: string;
@@ -21,7 +21,7 @@ class FindConversationsService {
   public async execute({
     usersync_id,
     receiver_id,
-  }: IRequestDTO): Promise<Conversation> {
+  }: IRequestDTO): Promise<Conversation | undefined> {
     const user = await this.usersRepository.findBySyncId(usersync_id);
 
     if (!user) {
@@ -32,7 +32,9 @@ class FindConversationsService {
       usersync_id,
       receiver_id,
     ]);
-    return conversation[0];
+    return conversation.find(
+      item => item.type !== 'group' && item.members.length === 2,
+    );
   }
 }
 

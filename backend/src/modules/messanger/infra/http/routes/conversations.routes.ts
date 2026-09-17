@@ -1,9 +1,9 @@
+import { celebrate, Joi, Segments } from 'celebrate';
+import { groupConversationSchema } from '@modules/messanger/dtos/groupConversationSchema';
 import ensureAuthenticated from '@modules/users/infra/http/middlewares/ensureAuthenticated';
 import { Router } from 'express';
 import ConversationController from '../controllers/ConversationController';
 import MessageController from '../controllers/MessageController';
-
-import syncNodeMessanger from '../middlewares/syncNodeMessanger';
 
 const conversationsRouter = Router();
 const conversationController = new ConversationController();
@@ -11,6 +11,14 @@ const messageController = new MessageController();
 
 // Force route to be authenticated
 conversationsRouter.use(ensureAuthenticated);
+conversationsRouter.get('/unread', conversationController.unread);
+conversationsRouter.post(
+  '/group',
+  celebrate({
+    [Segments.BODY]: groupConversationSchema,
+  }),
+  conversationController.group,
+);
 
 conversationsRouter.get(
   '/:receiverId',
@@ -108,7 +116,7 @@ conversationsRouter.post(
         description: 'Forbidden',
         content: { 'application/json': { schema: { $ref: '#/components/schemas/Exception' } } }
      }
-  */ syncNodeMessanger,
+  */
   conversationController.create,
 );
 
@@ -188,7 +196,11 @@ conversationsRouter.post(
         content: { 'application/json': { schema: { $ref: '#/components/schemas/Exception' } } }
      }
   */
-  syncNodeMessanger,
+  celebrate({
+    [Segments.BODY]: Joi.object({
+      text: Joi.string().trim().min(1).max(10000).required(),
+    }).unknown(true),
+  }),
   messageController.create,
 );
 

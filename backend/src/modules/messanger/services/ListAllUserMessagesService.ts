@@ -3,7 +3,7 @@ import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import { inject, injectable } from 'tsyringe';
 import IConversationsRepository from '../repositories/IConversationsRepository';
 import IMessagesRepository from '../repositories/IMessagesRepository';
-import Message from '../infra/typeorm/schemas/Message';
+import Message from '../infra/typeorm/entities/Message';
 
 interface IRequestDTO {
   usersync_id: string;
@@ -30,7 +30,7 @@ class ListAllUserMessagesService {
     );
 
     if (!conversation) {
-      throw new AppError('Conversation not started');
+      throw new AppError('Conversation access denied', 403);
     }
 
     const user = await this.usersRepository.findBySyncId(usersync_id);
@@ -39,7 +39,13 @@ class ListAllUserMessagesService {
       throw new AppError('User not found');
     }
 
-    const messages = await this.messagesRepository.findAll(conversation_syncid);
+    if (!conversation.members.includes(user.sync_id)) {
+      throw new AppError('Conversation access denied', 403);
+    }
+    const messages = await this.messagesRepository.findAll(
+      conversation_syncid,
+      user.sync_id,
+    );
 
     return messages;
   }

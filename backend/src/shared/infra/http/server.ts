@@ -116,14 +116,6 @@ app.use((err: Error, request: Request, response: Response, _: NextFunction) => {
 const server = http.createServer(app);
 
 /**
- * Initialize socket.io server for a specific worker
- */
-if (process.env.NODE_NAME === 'NODE1') {
-  console.log('Initializing socket server on worker', process.pid);
-  SocketServer.init(server);
-}
-
-/**
  * initialize swagger UI
  */
 // app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
@@ -134,7 +126,18 @@ if (process.env.NODE_NAME === 'NODE1') {
 const port = Number(process.env.PORT) || 3333;
 const host = process.env.HOST || '0.0.0.0';
 
-server.listen(port, host, () => {
-  console.log(`Worker ${process.pid} running on http://${host}:${port}`);
-});
+// Every fork initializes authenticated Socket.io. Production must have a shared
+// adapter ready before accepting any requests; NODE_NAME/BFT_NODE_NAME are unrelated.
+SocketServer.init(server)
+  .then(() => {
+    server.listen(port, host, () => {
+      console.log(`Worker ${process.pid} running on http://${host}:${port}`);
+    });
+  })
+  .catch(() => {
+    console.error(
+      'Backend startup failed: shared Messenger Redis adapter is not configured or unavailable.',
+    );
+    process.exit(1);
+  });
 // }

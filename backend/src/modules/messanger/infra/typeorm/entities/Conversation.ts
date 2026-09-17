@@ -17,10 +17,19 @@ class Conversation {
   @Column()
   sync_id: string;
 
-  @Column('jsonb', { array: true })
+  @Column({ type: 'varchar', default: 'direct' })
+  type: 'direct' | 'group';
+
+  @Column({ type: 'varchar', nullable: true })
+  name: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  created_by: string | null;
+
+  @Column('jsonb')
   members: string[];
 
-  @Column('jsonb', { array: true })
+  @Column('jsonb')
   unread: number[] = [0, 0];
 
   @Column('jsonb', { array: true, nullable: true })

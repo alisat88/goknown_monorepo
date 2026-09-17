@@ -1,6 +1,7 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import io, { Socket } from "socket.io-client";
-// import { useAuth } from "./auth";
+
+import { useAuth } from "./auth";
 
 interface ISocketContextData {
   socket: Socket;
@@ -36,9 +37,24 @@ const getSocketURL = (): string => {
 const SocketProvider: React.FC<React.PropsWithChildren<unknown>> = ({
   children,
 }) => {
-  const socketURL = getSocketURL();
-  const socketIO = io(socketURL, { path: "/socket.io" });
-  // const socketIO = io("http://localhost:3333", { path: "/socket.io" });
+  const { user } = useAuth();
+  const token = localStorage.getItem("@GoKnown:token");
+  const [socketIO] = useState(() =>
+    io(getSocketURL(), {
+      path: "/socket.io",
+      autoConnect: false,
+    })
+  );
+  useEffect(() => {
+    socketIO.disconnect();
+    if (user?.sync_id && token) {
+      socketIO.auth = { token };
+      socketIO.connect();
+    }
+    return () => {
+      socketIO.disconnect();
+    };
+  }, [socketIO, user?.sync_id, token]);
 
   return (
     <SocketContext.Provider
