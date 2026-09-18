@@ -34,4 +34,4 @@ def compute_anomaly_score(state_index, time_delta):
     # Clamp
     normalized = max(0.0, min(1.0, normalized))
 
-    return float(z_score), normalized
+    return float(z_score), float(normalized)
