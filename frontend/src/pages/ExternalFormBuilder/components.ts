@@ -113,8 +113,8 @@ const components: IComponentsProps[] = [
   {
     id: uuid(),
     icon: BsCalendar2Date,
-    title: "Date Picker",
-    label: "Date Picker",
+    title: "Calendar",
+    label: "Calendar",
     component: "date",
     type: "data",
     placeholder: "Placeholder",
