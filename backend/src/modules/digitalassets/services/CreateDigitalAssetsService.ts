@@ -8,12 +8,21 @@ import IChecksumProvider from '../providers/ChecksumProvider/models/IChecksumPro
 import AppError from '@shared/errors/AppError';
 import DigitalAsset, {
   EnumPrivacy,
+  MediaProcessingStatus,
 } from '../infra/typeorm/entities/DigitalAsset';
 import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import IFoldersRepository from '../repositories/IFoldersRepository';
 import IRoomsRepository from '@modules/organizations/repositories/IRoomsRepository';
 import IAuditLogsRepository from '@modules/auditlogs/repositories/IAuditLogsRepository';
 import CreateAuditLogService from '@modules/auditlogs/services/CreateAuditLogService';
+import { enqueueMediaConversion } from '../queues/MediaConversionQueue';
+
+const MEDIA_CONVERSION_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'video/mp4',
+  'video/mpeg',
+];
 
 interface IRequestDTO {
   filename: string;
@@ -130,6 +139,43 @@ class CreateDigitalAssetsService {
       filename,
       room_id,
     });
+
+    if (
+      master_node &&
+      MEDIA_CONVERSION_MIME_TYPES.includes(digitalAsset.mimetype)
+    ) {
+      try {
+        digitalAsset.media_processing_status =
+          MediaProcessingStatus.Queued;
+        digitalAsset.media_processing_error = null;
+
+        await this.digitalAssetsRepository.save(digitalAsset);
+
+        await enqueueMediaConversion(digitalAsset.sync_id);
+      } catch (error) {
+        console.error(
+          `Failed to queue media conversion for ${digitalAsset.sync_id}:`,
+          error instanceof Error ? error.message : error,
+        );
+
+        digitalAsset.media_processing_status =
+          MediaProcessingStatus.Failed;
+
+        digitalAsset.media_processing_error =
+          'Media conversion could not be queued';
+
+        try {
+          await this.digitalAssetsRepository.save(digitalAsset);
+        } catch (statusError) {
+          console.error(
+            `Failed to save media queue failure status for ${digitalAsset.sync_id}:`,
+            statusError instanceof Error
+              ? statusError.message
+              : statusError,
+          );
+        }
+      }
+    }
 
     // Create Audit Log
     const auditLogService = container.resolve(CreateAuditLogService);

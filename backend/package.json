@@ -13,7 +13,9 @@
     "dev:queue": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/queue.ts",
     "typeorm": "ts-node-dev -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "seed:local-user": "ts-node -r tsconfig-paths/register --transpile-only src/shared/infra/typeorm/seeds/localUser.ts",
-    "seed:production-users": "ts-node -r tsconfig-paths/register --transpile-only src/shared/infra/typeorm/seeds/productionUsers.ts"
+    "seed:production-users": "ts-node -r tsconfig-paths/register --transpile-only src/shared/infra/typeorm/seeds/productionUsers.ts",
+    "media:worker": "node dist/shared/infra/http/mediaWorker.js",
+    "dev:media-worker": "ts-node-dev -r tsconfig-paths/register --transpile-only --ignore-watch node_modules src/shared/infra/http/mediaWorker.ts"
   },
   "engines": {
     "node": "22.x"

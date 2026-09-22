@@ -52,6 +52,7 @@ export default class UploadDigitalAssetsController {
         request,
         forceRequestBody: {
           ...request.body,
+          masterNode: false,
           filename: digitalAsset.filename,
           mimetype: digitalAsset.mimetype,
           filetoken: digitalAsset.token,

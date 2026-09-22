@@ -54,6 +54,52 @@ class S3StorageProvider implements IStorageProvider {
     return { filename: file, mimetype: contentType };
   }
 
+  public async downloadFile(
+    file: string,
+    destination: string,
+    folder?: string,
+  ): Promise<void> {
+    await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+
+    const request = this.client.getObject({
+      Bucket: uploadConfig.config.aws.bucket,
+      Key: this.objectKey(file, folder),
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const input = request.createReadStream();
+      const output = fs.createWriteStream(destination);
+
+      input.on('error', reject);
+      output.on('error', reject);
+      output.on('finish', resolve);
+
+      input.pipe(output);
+    });
+  }
+
+  public async uploadFile(
+    sourcePath: string,
+    filename: string,
+    folder?: string,
+  ): Promise<{ filename: string; mimetype: string }> {
+    const contentType =
+      mime.getType(filename) || 'application/octet-stream';
+
+    await this.client
+      .putObject({
+        Bucket: uploadConfig.config.aws.bucket,
+        Key: this.objectKey(filename, folder),
+        ACL: 'public-read',
+        Body: fs.createReadStream(sourcePath),
+        ContentType: contentType,
+        ContentDisposition: `inline; filename="${filename.replace(/"/g, '')}"`,
+      })
+      .promise();
+
+    return { filename, mimetype: contentType };
+  }
+
   public async deleteFile(file: string, folder?: string): Promise<void> {
     await this.client
       .deleteObject({

@@ -20,6 +20,14 @@ export enum EnumPrivacy {
   Private = 'private',
 }
 
+export enum MediaProcessingStatus {
+  None = 'none',
+  Queued = 'queued',
+  Processing = 'processing',
+  Ready = 'ready',
+  Failed = 'failed',
+}
+
 function objectStorageAssetUrl(filename: string): string | null {
   const { publicUrl, keyPrefix } = uploadConfig.config.aws;
   if (!publicUrl) {
@@ -73,6 +81,21 @@ class DigitalAsset {
 
   @Column({ nullable: false })
   filename: string;
+
+  @Column({
+    type: 'varchar',
+    default: MediaProcessingStatus.None,
+  })
+  media_processing_status: MediaProcessingStatus;
+
+  @Column({ type: 'varchar', nullable: true })
+  media_derivative_prefix: string | null;
+
+  @Column({ type: 'integer', nullable: true })
+  media_frame_count: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  media_processing_error: string | null;
 
   @Column({ nullable: false })
   user_id: string;

@@ -1,17 +1,28 @@
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { Readable } from 'stream';
 import uploadConfig from '@config/upload';
 import S3StorageProvider from '../implementations/S3StorageProvider';
 
 describe('S3StorageProvider', () => {
   const promise = jest.fn().mockResolvedValue(undefined);
   const putObject = jest.fn(() => ({ promise }));
+  const getObject = jest.fn(() => ({
+    createReadStream: () =>
+      Readable.from([Buffer.from('downloaded-file')]),
+  }));
   const deleteObject = jest.fn(() => ({ promise }));
-  const client = { putObject, deleteObject } as any;
+  const client = { putObject, getObject, deleteObject } as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     uploadConfig.config.aws.bucket = 'test-bucket';
     uploadConfig.config.aws.keyPrefix = 'nfts';
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('uploads to the requested prefix and removes the temporary file', async () => {
@@ -49,6 +60,38 @@ describe('S3StorageProvider', () => {
       'upload failed',
     );
     expect(unlink).not.toHaveBeenCalled();
+  });
+
+  it('downloads from the requested prefix into a local destination', async () => {
+    const tempDirectory = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), 'goknown-storage-test-'),
+    );
+    const destination = path.join(tempDirectory, 'video.mp4');
+    const provider = new S3StorageProvider(client);
+
+    try {
+      await provider.downloadFile(
+        'video.mp4',
+        destination,
+        'nfts',
+      );
+
+      expect(getObject).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: 'nfts/video.mp4',
+      });
+
+      const downloaded = await fs.promises.readFile(destination);
+
+      expect(downloaded).toEqual(
+        Buffer.from('downloaded-file'),
+      );
+    } finally {
+      await fs.promises.rm(tempDirectory, {
+        recursive: true,
+        force: true,
+      });
+    }
   });
 
   it('deletes the same prefixed object key used for upload', async () => {
