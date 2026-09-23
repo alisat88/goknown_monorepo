@@ -97,6 +97,8 @@ class ProcessDigitalAssetMediaService {
     const assetKey = digitalAsset.sync_id || digitalAsset.id;
     const derivativeFolder = `media-derived/${assetKey}/frames`;
     const ffmpegBinary = process.env.FFMPEG_BINARY || 'ffmpeg';
+    const imageMagickBinary =
+      process.env.IMAGEMAGICK_BINARY || 'magick';
 
     const configuredMaxFrameBytes = Number(
       process.env.MEDIA_MAX_FRAME_BYTES ||
@@ -212,6 +214,31 @@ class ProcessDigitalAssetMediaService {
           );
 
           await fs.promises.writeFile(localFramePath, frame);
+
+          if (frameCount === 1) {
+            const previewFilename = 'preview.png';
+            const previewPath = path.join(
+              tempDirectory,
+              previewFilename,
+            );
+
+            try {
+              await this.runCommand(imageMagickBinary, [
+                localFramePath,
+                previewPath,
+              ]);
+
+              await this.storageProvider.uploadFile(
+                previewPath,
+                previewFilename,
+                derivativeFolder,
+              );
+            } finally {
+              await fs.promises.unlink(previewPath).catch(() => {
+                // Temporary directory cleanup in execute() is the fallback.
+              });
+            }
+          }
 
           try {
             await this.storageProvider.uploadFile(

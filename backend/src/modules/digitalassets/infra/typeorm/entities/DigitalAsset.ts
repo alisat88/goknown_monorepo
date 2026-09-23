@@ -62,6 +62,35 @@ function objectStorageAssetUrl(filename: string): string | null {
   return `${publicUrl.replace(/\/$/, '')}/${encodedKey}`;
 }
 
+function objectStorageDirectUrl(filename: string): string | null {
+  const { publicUrl } = uploadConfig.config.aws;
+
+  if (!publicUrl) {
+    return null;
+  }
+
+  let key = filename.trim().replace(/\\/g, '/');
+
+  try {
+    if (/^https?:\/\//i.test(key)) {
+      key = new URL(key).pathname;
+    }
+
+    key = decodeURIComponent(key);
+  } catch {
+    // Keep malformed values usable instead of failing serialization.
+  }
+
+  key = key.replace(/[?#].*$/, '').replace(/^\/+/, '');
+
+  const encodedKey = key
+    .split('/')
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+
+  return `${publicUrl.replace(/\/$/, '')}/${encodedKey}`;
+}
+
 @Entity('digitalassets')
 class DigitalAsset {
   @PrimaryGeneratedColumn('uuid')
@@ -159,6 +188,63 @@ class DigitalAsset {
       default:
         return null;
     }
+  }
+
+  @Expose({ name: 'display_url' })
+  getDisplayUrl(): string | null {
+    if (
+      this.media_processing_status !== MediaProcessingStatus.Ready ||
+      !this.media_derivative_prefix
+    ) {
+      return this.getAssetUrl();
+    }
+
+    const mimetype = (this.mimetype || '').toLowerCase();
+
+    let derivativeFile: string | null = null;
+
+    if (mimetype === 'image/jpeg' || mimetype === 'image/jpg') {
+      derivativeFile = `${this.media_derivative_prefix}/image.png`;
+    } else if (
+      mimetype === 'video/mp4' ||
+      mimetype === 'video/mpeg'
+    ) {
+      derivativeFile = `${this.media_derivative_prefix}/preview.png`;
+    }
+
+    if (!derivativeFile) {
+      return this.getAssetUrl();
+    }
+
+    switch (uploadConfig.driver) {
+      case 'disk':
+        return `${process.env.APP_API_URL}/files/${derivativeFile}`;
+      case 's3':
+      case 'digitalocean':
+        return objectStorageDirectUrl(derivativeFile);
+      default:
+        return this.getAssetUrl();
+    }
+  }
+
+  @Expose({ name: 'display_mimetype' })
+  getDisplayMimetype(): string {
+    if (this.media_processing_status !== MediaProcessingStatus.Ready) {
+      return this.mimetype;
+    }
+
+    const mimetype = (this.mimetype || '').toLowerCase();
+
+    if (
+      mimetype === 'image/jpeg' ||
+      mimetype === 'image/jpg' ||
+      mimetype === 'video/mp4' ||
+      mimetype === 'video/mpeg'
+    ) {
+      return 'image/png';
+    }
+
+    return this.mimetype;
   }
 }
 

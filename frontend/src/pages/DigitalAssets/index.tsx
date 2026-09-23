@@ -58,7 +58,15 @@ interface IDigitalAssetsItem {
   id: string;
   sync_id: string;
   asset_url: string;
+  display_url?: string;
   mimetype: AssetTypes;
+  display_mimetype?: AssetTypes;
+  media_processing_status?:
+    | "none"
+    | "queued"
+    | "processing"
+    | "ready"
+    | "failed";
   name: string;
   description?: string;
   privacy: "private" | "public";
@@ -346,6 +354,58 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
       .finally(() => setLoading(false));
   }, [addToast]);
 
+  const hasPendingMedia = [...assets.my, ...assets.public].some(
+    (asset) =>
+      asset.media_processing_status === "queued" ||
+      asset.media_processing_status === "processing"
+  );
+
+  useEffect(() => {
+    if (idRoom || !hasPendingMedia) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      api
+        .get("/me/digitalassets")
+        .then((response) => {
+          const normalizeAssets = (items: any[] = []) =>
+            items
+              .map((asset: any) => ({
+                ...asset,
+                created_at: format(
+                  parseISO(asset.created_at),
+                  "M/d/yyyy h:mm a"
+                ),
+              }))
+              // eslint-disable-next-line eqeqeq
+              .filter((asset: any) => asset.room_id == null);
+
+          const my = normalizeAssets(response.data.myassets);
+          const publicAssets = normalizeAssets(response.data.publicassets);
+
+          setAssets((prev) => ({
+            ...prev,
+            my,
+            public: publicAssets,
+            filteredMy:
+              filter.length > 0
+                ? my.filter((asset) => filter.includes(asset.mimetype))
+                : my,
+            filteredPublic:
+              filter.length > 0
+                ? publicAssets.filter((asset) =>
+                    filter.includes(asset.mimetype)
+                  )
+                : publicAssets,
+          }));
+        })
+        .catch(() => undefined);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [filter, hasPendingMedia, idRoom]);
+
   useEffect(() => {
     setAssets({
       ...assets,
@@ -530,9 +590,9 @@ const DigitalAssets: React.FC<React.PropsWithChildren<unknown>> = () => {
                       <ContentDigitalAssets key={asset.sync_id}>
                         <div>
                           <Asset
-                            url={asset.asset_url}
+                            url={asset.display_url || asset.asset_url}
                             name={asset.name}
-                            type={asset.mimetype}
+                            type={asset.display_mimetype || asset.mimetype}
                             onClick={() =>
                               handleGoTo(
                                 `${baseNavigationPath}/digitalassets/${asset.sync_id}/preview`

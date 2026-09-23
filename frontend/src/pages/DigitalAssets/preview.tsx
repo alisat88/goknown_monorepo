@@ -24,7 +24,15 @@ interface IDigitalAssetsItem {
   id: string;
   sync_id: string;
   asset_url: string;
+  display_url?: string;
   mimetype: AssetTypes;
+  display_mimetype?: AssetTypes;
+  media_processing_status?:
+    | "none"
+    | "queued"
+    | "processing"
+    | "ready"
+    | "failed";
   name: string;
   description?: string;
   privacy: "private" | "public";
@@ -90,6 +98,31 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
       .finally(() => setLoading(false));
   }, [addToast, id]);
 
+  useEffect(() => {
+    const status = digitalAsset.media_processing_status;
+
+    if (status !== "queued" && status !== "processing") {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      api
+        .get<IDigitalAssetsItem>(`/me/digitalassets/${id}`)
+        .then((response) =>
+          setDigitalAsset({
+            ...response.data,
+            created_at: format(
+              parseISO(response.data.created_at),
+              "M/d/yyyy h:mm a"
+            ),
+          })
+        )
+        .catch(() => undefined);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [digitalAsset.media_processing_status, id]);
+
   return (
     <Container>
       <header>
@@ -139,9 +172,11 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
                 <div>
                   <Asset
                     component="preview"
-                    url={digitalAsset.asset_url}
+                    url={digitalAsset.display_url || digitalAsset.asset_url}
                     name={digitalAsset.name}
-                    type={digitalAsset.mimetype}
+                    type={
+                      digitalAsset.display_mimetype || digitalAsset.mimetype
+                    }
                   />
 
                   <InfoPreviewAssets>

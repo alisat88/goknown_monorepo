@@ -55,7 +55,15 @@ interface IDigitalAssetsItem {
   id: string;
   sync_id: string;
   asset_url: string;
+  display_url?: string;
   mimetype: AssetTypes;
+  display_mimetype?: AssetTypes;
+  media_processing_status?:
+    | "none"
+    | "queued"
+    | "processing"
+    | "ready"
+    | "failed";
   name: string;
   description?: string;
   privacy: "private" | "public";
@@ -249,6 +257,40 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
       .finally(() => setLoading(false));
   }, [addToast, folderId, user.id]);
 
+  const hasPendingMedia = assets.my.some(
+    (asset) =>
+      asset.media_processing_status === "queued" ||
+      asset.media_processing_status === "processing"
+  );
+
+  useEffect(() => {
+    if (!hasPendingMedia) {
+      return undefined;
+    }
+
+    const interval = window.setInterval(() => {
+      api
+        .get<IResponseDigitalAssets>(`/me/folders/${folderId}`)
+        .then((response) => {
+          const refreshedAssets = response.data.assets ?? [];
+
+          setAssets((prev) => ({
+            ...prev,
+            my: refreshedAssets,
+            filteredMy:
+              filter.length > 0
+                ? refreshedAssets.filter((asset) =>
+                    filter.includes(asset.mimetype)
+                  )
+                : refreshedAssets,
+          }));
+        })
+        .catch(() => undefined);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [filter, folderId, hasPendingMedia]);
+
   useEffect(() => {
     setAssets((prev) => ({
       ...prev,
@@ -419,9 +461,9 @@ const FolderPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
                   >
                     <div>
                       <Asset
-                        url={asset.asset_url}
+                        url={asset.display_url || asset.asset_url}
                         name={asset.name}
-                        type={asset.mimetype}
+                        type={asset.display_mimetype || asset.mimetype}
                       />
                       <InfoDigitalAssets>
                         <h4>{asset.name}</h4>
