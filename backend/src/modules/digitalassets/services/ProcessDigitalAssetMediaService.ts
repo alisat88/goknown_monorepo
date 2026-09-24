@@ -16,7 +16,7 @@ interface IRequest {
 }
 
 const JPEG_MIME_TYPES = ['image/jpeg', 'image/jpg'];
-const VIDEO_MIME_TYPES = ['video/mp4', 'video/mpeg'];
+const VIDEO_MIME_TYPES = ['video/mp4', 'video/mpeg', 'video/quicktime'];
 
 @injectable()
 class ProcessDigitalAssetMediaService {

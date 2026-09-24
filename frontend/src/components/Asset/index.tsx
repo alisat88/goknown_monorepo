@@ -19,6 +19,7 @@ export enum EnumAssetsType {
   "image/jpg" = "image",
   "video/mpeg" = "video",
   "video/mp4" = "video",
+  "video/quicktime" = "video",
   "audio/mpeg" = "audio",
   "audio/mp3" = "audio",
   "application/pdf" = "document",

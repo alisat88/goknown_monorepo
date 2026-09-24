@@ -22,6 +22,7 @@ const MEDIA_CONVERSION_MIME_TYPES = [
   'image/jpg',
   'video/mp4',
   'video/mpeg',
+  'video/quicktime',
 ];
 
 interface IRequestDTO {

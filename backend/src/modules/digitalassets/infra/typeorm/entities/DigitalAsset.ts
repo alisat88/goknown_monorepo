@@ -207,7 +207,8 @@ class DigitalAsset {
       derivativeFile = `${this.media_derivative_prefix}/image.png`;
     } else if (
       mimetype === 'video/mp4' ||
-      mimetype === 'video/mpeg'
+      mimetype === 'video/mpeg' ||
+      mimetype === 'video/quicktime'
     ) {
       derivativeFile = `${this.media_derivative_prefix}/preview.png`;
     }
@@ -239,7 +240,8 @@ class DigitalAsset {
       mimetype === 'image/jpeg' ||
       mimetype === 'image/jpg' ||
       mimetype === 'video/mp4' ||
-      mimetype === 'video/mpeg'
+      mimetype === 'video/mpeg' ||
+      mimetype === 'video/quicktime'
     ) {
       return 'image/png';
     }
