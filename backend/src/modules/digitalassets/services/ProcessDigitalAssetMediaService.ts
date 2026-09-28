@@ -24,14 +24,31 @@ interface IRequest {
 
 const JPEG_MIME_TYPES = ['image/jpeg', 'image/jpg'];
 const VIDEO_MIME_TYPES = ['video/mp4', 'video/mpeg', 'video/quicktime'];
+const AUDIO_MIME_TYPES = ['audio/mpeg', 'audio/mp3'];
 
 const IMAGE_CONTENT_HASH_SCHEME =
   'image-rgba8-srgb-auto-orient-v1';
+
+const AUDIO_CONTENT_HASH_SCHEME =
+  'audio-pcm-s24le-source-rate-layout-v1';
 
 interface ICanonicalImageHash {
   content_sha256: string;
   width: number;
   height: number;
+  scheme: string;
+}
+
+interface IAudioProbe {
+  codec_name: string;
+  sample_rate: number;
+  channels: number;
+  channel_layout: string;
+}
+
+interface ICanonicalAudioHash extends IAudioProbe {
+  content_sha256: string;
+  pcm_bytes: number;
   scheme: string;
 }
 
@@ -265,6 +282,198 @@ class ProcessDigitalAssetMediaService {
     };
   }
 
+  private async probeAudioStream(
+    filePath: string,
+  ): Promise<IAudioProbe> {
+    const ffprobeBinary =
+      process.env.FFPROBE_BINARY || 'ffprobe';
+
+    const output = await this.runCommandCapture(
+      ffprobeBinary,
+      [
+        '-v',
+        'error',
+        '-select_streams',
+        'a:0',
+        '-show_entries',
+        'stream=codec_name,sample_rate,channels,channel_layout',
+        '-of',
+        'json',
+        filePath,
+      ],
+    );
+
+    let parsed: {
+      streams?: Array<{
+        codec_name?: string;
+        sample_rate?: string;
+        channels?: number;
+        channel_layout?: string;
+      }>;
+    };
+
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      throw new Error(
+        'Unable to parse FFprobe audio metadata',
+      );
+    }
+
+    const stream = parsed.streams?.[0];
+
+    if (!stream) {
+      throw new Error('No audio stream found');
+    }
+
+    const codecName = String(
+      stream.codec_name || '',
+    ).toLowerCase();
+
+    const sampleRate = Number(stream.sample_rate);
+    const channels = Number(stream.channels);
+
+    if (
+      !Number.isSafeInteger(sampleRate) ||
+      sampleRate <= 0
+    ) {
+      throw new Error(
+        `Invalid audio sample rate: ${stream.sample_rate}`,
+      );
+    }
+
+    if (
+      !Number.isSafeInteger(channels) ||
+      channels <= 0
+    ) {
+      throw new Error(
+        `Invalid audio channel count: ${stream.channels}`,
+      );
+    }
+
+    let channelLayout = String(
+      stream.channel_layout || '',
+    )
+      .trim()
+      .toLowerCase();
+
+    if (!channelLayout) {
+      if (channels === 1) {
+        channelLayout = 'mono';
+      } else if (channels === 2) {
+        channelLayout = 'stereo';
+      } else {
+        throw new Error(
+          `Audio channel layout is unavailable for ${channels} channels`,
+        );
+      }
+    }
+
+    return {
+      codec_name: codecName,
+      sample_rate: sampleRate,
+      channels,
+      channel_layout: channelLayout,
+    };
+  }
+
+  private async hashCanonicalAudio(
+    filePath: string,
+  ): Promise<ICanonicalAudioHash> {
+    const ffmpegBinary =
+      process.env.FFMPEG_BINARY || 'ffmpeg';
+
+    const probe = await this.probeAudioStream(filePath);
+
+    const hash = crypto.createHash('sha256');
+
+    hash.update(
+      Buffer.from(
+        `${AUDIO_CONTENT_HASH_SCHEME}\0${probe.sample_rate}\0${probe.channels}\0${probe.channel_layout}\0`,
+        'utf8',
+      ),
+    );
+
+    let pcmBytes = 0;
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        ffmpegBinary,
+        [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-i',
+          filePath,
+          '-map',
+          '0:a:0',
+          '-vn',
+          '-sn',
+          '-dn',
+          '-f',
+          's24le',
+          '-c:a',
+          'pcm_s24le',
+          'pipe:1',
+        ],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+
+      let stderr = '';
+
+      child.stdout.on('data', chunk => {
+        pcmBytes += chunk.length;
+        hash.update(chunk);
+      });
+
+      child.stderr.on('data', chunk => {
+        if (stderr.length < 65536) {
+          stderr += chunk.toString();
+        }
+      });
+
+      child.on('error', reject);
+
+      child.on('close', code => {
+        if (code !== 0) {
+          reject(
+            new Error(
+              `${ffmpegBinary} exited with code ${code}${
+                stderr ? `: ${stderr.trim()}` : ''
+              }`,
+            ),
+          );
+          return;
+        }
+
+        resolve();
+      });
+    });
+
+    if (pcmBytes === 0) {
+      throw new Error(
+        'Canonical audio stream contained no PCM data',
+      );
+    }
+
+    const frameBytes = probe.channels * 3;
+
+    if (pcmBytes % frameBytes !== 0) {
+      throw new Error(
+        `Canonical PCM24 byte count ${pcmBytes} is not divisible by frame size ${frameBytes}`,
+      );
+    }
+
+    return {
+      ...probe,
+      content_sha256: hash.digest('hex'),
+      pcm_bytes: pcmBytes,
+      scheme: AUDIO_CONTENT_HASH_SCHEME,
+    };
+  }
+
   private buildStorageKey(
     filename: string,
     folder?: string,
@@ -395,6 +604,144 @@ class ProcessDigitalAssetMediaService {
     });
 
     digitalAsset.media_derivative_prefix = derivativeFolder;
+    digitalAsset.media_frame_count = null;
+  }
+
+  private async convertAudio(
+    digitalAsset: DigitalAsset,
+    sourcePath: string,
+    tempDirectory: string,
+  ): Promise<void> {
+    const assetKey = digitalAsset.sync_id || digitalAsset.id;
+    const derivativeFolder = `media-derived/${assetKey}`;
+    const outputFilename = 'audio.flac';
+    const outputPath = path.join(
+      tempDirectory,
+      outputFilename,
+    );
+
+    const ffmpegBinary =
+      process.env.FFMPEG_BINARY || 'ffmpeg';
+
+    const sourceFileSha256 =
+      await this.hashFileSha256(sourcePath);
+
+    const sourceCanonical =
+      await this.hashCanonicalAudio(sourcePath);
+
+    if (sourceCanonical.codec_name !== 'mp3') {
+      throw new Error(
+        `Expected MP3 audio but FFprobe detected ${sourceCanonical.codec_name || 'unknown codec'}`,
+      );
+    }
+
+    await this.runCommand(ffmpegBinary, [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-i',
+      sourcePath,
+      '-map',
+      '0:a:0',
+      '-vn',
+      '-sn',
+      '-dn',
+      '-map_metadata',
+      '-1',
+      '-map_chapters',
+      '-1',
+      '-c:a',
+      'flac',
+      '-sample_fmt',
+      's32',
+      '-compression_level',
+      '8',
+      outputPath,
+    ]);
+
+    const flacFileSha256 =
+      await this.hashFileSha256(outputPath);
+
+    const flacCanonical =
+      await this.hashCanonicalAudio(outputPath);
+
+    if (flacCanonical.codec_name !== 'flac') {
+      throw new Error(
+        `Expected FLAC derivative but FFprobe detected ${flacCanonical.codec_name || 'unknown codec'}`,
+      );
+    }
+
+    const canonicalContentMatches =
+      sourceCanonical.scheme === flacCanonical.scheme &&
+      sourceCanonical.sample_rate ===
+        flacCanonical.sample_rate &&
+      sourceCanonical.channels ===
+        flacCanonical.channels &&
+      sourceCanonical.channel_layout ===
+        flacCanonical.channel_layout &&
+      sourceCanonical.pcm_bytes ===
+        flacCanonical.pcm_bytes &&
+      sourceCanonical.content_sha256 ===
+        flacCanonical.content_sha256;
+
+    if (!canonicalContentMatches) {
+      throw new Error(
+        'MP3/FLAC canonical audio verification failed',
+      );
+    }
+
+    await this.storageProvider.uploadFile(
+      outputPath,
+      outputFilename,
+      derivativeFolder,
+    );
+
+    const sourceArtifact: DigitalAssetMediaArtifact =
+      await this.mediaArtifactsRepository.saveArtifact({
+        digital_asset_id: digitalAsset.id,
+        role: MediaArtifactRole.Source,
+        storage_key: this.buildStorageKey(
+          digitalAsset.filename,
+        ),
+        mimetype: digitalAsset.mimetype,
+        file_sha256: sourceFileSha256,
+        content_sha256:
+          sourceCanonical.content_sha256,
+        content_hash_scheme:
+          sourceCanonical.scheme,
+        derived_from_id: null,
+      });
+
+    await this.mediaArtifactsRepository.saveArtifact({
+      digital_asset_id: digitalAsset.id,
+      role: MediaArtifactRole.Preservation,
+      storage_key: this.buildStorageKey(
+        outputFilename,
+        derivativeFolder,
+      ),
+      mimetype: 'audio/flac',
+      file_sha256: flacFileSha256,
+      content_sha256:
+        flacCanonical.content_sha256,
+      content_hash_scheme:
+        flacCanonical.scheme,
+      derived_from_id: sourceArtifact.id,
+    });
+
+    await this.contentClaimsRepository.claimFirst({
+      content_sha256:
+        sourceCanonical.content_sha256,
+      content_hash_scheme:
+        sourceCanonical.scheme,
+      first_digital_asset_id: digitalAsset.id,
+      first_user_id: digitalAsset.user_id || null,
+      first_source_file_sha256: sourceFileSha256,
+      first_seen_at: digitalAsset.created_at,
+    });
+
+    digitalAsset.media_derivative_prefix =
+      derivativeFolder;
+
     digitalAsset.media_frame_count = null;
   }
 
@@ -603,8 +950,9 @@ class ProcessDigitalAssetMediaService {
 
     const isJpeg = JPEG_MIME_TYPES.includes(digitalAsset.mimetype);
     const isVideo = VIDEO_MIME_TYPES.includes(digitalAsset.mimetype);
+    const isAudio = AUDIO_MIME_TYPES.includes(digitalAsset.mimetype);
 
-    if (!isJpeg && !isVideo) {
+    if (!isJpeg && !isVideo && !isAudio) {
       return digitalAsset;
     }
 
@@ -632,6 +980,12 @@ class ProcessDigitalAssetMediaService {
 
       if (isJpeg) {
         await this.convertJpeg(
+          digitalAsset,
+          sourcePath,
+          tempDirectory,
+        );
+      } else if (isAudio) {
+        await this.convertAudio(
           digitalAsset,
           sourcePath,
           tempDirectory,
