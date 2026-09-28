@@ -21,6 +21,10 @@ import UsersTokenRepository from '@modules/users/infra/typeorm/repositories/User
 
 import IDigitalAssetsRepository from '@modules/digitalassets/repositories/IDigitalAssetsRepository';
 import DigitalAssetsRepository from '@modules/digitalassets/infra/typeorm/repositories/DigitalAssetsRepository';
+import IDigitalAssetMediaArtifactsRepository from '@modules/digitalassets/repositories/IDigitalAssetMediaArtifactsRepository';
+import DigitalAssetMediaArtifactsRepository from '@modules/digitalassets/infra/typeorm/repositories/DigitalAssetMediaArtifactsRepository';
+import IDigitalAssetContentClaimsRepository from '@modules/digitalassets/repositories/IDigitalAssetContentClaimsRepository';
+import DigitalAssetContentClaimsRepository from '@modules/digitalassets/infra/typeorm/repositories/DigitalAssetContentClaimsRepository';
 
 import IFoldersRepository from '@modules/digitalassets/repositories/IFoldersRepository';
 import FoldersRepository from '@modules/digitalassets/infra/typeorm/repositories/FoldersRepository';
@@ -101,6 +105,16 @@ container.registerSingleton<IUsersTokensRepository>(
 container.registerSingleton<IDigitalAssetsRepository>(
   'DigitalAssetsRepository',
   DigitalAssetsRepository,
+);
+
+container.registerSingleton<IDigitalAssetMediaArtifactsRepository>(
+  'DigitalAssetMediaArtifactsRepository',
+  DigitalAssetMediaArtifactsRepository,
+);
+
+container.registerSingleton<IDigitalAssetContentClaimsRepository>(
+  'DigitalAssetContentClaimsRepository',
+  DigitalAssetContentClaimsRepository,
 );
 
 container.registerSingleton<IFoldersRepository>(
