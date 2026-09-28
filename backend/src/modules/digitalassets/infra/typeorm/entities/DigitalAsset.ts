@@ -210,7 +210,10 @@ class DigitalAsset {
       mimetype === 'video/mpeg' ||
       mimetype === 'video/quicktime'
     ) {
-      derivativeFile = `${this.media_derivative_prefix}/preview.png`;
+      derivativeFile =
+        this.media_derivative_prefix.endsWith('/frames')
+          ? `${this.media_derivative_prefix}/preview.png`
+          : `${this.media_derivative_prefix}/playback.mp4`;
     }
 
     if (!derivativeFile) {
@@ -238,12 +241,25 @@ class DigitalAsset {
 
     if (
       mimetype === 'image/jpeg' ||
-      mimetype === 'image/jpg' ||
+      mimetype === 'image/jpg'
+    ) {
+      return 'image/png';
+    }
+
+    if (
       mimetype === 'video/mp4' ||
       mimetype === 'video/mpeg' ||
       mimetype === 'video/quicktime'
     ) {
-      return 'image/png';
+      if (!this.media_derivative_prefix) {
+        return this.mimetype;
+      }
+
+      return this.media_derivative_prefix.endsWith(
+        '/frames',
+      )
+        ? 'image/png'
+        : 'video/mp4';
     }
 
     return this.mimetype;

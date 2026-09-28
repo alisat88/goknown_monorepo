@@ -32,6 +32,12 @@ const IMAGE_CONTENT_HASH_SCHEME =
 const AUDIO_CONTENT_HASH_SCHEME =
   'audio-pcm-s24le-source-rate-layout-v1';
 
+const VIDEO_FRAME_HASH_SCHEME =
+  'video-rgba64le-frame-sequence-v1';
+
+const VIDEO_CONTENT_HASH_SCHEME =
+  'av-rgba64le-frame-sequence-pcm-s24le-v1';
+
 interface ICanonicalImageHash {
   content_sha256: string;
   width: number;
@@ -49,6 +55,30 @@ interface IAudioProbe {
 interface ICanonicalAudioHash extends IAudioProbe {
   content_sha256: string;
   pcm_bytes: number;
+  scheme: string;
+}
+
+interface IVideoProbe {
+  codec_name: string;
+  pix_fmt: string;
+  width: number;
+  height: number;
+  rotation: number;
+  display_width: number;
+  display_height: number;
+}
+
+interface ICanonicalVideoFrameHash extends IVideoProbe {
+  content_sha256: string;
+  frame_count: number;
+  raw_bytes: number;
+  scheme: string;
+}
+
+interface ICanonicalVideoContent {
+  content_sha256: string;
+  video: ICanonicalVideoFrameHash;
+  audio: ICanonicalAudioHash | null;
   scheme: string;
 }
 
@@ -474,6 +504,354 @@ class ProcessDigitalAssetMediaService {
     };
   }
 
+  private async probeVideoStream(
+    filePath: string,
+  ): Promise<IVideoProbe> {
+    const ffprobeBinary =
+      process.env.FFPROBE_BINARY || 'ffprobe';
+
+    const output = await this.runCommandCapture(
+      ffprobeBinary,
+      [
+        '-v',
+        'error',
+        '-select_streams',
+        'v:0',
+        '-show_entries',
+        'stream=codec_name,pix_fmt,width,height:stream_side_data=rotation',
+        '-of',
+        'json',
+        filePath,
+      ],
+    );
+
+    let parsed: {
+      streams?: Array<{
+        codec_name?: string;
+        pix_fmt?: string;
+        width?: number;
+        height?: number;
+        side_data_list?: Array<{
+          rotation?: number | string;
+        }>;
+      }>;
+    };
+
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      throw new Error(
+        'Unable to parse FFprobe video metadata',
+      );
+    }
+
+    const stream = parsed.streams?.[0];
+
+    if (!stream) {
+      throw new Error('No video stream found');
+    }
+
+    const codecName = String(
+      stream.codec_name || '',
+    ).toLowerCase();
+
+    if (!codecName) {
+      throw new Error(
+        'Unable to determine video codec',
+      );
+    }
+
+    const pixFmt = String(
+      stream.pix_fmt || '',
+    ).toLowerCase();
+
+    const width = Number(stream.width);
+    const height = Number(stream.height);
+
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new Error(
+        `Invalid video dimensions: ${stream.width}x${stream.height}`,
+      );
+    }
+
+    const rotationEntry =
+      stream.side_data_list?.find(
+        item => item.rotation !== undefined,
+      );
+
+    const rotationValue =
+      rotationEntry?.rotation;
+
+    const rotation =
+      rotationValue === undefined
+        ? 0
+        : Number(rotationValue);
+
+    if (!Number.isFinite(rotation)) {
+      throw new Error(
+        `Invalid video rotation: ${rotationValue}`,
+      );
+    }
+
+    const roundedRotation = Math.round(rotation);
+
+    if (
+      Math.abs(rotation - roundedRotation) >
+      0.000001
+    ) {
+      throw new Error(
+        `Unsupported non-integral video rotation: ${rotation}`,
+      );
+    }
+
+    const normalizedRotation =
+      ((roundedRotation % 360) + 360) % 360;
+
+    if (
+      normalizedRotation !== 0 &&
+      normalizedRotation !== 90 &&
+      normalizedRotation !== 180 &&
+      normalizedRotation !== 270
+    ) {
+      throw new Error(
+        `Unsupported video rotation: ${rotation}`,
+      );
+    }
+
+    const swapsDimensions =
+      normalizedRotation === 90 ||
+      normalizedRotation === 270;
+
+    return {
+      codec_name: codecName,
+      pix_fmt: pixFmt,
+      width,
+      height,
+      rotation,
+      display_width:
+        swapsDimensions ? height : width,
+      display_height:
+        swapsDimensions ? width : height,
+    };
+  }
+
+  private async hasAudioStream(
+    filePath: string,
+  ): Promise<boolean> {
+    const ffprobeBinary =
+      process.env.FFPROBE_BINARY || 'ffprobe';
+
+    const output = await this.runCommandCapture(
+      ffprobeBinary,
+      [
+        '-v',
+        'error',
+        '-select_streams',
+        'a:0',
+        '-show_entries',
+        'stream=index',
+        '-of',
+        'json',
+        filePath,
+      ],
+    );
+
+    let parsed: {
+      streams?: Array<{
+        index?: number;
+      }>;
+    };
+
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      throw new Error(
+        'Unable to parse FFprobe audio-stream metadata',
+      );
+    }
+
+    return Boolean(
+      parsed.streams &&
+        parsed.streams.length > 0,
+    );
+  }
+
+  private async hashCanonicalVideoFrames(
+    filePath: string,
+  ): Promise<ICanonicalVideoFrameHash> {
+    const ffmpegBinary =
+      process.env.FFMPEG_BINARY || 'ffmpeg';
+
+    const probe =
+      await this.probeVideoStream(filePath);
+
+    const frameBytes =
+      probe.display_width *
+      probe.display_height *
+      8;
+
+    if (
+      !Number.isSafeInteger(frameBytes) ||
+      frameBytes <= 0
+    ) {
+      throw new Error(
+        `Invalid canonical video frame size: ${frameBytes}`,
+      );
+    }
+
+    const hash = crypto.createHash('sha256');
+
+    hash.update(
+      Buffer.from(
+        `${VIDEO_FRAME_HASH_SCHEME}\0${probe.display_width}x${probe.display_height}\0`,
+        'utf8',
+      ),
+    );
+
+    let rawBytes = 0;
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        ffmpegBinary,
+        [
+          '-nostdin',
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-i',
+          filePath,
+          '-map',
+          '0:v:0',
+          '-an',
+          '-sn',
+          '-dn',
+          '-fps_mode',
+          'passthrough',
+          '-f',
+          'rawvideo',
+          '-pix_fmt',
+          'rgba64le',
+          'pipe:1',
+        ],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+
+      let stderr = '';
+
+      child.stdout.on('data', chunk => {
+        rawBytes += chunk.length;
+        hash.update(chunk);
+      });
+
+      child.stderr.on('data', chunk => {
+        if (stderr.length < 65536) {
+          stderr += chunk.toString();
+        }
+      });
+
+      child.on('error', reject);
+
+      child.on('close', code => {
+        if (code !== 0) {
+          reject(
+            new Error(
+              `${ffmpegBinary} exited with code ${code}${
+                stderr
+                  ? `: ${stderr.trim()}`
+                  : ''
+              }`,
+            ),
+          );
+          return;
+        }
+
+        resolve();
+      });
+    });
+
+    if (rawBytes === 0) {
+      throw new Error(
+        'Canonical video stream contained no frame data',
+      );
+    }
+
+    if (rawBytes % frameBytes !== 0) {
+      throw new Error(
+        `Canonical video byte count ${rawBytes} is not divisible by frame size ${frameBytes}`,
+      );
+    }
+
+    const frameCount =
+      rawBytes / frameBytes;
+
+    if (
+      !Number.isSafeInteger(frameCount) ||
+      frameCount <= 0
+    ) {
+      throw new Error(
+        `Invalid canonical video frame count: ${frameCount}`,
+      );
+    }
+
+    hash.update(
+      Buffer.from(
+        `\0frames=${frameCount}\0`,
+        'utf8',
+      ),
+    );
+
+    return {
+      ...probe,
+      content_sha256: hash.digest('hex'),
+      frame_count: frameCount,
+      raw_bytes: rawBytes,
+      scheme: VIDEO_FRAME_HASH_SCHEME,
+    };
+  }
+
+  private async hashCanonicalVideoContent(
+    filePath: string,
+  ): Promise<ICanonicalVideoContent> {
+    const video =
+      await this.hashCanonicalVideoFrames(
+        filePath,
+      );
+
+    const hasAudio =
+      await this.hasAudioStream(filePath);
+
+    const audio = hasAudio
+      ? await this.hashCanonicalAudio(filePath)
+      : null;
+
+    const hash = crypto.createHash('sha256');
+
+    const audioDescriptor = audio
+      ? `${audio.scheme}:${audio.content_sha256}`
+      : 'none';
+
+    hash.update(
+      Buffer.from(
+        `${VIDEO_CONTENT_HASH_SCHEME}\0video=${video.scheme}:${video.content_sha256}\0audio=${audioDescriptor}\0`,
+        'utf8',
+      ),
+    );
+
+    return {
+      content_sha256: hash.digest('hex'),
+      video,
+      audio,
+      scheme: VIDEO_CONTENT_HASH_SCHEME,
+    };
+  }
+
   private buildStorageKey(
     filename: string,
     folder?: string,
@@ -750,194 +1128,372 @@ class ProcessDigitalAssetMediaService {
     sourcePath: string,
     tempDirectory: string,
   ): Promise<void> {
-    const assetKey = digitalAsset.sync_id || digitalAsset.id;
-    const derivativeFolder = `media-derived/${assetKey}/frames`;
-    const ffmpegBinary = process.env.FFMPEG_BINARY || 'ffmpeg';
-    const imageMagickBinary =
-      process.env.IMAGEMAGICK_BINARY || 'magick';
+    const assetKey =
+      digitalAsset.sync_id || digitalAsset.id;
 
-    const configuredMaxFrameBytes = Number(
-      process.env.MEDIA_MAX_FRAME_BYTES ||
-        128 * 1024 * 1024,
+    const derivativeFolder =
+      `media-derived/${assetKey}`;
+
+    const preservationFilename =
+      'preservation.mkv';
+
+    const playbackFilename =
+      'playback.mp4';
+
+    const preservationPath = path.join(
+      tempDirectory,
+      preservationFilename,
     );
 
-    const maxFrameBytes = Math.min(
-      Math.max(
-        Number.isFinite(configuredMaxFrameBytes)
-          ? configuredMaxFrameBytes
-          : 128 * 1024 * 1024,
-        1024 * 1024,
-      ),
-      512 * 1024 * 1024,
+    const playbackPath = path.join(
+      tempDirectory,
+      playbackFilename,
     );
 
-    const child = spawn(
-      ffmpegBinary,
-      [
-        '-hide_banner',
-        '-loglevel',
-        'error',
-        '-i',
+    const ffmpegBinary =
+      process.env.FFMPEG_BINARY || 'ffmpeg';
+
+    const sourceFileSha256 =
+      await this.hashFileSha256(sourcePath);
+
+    const sourceCanonical =
+      await this.hashCanonicalVideoContent(
         sourcePath,
-        '-map',
-        '0:v:0',
-        '-fps_mode',
-        'passthrough',
-        '-q:v',
-        '2',
-        '-f',
-        'image2pipe',
-        '-vcodec',
-        'mjpeg',
-        'pipe:1',
-      ],
-      {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
+      );
+
+    const preservationArgs = [
+      '-nostdin',
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-i',
+      sourcePath,
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+      '-map_metadata',
+      '-1',
+      '-map_chapters',
+      '-1',
+      '-fps_mode',
+      'passthrough',
+      '-c:v',
+      'ffv1',
+      '-level',
+      '3',
+      '-g',
+      '1',
+      '-slicecrc',
+      '1',
+    ];
+
+    if (sourceCanonical.audio) {
+      preservationArgs.push(
+        '-c:a',
+        'flac',
+        '-sample_fmt',
+        's32',
+        '-compression_level',
+        '8',
+      );
+    } else {
+      preservationArgs.push('-an');
+    }
+
+    preservationArgs.push(
+      preservationPath,
     );
 
-    let stderr = '';
+    await this.runCommand(
+      ffmpegBinary,
+      preservationArgs,
+    );
 
-    child.stderr.on('data', chunk => {
-      if (stderr.length < 65536) {
-        stderr += chunk.toString();
-      }
-    });
+    const preservationFileSha256 =
+      await this.hashFileSha256(
+        preservationPath,
+      );
 
-    const completion = new Promise<{
-      code: number | null;
-      error?: Error;
-    }>(resolve => {
-      child.once('error', error => {
-        resolve({ code: null, error });
-      });
+    const preservationCanonical =
+      await this.hashCanonicalVideoContent(
+        preservationPath,
+      );
 
-      child.once('close', code => {
-        resolve({ code });
-      });
-    });
+    if (
+      preservationCanonical.video
+        .codec_name !== 'ffv1'
+    ) {
+      throw new Error(
+        `Expected FFV1 preservation video but FFprobe detected ${
+          preservationCanonical.video
+            .codec_name || 'unknown codec'
+        }`,
+      );
+    }
 
-    const jpegStart = Buffer.from([0xff, 0xd8]);
-    const jpegEnd = Buffer.from([0xff, 0xd9]);
-
-    let buffer = Buffer.alloc(0);
-    let frameCount = 0;
-
-    try {
-      for await (const chunk of child.stdout) {
-        buffer = Buffer.concat([
-          buffer,
-          Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk),
-        ]);
-
-        while (true) {
-          const startIndex = buffer.indexOf(jpegStart);
-
-          if (startIndex < 0) {
-            if (buffer.length > 1) {
-              buffer = buffer.subarray(buffer.length - 1);
-            }
-            break;
-          }
-
-          if (startIndex > 0) {
-            buffer = buffer.subarray(startIndex);
-          }
-
-          const endIndex = buffer.indexOf(jpegEnd, 2);
-
-          if (endIndex < 0) {
-            if (buffer.length > maxFrameBytes) {
-              throw new Error(
-                `FFmpeg JPEG frame exceeded ${maxFrameBytes} bytes`,
-              );
-            }
-
-            break;
-          }
-
-          const frame = buffer.subarray(0, endIndex + 2);
-          buffer = buffer.subarray(endIndex + 2);
-
-          frameCount += 1;
-
-          const filename =
-            `frame-${String(frameCount).padStart(8, '0')}.jpg`;
-
-          const localFramePath = path.join(
-            tempDirectory,
-            filename,
-          );
-
-          await fs.promises.writeFile(localFramePath, frame);
-
-          if (frameCount === 1) {
-            const previewFilename = 'preview.png';
-            const previewPath = path.join(
-              tempDirectory,
-              previewFilename,
-            );
-
-            try {
-              await this.runCommand(imageMagickBinary, [
-                localFramePath,
-                previewPath,
-              ]);
-
-              await this.storageProvider.uploadFile(
-                previewPath,
-                previewFilename,
-                derivativeFolder,
-              );
-            } finally {
-              await fs.promises.unlink(previewPath).catch(() => {
-                // Temporary directory cleanup in execute() is the fallback.
-              });
-            }
-          }
-
-          try {
-            await this.storageProvider.uploadFile(
-              localFramePath,
-              filename,
-              derivativeFolder,
-            );
-          } finally {
-            await fs.promises.unlink(localFramePath).catch(() => {
-              // Temporary directory cleanup in execute() is the fallback.
-            });
-          }
-        }
-      }
-
-      const result = await completion;
-
-      if (result.error) {
-        throw result.error;
-      }
-
-      if (result.code !== 0) {
+    if (sourceCanonical.audio) {
+      if (
+        !preservationCanonical.audio ||
+        preservationCanonical.audio
+          .codec_name !== 'flac'
+      ) {
         throw new Error(
-          `${ffmpegBinary} exited with code ${result.code}${
-            stderr ? `: ${stderr.trim()}` : ''
+          `Expected FLAC preservation audio but FFprobe detected ${
+            preservationCanonical.audio
+              ?.codec_name || 'no audio'
           }`,
         );
       }
-    } catch (error) {
-      if (!child.killed) {
-        child.kill('SIGKILL');
+    } else if (
+      preservationCanonical.audio
+    ) {
+      throw new Error(
+        'Unexpected audio stream in preservation master',
+      );
+    }
+
+    const canonicalVideoMatches =
+      sourceCanonical.video.scheme ===
+        preservationCanonical.video.scheme &&
+      sourceCanonical.video.display_width ===
+        preservationCanonical.video
+          .display_width &&
+      sourceCanonical.video.display_height ===
+        preservationCanonical.video
+          .display_height &&
+      sourceCanonical.video.frame_count ===
+        preservationCanonical.video
+          .frame_count &&
+      sourceCanonical.video.raw_bytes ===
+        preservationCanonical.video
+          .raw_bytes &&
+      sourceCanonical.video.content_sha256 ===
+        preservationCanonical.video
+          .content_sha256;
+
+    const canonicalAudioMatches =
+      sourceCanonical.audio === null
+        ? preservationCanonical.audio === null
+        : preservationCanonical.audio !==
+            null &&
+          sourceCanonical.audio.scheme ===
+            preservationCanonical.audio
+              .scheme &&
+          sourceCanonical.audio.sample_rate ===
+            preservationCanonical.audio
+              .sample_rate &&
+          sourceCanonical.audio.channels ===
+            preservationCanonical.audio
+              .channels &&
+          sourceCanonical.audio
+            .channel_layout ===
+            preservationCanonical.audio
+              .channel_layout &&
+          sourceCanonical.audio.pcm_bytes ===
+            preservationCanonical.audio
+              .pcm_bytes &&
+          sourceCanonical.audio
+            .content_sha256 ===
+            preservationCanonical.audio
+              .content_sha256;
+
+    const canonicalContentMatches =
+      sourceCanonical.scheme ===
+        preservationCanonical.scheme &&
+      sourceCanonical.content_sha256 ===
+        preservationCanonical
+          .content_sha256 &&
+      canonicalVideoMatches &&
+      canonicalAudioMatches;
+
+    if (!canonicalContentMatches) {
+      throw new Error(
+        'Source/preservation canonical audiovisual verification failed',
+      );
+    }
+
+    const playbackArgs = [
+      '-nostdin',
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-i',
+      sourcePath,
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+      '-map_metadata',
+      '-1',
+      '-map_chapters',
+      '-1',
+      '-fps_mode',
+      'passthrough',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'medium',
+      '-crf',
+      '18',
+      '-vf',
+      'pad=ceil(iw/2)*2:ceil(ih/2)*2',
+      '-pix_fmt',
+      'yuv420p',
+    ];
+
+    if (sourceCanonical.audio) {
+      playbackArgs.push(
+        '-c:a',
+        'aac',
+        '-b:a',
+        '192k',
+      );
+    } else {
+      playbackArgs.push('-an');
+    }
+
+    playbackArgs.push(
+      '-movflags',
+      '+faststart',
+      playbackPath,
+    );
+
+    await this.runCommand(
+      ffmpegBinary,
+      playbackArgs,
+    );
+
+    const playbackFileSha256 =
+      await this.hashFileSha256(playbackPath);
+
+    const playbackVideo =
+      await this.probeVideoStream(
+        playbackPath,
+      );
+
+    if (
+      playbackVideo.codec_name !== 'h264'
+    ) {
+      throw new Error(
+        `Expected H.264 playback video but FFprobe detected ${playbackVideo.codec_name || 'unknown codec'}`,
+      );
+    }
+
+    if (
+      playbackVideo.pix_fmt !== 'yuv420p'
+    ) {
+      throw new Error(
+        `Expected yuv420p playback video but FFprobe detected ${playbackVideo.pix_fmt || 'unknown pixel format'}`,
+      );
+    }
+
+    const playbackHasAudio =
+      await this.hasAudioStream(playbackPath);
+
+    if (sourceCanonical.audio) {
+      if (!playbackHasAudio) {
+        throw new Error(
+          'Playback proxy is missing audio',
+        );
       }
 
-      await completion;
-      throw error;
+      const playbackAudio =
+        await this.probeAudioStream(
+          playbackPath,
+        );
+
+      if (
+        playbackAudio.codec_name !== 'aac'
+      ) {
+        throw new Error(
+          `Expected AAC playback audio but FFprobe detected ${playbackAudio.codec_name || 'unknown codec'}`,
+        );
+      }
+    } else if (playbackHasAudio) {
+      throw new Error(
+        'Unexpected audio stream in playback proxy',
+      );
     }
 
-    if (frameCount === 0) {
-      throw new Error('FFmpeg produced no JPEG frames');
-    }
+    await this.storageProvider.uploadFile(
+      preservationPath,
+      preservationFilename,
+      derivativeFolder,
+    );
 
-    digitalAsset.media_derivative_prefix = derivativeFolder;
-    digitalAsset.media_frame_count = frameCount;
+    await this.storageProvider.uploadFile(
+      playbackPath,
+      playbackFilename,
+      derivativeFolder,
+    );
+
+    const sourceArtifact: DigitalAssetMediaArtifact =
+      await this.mediaArtifactsRepository.saveArtifact({
+        digital_asset_id: digitalAsset.id,
+        role: MediaArtifactRole.Source,
+        storage_key: this.buildStorageKey(
+          digitalAsset.filename,
+        ),
+        mimetype: digitalAsset.mimetype,
+        file_sha256: sourceFileSha256,
+        content_sha256:
+          sourceCanonical.content_sha256,
+        content_hash_scheme:
+          sourceCanonical.scheme,
+        derived_from_id: null,
+      });
+
+    await this.mediaArtifactsRepository.saveArtifact({
+      digital_asset_id: digitalAsset.id,
+      role: MediaArtifactRole.Preservation,
+      storage_key: this.buildStorageKey(
+        preservationFilename,
+        derivativeFolder,
+      ),
+      mimetype: 'video/x-matroska',
+      file_sha256: preservationFileSha256,
+      content_sha256:
+        preservationCanonical
+          .content_sha256,
+      content_hash_scheme:
+        preservationCanonical.scheme,
+      derived_from_id: sourceArtifact.id,
+    });
+
+    await this.mediaArtifactsRepository.saveArtifact({
+      digital_asset_id: digitalAsset.id,
+      role: MediaArtifactRole.Playback,
+      storage_key: this.buildStorageKey(
+        playbackFilename,
+        derivativeFolder,
+      ),
+      mimetype: 'video/mp4',
+      file_sha256: playbackFileSha256,
+      content_sha256: null,
+      content_hash_scheme: null,
+      derived_from_id: sourceArtifact.id,
+    });
+
+    await this.contentClaimsRepository.claimFirst({
+      content_sha256:
+        sourceCanonical.content_sha256,
+      content_hash_scheme:
+        sourceCanonical.scheme,
+      first_digital_asset_id:
+        digitalAsset.id,
+      first_user_id:
+        digitalAsset.user_id || null,
+      first_source_file_sha256:
+        sourceFileSha256,
+      first_seen_at:
+        digitalAsset.created_at,
+    });
+
+    digitalAsset.media_derivative_prefix =
+      derivativeFolder;
+
+    digitalAsset.media_frame_count = null;
   }
 
   public async execute({ sync_id }: IRequest): Promise<DigitalAsset> {
