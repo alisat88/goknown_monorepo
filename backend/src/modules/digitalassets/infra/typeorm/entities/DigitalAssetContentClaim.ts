@@ -1,6 +1,5 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -19,13 +18,13 @@ class DigitalAssetContentClaim {
   @Column({ type: 'uuid' })
   first_digital_asset_id: string;
 
-  @Column({ type: 'uuid' })
-  first_user_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  first_user_id: string | null;
 
   @Column({ type: 'varchar', length: 64 })
   first_source_file_sha256: string;
 
-  @CreateDateColumn()
+  @Column({ type: 'timestamptz' })
   first_seen_at: Date;
 }
 

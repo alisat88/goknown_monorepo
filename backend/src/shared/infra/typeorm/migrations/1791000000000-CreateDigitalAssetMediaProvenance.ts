@@ -146,6 +146,7 @@ export class CreateDigitalAssetMediaProvenance1791000000000
           {
             name: 'first_user_id',
             type: 'uuid',
+            isNullable: true,
           },
           {
             name: 'first_source_file_sha256',
@@ -154,8 +155,7 @@ export class CreateDigitalAssetMediaProvenance1791000000000
           },
           {
             name: 'first_seen_at',
-            type: 'timestamp',
-            default: 'now()',
+            type: 'timestamptz',
           },
         ],
       }),

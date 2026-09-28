@@ -32,9 +32,21 @@ class DigitalAssetContentClaimsRepository
       .insert()
       .into(DigitalAssetContentClaim)
       .values(data)
-      .onConflict(
-        '("content_hash_scheme", "content_sha256") DO NOTHING',
-      )
+      .onConflict(`
+        ("content_hash_scheme", "content_sha256")
+        DO UPDATE SET
+          "first_digital_asset_id" = EXCLUDED."first_digital_asset_id",
+          "first_user_id" = EXCLUDED."first_user_id",
+          "first_source_file_sha256" = EXCLUDED."first_source_file_sha256",
+          "first_seen_at" = EXCLUDED."first_seen_at"
+        WHERE
+          EXCLUDED."first_seen_at" < digitalasset_content_claims."first_seen_at"
+          OR (
+            EXCLUDED."first_seen_at" = digitalasset_content_claims."first_seen_at"
+            AND EXCLUDED."first_digital_asset_id"::text
+              < digitalasset_content_claims."first_digital_asset_id"::text
+          )
+      `)
       .execute();
 
     const claim = await this.findByContentHash(
