@@ -269,17 +269,25 @@ class ProcessDigitalAssetMediaService {
     filename: string,
     folder?: string,
   ): string {
-    let relativeKey = [folder, filename]
-      .filter(Boolean)
-      .join('/')
+    const normalizedFilename = filename
       .replace(/\\/g, '/')
       .replace(/^\/+/, '');
+
+    if (folder) {
+      const normalizedFolder = folder
+        .replace(/\\/g, '/')
+        .replace(/^\/+|\/+$/g, '');
+
+      return normalizedFolder
+        ? `${normalizedFolder}/${normalizedFilename}`
+        : normalizedFilename;
+    }
 
     if (
       uploadConfig.driver !== 's3' &&
       uploadConfig.driver !== 'digitalocean'
     ) {
-      return relativeKey;
+      return normalizedFilename;
     }
 
     const prefix = uploadConfig.config.aws.keyPrefix.replace(
@@ -287,17 +295,9 @@ class ProcessDigitalAssetMediaService {
       '',
     );
 
-    if (!prefix) {
-      return relativeKey;
-    }
-
-    if (relativeKey.startsWith(`${prefix}/`)) {
-      return relativeKey;
-    }
-
-    relativeKey = `${prefix}/${relativeKey}`;
-
-    return relativeKey;
+    return prefix
+      ? `${prefix}/${normalizedFilename}`
+      : normalizedFilename;
   }
 
   private async convertJpeg(
