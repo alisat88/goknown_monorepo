@@ -29,18 +29,35 @@ class DigitalAssetMediaArtifactsRepository
   public async saveArtifact(
     data: ICreateDigitalAssetMediaArtifact,
   ): Promise<DigitalAssetMediaArtifact> {
-    const existing = await this.findByAssetAndRole(
+    await this.ormRepository
+      .createQueryBuilder()
+      .insert()
+      .into(DigitalAssetMediaArtifact)
+      .values(data)
+      .onConflict(`
+        ("digital_asset_id", "role")
+        DO UPDATE SET
+          "storage_key" = EXCLUDED."storage_key",
+          "mimetype" = EXCLUDED."mimetype",
+          "file_sha256" = EXCLUDED."file_sha256",
+          "content_sha256" = EXCLUDED."content_sha256",
+          "content_hash_scheme" = EXCLUDED."content_hash_scheme",
+          "derived_from_id" = EXCLUDED."derived_from_id"
+      `)
+      .execute();
+
+    const artifact = await this.findByAssetAndRole(
       data.digital_asset_id,
       data.role,
     );
 
-    if (existing) {
-      Object.assign(existing, data);
-      return this.ormRepository.save(existing);
+    if (!artifact) {
+      throw new Error(
+        'Unable to create or retrieve media artifact',
+      );
     }
 
-    const artifact = this.ormRepository.create(data);
-    return this.ormRepository.save(artifact);
+    return artifact;
   }
 }
 

@@ -1,14 +1,21 @@
+import crypto from 'crypto';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { inject, injectable } from 'tsyringe';
 
+import uploadConfig from '@config/upload';
 import IStorageProvider from '@shared/container/providers/StorageProvider/models/IStorageProvider';
 
 import DigitalAsset, {
   MediaProcessingStatus,
 } from '../infra/typeorm/entities/DigitalAsset';
+import DigitalAssetMediaArtifact, {
+  MediaArtifactRole,
+} from '../infra/typeorm/entities/DigitalAssetMediaArtifact';
+import IDigitalAssetContentClaimsRepository from '../repositories/IDigitalAssetContentClaimsRepository';
+import IDigitalAssetMediaArtifactsRepository from '../repositories/IDigitalAssetMediaArtifactsRepository';
 import IDigitalAssetsRepository from '../repositories/IDigitalAssetsRepository';
 
 interface IRequest {
@@ -18,6 +25,16 @@ interface IRequest {
 const JPEG_MIME_TYPES = ['image/jpeg', 'image/jpg'];
 const VIDEO_MIME_TYPES = ['video/mp4', 'video/mpeg', 'video/quicktime'];
 
+const IMAGE_CONTENT_HASH_SCHEME =
+  'image-rgba8-srgb-auto-orient-v1';
+
+interface ICanonicalImageHash {
+  content_sha256: string;
+  width: number;
+  height: number;
+  scheme: string;
+}
+
 @injectable()
 class ProcessDigitalAssetMediaService {
   constructor(
@@ -26,6 +43,12 @@ class ProcessDigitalAssetMediaService {
 
     @inject('DigitalAssetsRepository')
     private digitalAssetsRepository: IDigitalAssetsRepository,
+
+    @inject('DigitalAssetMediaArtifactsRepository')
+    private mediaArtifactsRepository: IDigitalAssetMediaArtifactsRepository,
+
+    @inject('DigitalAssetContentClaimsRepository')
+    private contentClaimsRepository: IDigitalAssetContentClaimsRepository,
   ) {}
 
   private async runCommand(command: string, args: string[]): Promise<void> {
@@ -61,6 +84,222 @@ class ProcessDigitalAssetMediaService {
     });
   }
 
+  private async hashFileSha256(filePath: string): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const hash = crypto.createHash('sha256');
+      const stream = fs.createReadStream(filePath);
+
+      stream.on('data', chunk => {
+        hash.update(chunk);
+      });
+
+      stream.on('error', reject);
+
+      stream.on('end', () => {
+        resolve(hash.digest('hex'));
+      });
+    });
+  }
+
+  private async runCommandCapture(
+    command: string,
+    args: string[],
+  ): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const child = spawn(command, args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', chunk => {
+        stdout += chunk.toString();
+      });
+
+      child.stderr.on('data', chunk => {
+        if (stderr.length < 65536) {
+          stderr += chunk.toString();
+        }
+      });
+
+      child.on('error', reject);
+
+      child.on('close', code => {
+        if (code === 0) {
+          resolve(stdout);
+          return;
+        }
+
+        reject(
+          new Error(
+            `${command} exited with code ${code}${
+              stderr ? `: ${stderr.trim()}` : ''
+            }`,
+          ),
+        );
+      });
+    });
+  }
+
+  private async hashCanonicalImage(
+    filePath: string,
+  ): Promise<ICanonicalImageHash> {
+    const imageMagickBinary =
+      process.env.IMAGEMAGICK_BINARY || 'magick';
+
+    const dimensionsOutput = await this.runCommandCapture(
+      imageMagickBinary,
+      [
+        filePath,
+        '-auto-orient',
+        '-colorspace',
+        'sRGB',
+        '-alpha',
+        'on',
+        '-depth',
+        '8',
+        '-format',
+        '%w %h',
+        'info:',
+      ],
+    );
+
+    const dimensions = dimensionsOutput.trim().match(
+      /^(\d+)\s+(\d+)$/,
+    );
+
+    if (!dimensions) {
+      throw new Error(
+        `Unable to determine canonical image dimensions: ${dimensionsOutput.trim()}`,
+      );
+    }
+
+    const width = Number(dimensions[1]);
+    const height = Number(dimensions[2]);
+
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new Error(
+        `Invalid canonical image dimensions: ${width}x${height}`,
+      );
+    }
+
+    const hash = crypto.createHash('sha256');
+
+    hash.update(
+      Buffer.from(
+        `${IMAGE_CONTENT_HASH_SCHEME}\0${width}x${height}\0`,
+        'utf8',
+      ),
+    );
+
+    const expectedPixelBytes = width * height * 4;
+    let actualPixelBytes = 0;
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        imageMagickBinary,
+        [
+          filePath,
+          '-auto-orient',
+          '-colorspace',
+          'sRGB',
+          '-alpha',
+          'on',
+          '-depth',
+          '8',
+          'rgba:-',
+        ],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+
+      let stderr = '';
+
+      child.stdout.on('data', chunk => {
+        actualPixelBytes += chunk.length;
+        hash.update(chunk);
+      });
+
+      child.stderr.on('data', chunk => {
+        if (stderr.length < 65536) {
+          stderr += chunk.toString();
+        }
+      });
+
+      child.on('error', reject);
+
+      child.on('close', code => {
+        if (code !== 0) {
+          reject(
+            new Error(
+              `${imageMagickBinary} exited with code ${code}${
+                stderr ? `: ${stderr.trim()}` : ''
+              }`,
+            ),
+          );
+          return;
+        }
+
+        resolve();
+      });
+    });
+
+    if (actualPixelBytes !== expectedPixelBytes) {
+      throw new Error(
+        `Canonical RGBA byte count mismatch: expected ${expectedPixelBytes}, got ${actualPixelBytes}`,
+      );
+    }
+
+    return {
+      content_sha256: hash.digest('hex'),
+      width,
+      height,
+      scheme: IMAGE_CONTENT_HASH_SCHEME,
+    };
+  }
+
+  private buildStorageKey(
+    filename: string,
+    folder?: string,
+  ): string {
+    let relativeKey = [folder, filename]
+      .filter(Boolean)
+      .join('/')
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '');
+
+    if (
+      uploadConfig.driver !== 's3' &&
+      uploadConfig.driver !== 'digitalocean'
+    ) {
+      return relativeKey;
+    }
+
+    const prefix = uploadConfig.config.aws.keyPrefix.replace(
+      /^\/+|\/+$/g,
+      '',
+    );
+
+    if (!prefix) {
+      return relativeKey;
+    }
+
+    if (relativeKey.startsWith(`${prefix}/`)) {
+      return relativeKey;
+    }
+
+    relativeKey = `${prefix}/${relativeKey}`;
+
+    return relativeKey;
+  }
+
   private async convertJpeg(
     digitalAsset: DigitalAsset,
     sourcePath: string,
@@ -74,16 +313,86 @@ class ProcessDigitalAssetMediaService {
     const imageMagickBinary =
       process.env.IMAGEMAGICK_BINARY || 'magick';
 
+    const sourceFileSha256 =
+      await this.hashFileSha256(sourcePath);
+
+    const sourceCanonical =
+      await this.hashCanonicalImage(sourcePath);
+
     await this.runCommand(imageMagickBinary, [
       sourcePath,
+      '-auto-orient',
+      '-colorspace',
+      'sRGB',
+      '-alpha',
+      'on',
+      '-depth',
+      '8',
+      '-strip',
       outputPath,
     ]);
+
+    const pngFileSha256 =
+      await this.hashFileSha256(outputPath);
+
+    const pngCanonical =
+      await this.hashCanonicalImage(outputPath);
+
+    const canonicalContentMatches =
+      sourceCanonical.scheme === pngCanonical.scheme &&
+      sourceCanonical.width === pngCanonical.width &&
+      sourceCanonical.height === pngCanonical.height &&
+      sourceCanonical.content_sha256 ===
+        pngCanonical.content_sha256;
+
+    if (!canonicalContentMatches) {
+      throw new Error(
+        'JPEG/PNG canonical content verification failed',
+      );
+    }
 
     await this.storageProvider.uploadFile(
       outputPath,
       outputFilename,
       derivativeFolder,
     );
+
+    const sourceArtifact: DigitalAssetMediaArtifact =
+      await this.mediaArtifactsRepository.saveArtifact({
+        digital_asset_id: digitalAsset.id,
+        role: MediaArtifactRole.Source,
+        storage_key: this.buildStorageKey(
+          digitalAsset.filename,
+        ),
+        mimetype: digitalAsset.mimetype,
+        file_sha256: sourceFileSha256,
+        content_sha256: sourceCanonical.content_sha256,
+        content_hash_scheme: sourceCanonical.scheme,
+        derived_from_id: null,
+      });
+
+    await this.mediaArtifactsRepository.saveArtifact({
+      digital_asset_id: digitalAsset.id,
+      role: MediaArtifactRole.Preservation,
+      storage_key: this.buildStorageKey(
+        outputFilename,
+        derivativeFolder,
+      ),
+      mimetype: 'image/png',
+      file_sha256: pngFileSha256,
+      content_sha256: pngCanonical.content_sha256,
+      content_hash_scheme: pngCanonical.scheme,
+      derived_from_id: sourceArtifact.id,
+    });
+
+    await this.contentClaimsRepository.claimFirst({
+      content_sha256: sourceCanonical.content_sha256,
+      content_hash_scheme: sourceCanonical.scheme,
+      first_digital_asset_id: digitalAsset.id,
+      first_user_id: digitalAsset.user_id || null,
+      first_source_file_sha256: sourceFileSha256,
+      first_seen_at: digitalAsset.created_at,
+    });
 
     digitalAsset.media_derivative_prefix = derivativeFolder;
     digitalAsset.media_frame_count = null;
