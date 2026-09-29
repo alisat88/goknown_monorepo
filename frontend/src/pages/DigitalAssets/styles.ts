@@ -443,6 +443,80 @@ export const InfoDigitalAssets = styled.div`
   }
 `;
 
+interface IPreservationStatusProps {
+  status: "processing" | "ready" | "failed";
+}
+
+const preservationStatusColor = {
+  processing: "#00007d",
+  ready: "#53bf99",
+  failed: "#E65D5E",
+};
+
+const preservationStatusBackground = {
+  processing: "#f4f4ff",
+  ready: "#f1fbf7",
+  failed: "#fff5f5",
+};
+
+export const PreservationStatus = styled.aside<IPreservationStatusProps>`
+  width: calc(100% - 40px);
+  box-sizing: border-box;
+  margin: 18px 20px 0;
+  padding: 14px 16px;
+  border: 1px solid ${(props) => preservationStatusColor[props.status]};
+  border-radius: 8px;
+  background: ${(props) => preservationStatusBackground[props.status]};
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+
+  &::before {
+    content: "${(props) =>
+      props.status === "ready" ? "✓" : props.status === "failed" ? "!" : "…"}";
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: ${(props) => preservationStatusColor[props.status]};
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  > div > strong {
+    color: ${(props) => preservationStatusColor[props.status]};
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+
+  > div > span {
+    margin-top: 2px;
+    color: #666;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 19px;
+  }
+
+  @media ${device.tablet} {
+    width: calc(100% - 24px);
+    margin: 12px 12px 0;
+    padding: 12px 14px;
+  }
+`;
+
 export const InfoPreviewAssets = styled.div`
   display: flex;
   flex-direction: column;

@@ -17,6 +17,7 @@ import {
   ContentPreviewAssets,
   InfoPreviewAssets,
   Flag,
+  PreservationStatus,
   Section,
 } from "./styles";
 
@@ -33,6 +34,7 @@ interface IDigitalAssetsItem {
     | "processing"
     | "ready"
     | "failed";
+  media_derivative_prefix?: string | null;
   name: string;
   description?: string;
   privacy: "private" | "public";
@@ -40,6 +42,93 @@ interface IDigitalAssetsItem {
   user_id: string;
   created_at: string;
 }
+
+type PreservationStatusType = "processing" | "ready" | "failed";
+
+interface IPreservationMessage {
+  status: PreservationStatusType;
+  title: string;
+  description: string;
+}
+
+const getPreservationMessage = (
+  digitalAsset: IDigitalAssetsItem
+): IPreservationMessage | null => {
+  const status = digitalAsset.media_processing_status;
+  const mimetype = String(digitalAsset.mimetype || "").toLowerCase();
+
+  const isJpeg = mimetype === "image/jpeg" || mimetype === "image/jpg";
+  const isMp3 = mimetype === "audio/mpeg" || mimetype === "audio/mp3";
+  const isMp4 = mimetype === "video/mp4";
+  const isMov = mimetype === "video/quicktime" || mimetype === "video/mov";
+  const isSupported = isJpeg || isMp3 || isMp4 || isMov;
+
+  if (!isSupported || !status || status === "none") {
+    return null;
+  }
+
+  if (status === "queued" || status === "processing") {
+    return {
+      status: "processing",
+      title: "Creating preservation copy…",
+      description:
+        "Your original file has been retained while preservation processing completes.",
+    };
+  }
+
+  if (status === "failed") {
+    return {
+      status: "failed",
+      title: "Preservation processing failed",
+      description:
+        "The original file was retained, but the preservation copy could not be created.",
+    };
+  }
+
+  if (status !== "ready") {
+    return null;
+  }
+
+  if (
+    (isMp4 || isMov) &&
+    digitalAsset.media_derivative_prefix?.endsWith("/frames")
+  ) {
+    return null;
+  }
+
+  if (isJpeg) {
+    return {
+      status: "ready",
+      title: "Preservation complete",
+      description: "PNG preservation copy created. Original JPEG retained.",
+    };
+  }
+
+  if (isMp3) {
+    return {
+      status: "ready",
+      title: "Preservation complete",
+      description:
+        "FLAC preservation copy created. Original MP3 retained for playback.",
+    };
+  }
+
+  if (isMp4) {
+    return {
+      status: "ready",
+      title: "Preservation complete",
+      description:
+        "Lossless preservation master created. Original MP4 retained; optimized MP4 created for playback.",
+    };
+  }
+
+  return {
+    status: "ready",
+    title: "Preservation complete",
+    description:
+      "Lossless preservation master created. Original MOV retained; optimized MP4 created for playback.",
+  };
+};
 
 interface ILocationsProps {
   oldPage?: string;
@@ -123,6 +212,8 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
     return () => window.clearInterval(interval);
   }, [digitalAsset.media_processing_status, id]);
 
+  const preservationMessage = getPreservationMessage(digitalAsset);
+
   return (
     <Container>
       <header>
@@ -178,6 +269,15 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
                       digitalAsset.display_mimetype || digitalAsset.mimetype
                     }
                   />
+
+                  {preservationMessage && (
+                    <PreservationStatus status={preservationMessage.status}>
+                      <div>
+                        <strong>{preservationMessage.title}</strong>
+                        <span>{preservationMessage.description}</span>
+                      </div>
+                    </PreservationStatus>
+                  )}
 
                   <InfoPreviewAssets>
                     <h5>Details:</h5>
