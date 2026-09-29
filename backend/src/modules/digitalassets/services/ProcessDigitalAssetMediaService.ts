@@ -33,10 +33,10 @@ const AUDIO_CONTENT_HASH_SCHEME =
   'audio-pcm-s24le-source-rate-layout-v1';
 
 const VIDEO_FRAME_HASH_SCHEME =
-  'video-rgba64le-frame-sequence-v1';
+  'video-gbrap16le-frame-sequence-v2';
 
 const VIDEO_CONTENT_HASH_SCHEME =
-  'av-rgba64le-frame-sequence-pcm-s24le-v1';
+  'av-gbrap16le-frame-sequence-pcm-s24le-v2';
 
 interface ICanonicalImageHash {
   content_sha256: string;
@@ -735,7 +735,7 @@ class ProcessDigitalAssetMediaService {
           '-f',
           'rawvideo',
           '-pix_fmt',
-          'rgba64le',
+          'gbrap16le',
           'pipe:1',
         ],
         {
@@ -1186,6 +1186,8 @@ class ProcessDigitalAssetMediaService {
       '1',
       '-slicecrc',
       '1',
+      '-pix_fmt',
+      'gbrap16le',
     ];
 
     if (sourceCanonical.audio) {
