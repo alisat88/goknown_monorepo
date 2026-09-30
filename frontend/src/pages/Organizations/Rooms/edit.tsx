@@ -32,6 +32,7 @@ export default function EditGroup() {
   const [loading, setLoading] = useState(false);
   const [loadingDLs, setLoadingDLs] = useState(true);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [appsError, setAppsError] = useState("");
   const [selectedOrganization, setSelectedOrganization] =
     useState<IOrganizationItem>();
   const [selectedGroup, setSelectedGroup] = useState<IGroupItem>();
@@ -52,27 +53,41 @@ export default function EditGroup() {
 
       try {
         formRef.current?.setErrors({});
-        const schema = Yup.object().shape({
-          name: Yup.string().required(),
-          // admin_id: Yup.string(),
-        });
+        const schema = Yup.object()
+          .required()
+          .shape({
+            name: Yup.string().trim().required("Subgroup name is required"),
+            // admin_id: Yup.string(),
+          });
 
-        await schema.validate(data, { abortEarly: false });
+        const values = await schema.validate(data, { abortEarly: false });
 
-        const selectedDLS = Object.keys(data.dls[0]).filter(
-          (key, value) => data.dls[0][key] === true
-        );
+        if (!idOrganization || !idGroup) {
+          throw new Error("Organization and parent group are required");
+        }
+        if (loadingDLs || appsError) {
+          throw new Error(appsError || "Please wait for apps to load");
+        }
 
+        // Unform omits a Scope when it contains no registered fields.
+        // Apps are optional; an absent selection means no app assignments.
+        const selections = data.dls === undefined ? {} : data.dls;
+        if (
+          !selections ||
+          typeof selections !== "object" ||
+          Array.isArray(selections) ||
+          Object.values(selections).some((value) => typeof value !== "boolean")
+        ) {
+          throw new Error(
+            "Invalid app selection. Please reload and try again."
+          );
+        }
         const dls_syncids = dls
-          .map((dl) =>
-            selectedDLS.find((selected) => selected === dl.flag) === dl.flag
-              ? dl.sync_id
-              : null
-          )
-          .filter((value) => value !== null);
+          .filter((dl) => selections[dl.flag] === true)
+          .map((dl) => dl.sync_id);
 
         const formData = {
-          name: data.name,
+          name: values.name,
           dls_syncids,
         };
 
@@ -115,7 +130,16 @@ export default function EditGroup() {
         setLoadingSubmit(false);
       }
     },
-    [addToast, dls, history, idGroup, idRoom, idOrganization]
+    [
+      addToast,
+      dls,
+      history,
+      idGroup,
+      idRoom,
+      idOrganization,
+      loadingDLs,
+      appsError,
+    ]
   );
 
   useEffect(() => {
@@ -141,10 +165,26 @@ export default function EditGroup() {
     setLoadingDLs(true);
     api
       .get<IDL[]>("/dls")
-      .then((response) =>
-        setDLs(response.data.filter((dl) => dl.flag !== "wallet"))
-      )
-      .catch((error) => {})
+      .then((response) => {
+        if (
+          !Array.isArray(response.data) ||
+          response.data.some(
+            (dl) =>
+              !dl ||
+              typeof dl.sync_id !== "string" ||
+              !dl.sync_id ||
+              typeof dl.flag !== "string" ||
+              !dl.flag ||
+              typeof dl.name !== "string"
+          )
+        ) {
+          throw new Error("Invalid apps response");
+        }
+        setDLs(response.data.filter((dl) => dl.flag !== "wallet"));
+      })
+      .catch(() => {
+        setAppsError("Unable to load apps. Please reload and try again.");
+      })
       .finally(() => setLoadingDLs(false));
   }, []);
 
@@ -198,7 +238,11 @@ export default function EditGroup() {
             <header>
               <h3>Apps</h3>
             </header>
-            <Scope path="dls[0]">
+            {appsError && <p role="alert">{appsError}</p>}
+            {!loadingDLs && !appsError && dls.length === 0 && (
+              <p>No apps available. Apps are optional.</p>
+            )}
+            <Scope path="dls">
               {!loadingDLs &&
                 dls.map((dl) => (
                   <div className="dls_sections" key={dl.sync_id}>
@@ -216,7 +260,11 @@ export default function EditGroup() {
             </Scope>
           </DLsContent>
           <footer>
-            <Button type="submit" isLoading={loadingSubmit || loading}>
+            <Button
+              type="submit"
+              isLoading={loadingSubmit || loading || loadingDLs}
+              disabled={loadingSubmit || loading || loadingDLs || !!appsError}
+            >
               {idOrganization ? "SAVE CHANGES" : "CREATE ORGANIZATION"}
             </Button>
           </footer>
