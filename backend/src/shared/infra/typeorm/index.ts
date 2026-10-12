@@ -1,5 +1,8 @@
 import { createConnection, ConnectionOptions } from 'typeorm';
 import 'dotenv/config';
+import { StrictLoginChallenge } from '@modules/strictSessions/entities/StrictLoginChallenge';
+import { StrictLoginThrottle } from '@modules/strictSessions/entities/StrictLoginThrottle';
+import { StrictLoginSession } from '@modules/strictSessions/entities/StrictLoginSession';
 
 // Check if environment variables are defined
 console.log('>>> TypeORM Connection Variables:');
@@ -40,6 +43,9 @@ const config: ConnectionOptions = {
   synchronize: false,
   logging: ['error', 'schema', 'warn'],
   entities: [
+    StrictLoginChallenge,
+    StrictLoginSession,
+    StrictLoginThrottle,
     process.env.NODE_ENV === 'production'
       ? './dist/modules/**/infra/typeorm/entities/*.js'
       : './src/modules/**/infra/typeorm/entities/*.ts',

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import strictSessionsRouter from '@modules/strictSessions/strictSessions.routes';
 
 import usersRouter from '@modules/users/infra/http/routes/users.routes';
 import pinRouter from '@modules/users/infra/http/routes/pin.routes';
@@ -28,6 +29,9 @@ import paymentsRouter from "./payments.routes";
 import dappBuilderRouter from '@modules/dappbuilder/infra/http/routes/dappbuilder.routes';
 
 const routes = Router();
+
+// Separate, opt-in authentication foundation; legacy routes remain unchanged.
+routes.use('/strict-sessions', strictSessionsRouter);
 
 routes.use('/health', (_request, response) => {
   response.json(`Server Connected on node ${process.env.NODE_NUMBER || 1} `);
