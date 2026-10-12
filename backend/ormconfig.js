@@ -72,7 +72,12 @@ module.exports = [
     url: connectionUrl,
     synchronize: false,
     soft: true,
-    entities: ['./dist/modules/**/infra/typeorm/entities/*.js'],
+    entities: [
+      './dist/modules/**/infra/typeorm/entities/*.js',
+      './dist/modules/strictSessions/entities/StrictLoginChallenge.js',
+      './dist/modules/strictSessions/entities/StrictLoginSession.js',
+      './dist/modules/strictSessions/entities/StrictLoginThrottle.js',
+    ],
     migrations: ['./dist/shared/infra/typeorm/migrations/*.js'],
     cli: {
       migrationsDir: './src/shared/infra/typeorm/migrations',
