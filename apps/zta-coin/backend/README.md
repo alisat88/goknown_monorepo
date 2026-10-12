@@ -130,6 +130,19 @@ TWILIO_SERVICE_ID=your-service-id
 - `yarn queue`: Start queue worker
 - `yarn swagger`: Generate Swagger documentation
 
+## DAppGenius handoff (disabled until configured)
+
+The cookie-backed ZTA handoff requires all of these deployment values; none has a checked-in default:
+
+- `DAPPGENIUS_HANDOFF_REDEEM_URL`
+- `DAPPGENIUS_HANDOFF_VALIDATE_URL`
+- `ZTA_HANDOFF_SERVICE_TOKEN` (shared server-to-server secret)
+- `ZTA_HANDOFF_CLIENT_ID`
+- `ZTA_HANDOFF_REDIRECT_URI`
+- `DAPPGENIUS_ORIGIN` or `ZTA_ALLOWED_ORIGIN`
+
+The browser must first call `POST /auth/handoff/start`. ZTA generates random state and PKCE verifier values, stores only their hashes in a five-minute transaction record, and sets a host-only `Secure; HttpOnly; SameSite=Lax` transaction cookie. Redemption requires that cookie, the matching state/verifier, and the one-time DAppGenius authorization code. The DAppGenius strict-session feature flag and both ZTA handoff migrations must be explicitly enabled/applied through the approved release process. This phase does not authorize balances, minting, transfers, or ledger access.
+
 ## API Documentation
 
 The API documentation is available at:

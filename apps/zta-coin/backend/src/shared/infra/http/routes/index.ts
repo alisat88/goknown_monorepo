@@ -36,11 +36,15 @@ import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.rout
 // Laboratory API is intentionally disabled; source code is preserved.
 // import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
 import { isDatabaseReady } from '@shared/infra/typeorm';
+import authRouter from '@modules/auth/auth.routes';
 
 const routes = Router();
 
 // Must precede every token-capable route, including the copied legacy APIs.
 routes.use(tokenLockdown);
+
+// Separate cookie-backed ZTA handoff/session endpoints; lockdown remains first.
+routes.use('/auth', authRouter);
 
 /**
  * Health check
