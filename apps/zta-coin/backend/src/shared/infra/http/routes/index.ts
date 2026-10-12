@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import tokenLockdown from './tokenLockdown';
 
 import transferRouter from '@modules/transactions/infra/http/routes/transfer.routes';
 import mintRouter from '@modules/transactions/infra/http/routes/mint.routes';
@@ -37,6 +38,9 @@ import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.rout
 import { isDatabaseReady } from '@shared/infra/typeorm';
 
 const routes = Router();
+
+// Must precede every token-capable route, including the copied legacy APIs.
+routes.use(tokenLockdown);
 
 /**
  * Health check

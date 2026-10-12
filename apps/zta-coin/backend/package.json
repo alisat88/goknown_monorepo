@@ -15,6 +15,7 @@
     "migration:revert": "node ./node_modules/typeorm/cli.js migration:revert",
     "seed:zta": "node dist/shared/infra/typeorm/seeds/ztaSystemAccounts.js",
     "test:zta": "ts-node-dev -r tsconfig-paths/register --transpile-only src/__tests__/transfer-persistence.integration.ts",
+    "test:lockdown": "node -r ts-node/register/transpile-only -r tsconfig-paths/register --test src/__tests__/token-lockdown.test.js",
     "dev:server": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/server.ts",
     "dev:queue": "ts-node-dev -r tsconfig-paths/register --inspect --transpile-only --ignore-watch node_modules src/shared/infra/http/queue.ts",
     "typeorm": "node ./node_modules/typeorm/cli.js"
