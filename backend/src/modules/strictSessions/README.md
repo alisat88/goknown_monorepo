@@ -1,6 +1,6 @@
 # Isolated completed-login foundation
 
-Development only. No ZTA handoff, frontend integration, legacy authentication change, or production activation is included.
+Development only. This branch adds the server-to-server ZTA handoff foundation; it does not add the balance UI, financial authorization, or production activation.
 
 ## Identity and isolation
 
@@ -13,6 +13,10 @@ Public registration, peer registration replication, legacy PIN fields, JWT issua
 ## API (disabled by default)
 
 Explicitly setting `STRICT_SESSIONS_ENABLED=true` enables only `/strict-sessions/*`. The migration must already exist. No ordinary client calls these routes today. Disabled routes return 404 without querying storage.
+
+With strict sessions explicitly enabled and the handoff environment values configured, a verified strict session may call `POST /strict-sessions/handoff/authorize` with the exact ZTA client ID, redirect URI, browser state, and S256 PKCE challenge. The response contains a two-minute, one-time authorization code. ZTA redeems it server-to-server at `/strict-sessions/handoff/redeem` using `ZTA_HANDOFF_SERVICE_TOKEN`; only the SHA-256 code hash is stored. Redemption locks and consumes the code, rechecks the parent strict session and active user, and binds the client, redirect URI, state, and verifier. `POST /strict-sessions/handoff/validate-parent` is restricted to the same service credential so ZTA can invalidate its cookie session when the parent strict session is revoked.
+
+Required handoff configuration has no checked-in defaults: `ZTA_HANDOFF_CLIENT_ID`, `ZTA_HANDOFF_REDIRECT_URI`, and `ZTA_HANDOFF_SERVICE_TOKEN`. The service token must be provisioned independently on DAppGenius and ZTA; it must never be logged or sent to browsers.
 
 - POST `/strict-sessions/challenges`: exactly `{email,password}`. Requires fresh password proof, stores a separate challenge and emails an eight-digit cryptographically generated code. Returns `{challenge,expiresInSeconds:300}`. The challenge is a random 256-bit browser credential.
 - POST `/strict-sessions/verify`: exactly `{challenge,code}`. Returns `{token,expiresAt}` only after challenge consumption and session creation commit. Five code attempts; five-minute expiration.

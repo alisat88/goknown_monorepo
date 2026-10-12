@@ -4,6 +4,9 @@ import { PostgresStrictStore } from './PostgresStrictStore';
 import { container } from 'tsyringe';
 import path from 'path';
 import IMailProvider from '@shared/container/providers/MailProvider/models/IMailProvider';
+import { digest } from './StrictSessionService';
+import { PostgresZtaHandoffStore } from './PostgresZtaHandoffStore';
+import { ZtaHandoffService } from './ZtaHandoffService';
 
 function bearer(request: Request): string {
   const match = /^Bearer (dgs1_[A-Za-z0-9_-]{43})$/.exec(
@@ -32,6 +35,7 @@ export function ensureStrictSession(service: StrictSessionService) {
     void (async () => {
       const token = bearer(request);
       response.locals.strictIdentity = await service.validate(token);
+      response.locals.strictSessionHash = digest(token);
       next();
     })().catch(error => {
       const known = error instanceof StrictAuthError;
@@ -83,6 +87,80 @@ export function createStrictSessionsRouter(
     handle(async (request, response) => {
       const { email, password } = body(request, ['email', 'password']);
       response.status(201).json(await service.start(email, password));
+    }),
+  );
+  const handoff = new ZtaHandoffService(new PostgresZtaHandoffStore(), {
+    clientId: process.env.ZTA_HANDOFF_CLIENT_ID,
+    redirectUri: process.env.ZTA_HANDOFF_REDIRECT_URI,
+  });
+  router.post(
+    '/handoff/authorize',
+    ensureStrictSession(service),
+    handle(async (request, response) => {
+      const { client_id, redirect_uri, state, code_challenge } = body(
+        request,
+        ['client_id', 'redirect_uri', 'state', 'code_challenge'],
+      );
+      response.status(201).json(
+        await handoff.issue(
+          response.locals.strictIdentity.userId,
+          response.locals.strictSessionHash,
+          {
+            clientId: client_id,
+            redirectUri: redirect_uri,
+            state,
+            codeChallenge: code_challenge,
+          },
+        ),
+      );
+    }),
+  );
+  router.post(
+    '/handoff/redeem',
+    handle(async (request, response) => {
+      const expected = process.env.ZTA_HANDOFF_SERVICE_TOKEN;
+      const supplied = request.header('X-ZTA-Handoff-Token') || '';
+      if (!expected || supplied.length !== expected.length) {
+        throw new StrictAuthError(401, 'Handoff service authentication required');
+      }
+      const left = Buffer.from(supplied);
+      const right = Buffer.from(expected);
+      if (!require('crypto').timingSafeEqual(left, right)) {
+        throw new StrictAuthError(401, 'Handoff service authentication required');
+      }
+      const { code, client_id, redirect_uri, state, code_verifier } = body(
+        request,
+        ['code', 'client_id', 'redirect_uri', 'state', 'code_verifier'],
+      );
+      response.json(
+        await handoff.redeem({
+          code,
+          clientId: client_id,
+          redirectUri: redirect_uri,
+          state,
+          codeVerifier: code_verifier,
+        }),
+      );
+    }),
+  );
+  router.post(
+    '/handoff/validate-parent',
+    handle(async (request, response) => {
+      const expected = process.env.ZTA_HANDOFF_SERVICE_TOKEN;
+      const supplied = request.header('X-ZTA-Handoff-Token') || '';
+      if (!expected || supplied.length !== expected.length) {
+        throw new StrictAuthError(401, 'Handoff service authentication required');
+      }
+      const left = Buffer.from(supplied);
+      const right = Buffer.from(expected);
+      if (!require('crypto').timingSafeEqual(left, right)) {
+        throw new StrictAuthError(401, 'Handoff service authentication required');
+      }
+      const value = request.body;
+      if (!value || Object.keys(value).length !== 1 || typeof value.parent_session_hash !== 'string') {
+        throw new StrictAuthError(400, 'Invalid request');
+      }
+      response.json({ valid: await handoff.validateParent(value.parent_session_hash) });
     }),
   );
   router.post(

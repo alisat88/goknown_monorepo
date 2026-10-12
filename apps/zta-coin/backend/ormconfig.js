@@ -21,7 +21,9 @@ function resolveDatabaseUrl() {
 function loadZtaEntities() {
   const { Account } = require('./dist/modules/transactions/infra/typeorm/entities/Account');
   const { Transaction } = require('./dist/modules/transactions/infra/typeorm/entities/Transaction');
-  return [Account, Transaction];
+  const { ZtaAuthSession } = require('./dist/modules/auth/entities/ZtaAuthSession');
+  const { ZtaHandoffTransaction } = require('./dist/modules/auth/entities/ZtaHandoffTransaction');
+  return [Account, Transaction, ZtaAuthSession, ZtaHandoffTransaction];
 }
 
 module.exports = [
