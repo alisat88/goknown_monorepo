@@ -37,6 +37,7 @@ import dashboardRouter from '@modules/dashboard/infra/http/routes/dashboard.rout
 // import laboratoryRouter from '@modules/laboratory/infra/http/routes/laboratory.routes';
 import { isDatabaseReady } from '@shared/infra/typeorm';
 import authRouter from '@modules/auth/auth.routes';
+import personalBalanceRouter from '@modules/personalBalance/personalBalance.routes';
 
 const routes = Router();
 
@@ -45,6 +46,7 @@ routes.use(tokenLockdown);
 
 // Separate cookie-backed ZTA handoff/session endpoints; lockdown remains first.
 routes.use('/auth', authRouter);
+routes.use('/me/balance', personalBalanceRouter);
 
 /**
  * Health check

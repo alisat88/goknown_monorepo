@@ -23,7 +23,8 @@ function loadZtaEntities() {
   const { Transaction } = require('./dist/modules/transactions/infra/typeorm/entities/Transaction');
   const { ZtaAuthSession } = require('./dist/modules/auth/entities/ZtaAuthSession');
   const { ZtaHandoffTransaction } = require('./dist/modules/auth/entities/ZtaHandoffTransaction');
-  return [Account, Transaction, ZtaAuthSession, ZtaHandoffTransaction];
+  const { ZtaPersonalAccount } = require('./dist/modules/personalBalance/entities/ZtaPersonalAccount');
+  return [Account, Transaction, ZtaAuthSession, ZtaHandoffTransaction, ZtaPersonalAccount];
 }
 
 module.exports = [
