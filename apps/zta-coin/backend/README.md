@@ -139,9 +139,9 @@ The cookie-backed ZTA handoff requires all of these deployment values; none has 
 - `ZTA_HANDOFF_SERVICE_TOKEN` (shared server-to-server secret)
 - `ZTA_HANDOFF_CLIENT_ID`
 - `ZTA_HANDOFF_REDIRECT_URI`
-- `DAPPGENIUS_ORIGIN` or `ZTA_ALLOWED_ORIGIN`
+- `ZTA_ALLOWED_ORIGIN` (ZTA browser origin, e.g. `https://zta-coin.org`; takes precedence over the legacy `DAPPGENIUS_ORIGIN` fallback)
 
-The browser must first call `POST /auth/handoff/start`. ZTA generates random state and PKCE verifier values, stores only their hashes in a five-minute transaction record, and sets a host-only `Secure; HttpOnly; SameSite=Lax` transaction cookie. Redemption requires that cookie, the matching state/verifier, and the one-time DAppGenius authorization code. The DAppGenius strict-session feature flag and both ZTA handoff migrations must be explicitly enabled/applied through the approved release process. This phase does not authorize balances, minting, transfers, or ledger access.
+The browser must first call `POST /auth/handoff/start`. ZTA generates random state and PKCE verifier values, stores only their hashes in a five-minute transaction record, and sets a host-only `Secure; HttpOnly; SameSite=Lax` transaction cookie. Redemption requires that cookie, the matching state/verifier, and the one-time DAppGenius authorization code. The DAppGenius strict-session feature flag and both ZTA handoff migrations must be explicitly enabled/applied through the approved release process. The authenticated personal balance route returns only the validated session owner’s account; minting, transfers, and ledger access remain locked down. See `../frontend/README.md` for the browser navigation/callback flow.
 
 ## API Documentation
 

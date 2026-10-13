@@ -1,0 +1,42 @@
+.zta-authorize {
+  max-width: 520px;
+  margin: 60px auto;
+  padding: 32px;
+  background: #fff;
+  color: #172b4d;
+  border-radius: 12px;
+}
+.zta-authorize h1 {
+  margin-bottom: 20px;
+}
+.zta-authorize p {
+  margin: 16px 0;
+  line-height: 1.5;
+}
+.zta-authorize label {
+  display: block;
+  margin: 20px 0;
+}
+.zta-authorize input {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  border: 1px solid #8093a8;
+  border-radius: 4px;
+  color: #172b4d;
+  background: white;
+}
+.zta-authorize button {
+  padding: 12px 18px;
+  margin: 8px 8px 8px 0;
+  border: 0;
+  border-radius: 4px;
+  color: white;
+  background: #174b88;
+  cursor: pointer;
+}
+.zta-authorize button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

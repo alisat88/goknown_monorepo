@@ -50,23 +50,33 @@ function startBody(request: Request): Record<string, string> {
 }
 
 function cookieToken(request: Request): string | undefined {
-  const value = request.headers.cookie || '';
-  const match = /(?:^|;\s*)zta_session=([^;]+)/.exec(value);
-  return match ? decodeURIComponent(match[1]) : undefined;
+  return cookieValue(request, 'zta_session');
 }
 
+// Reject ambiguous duplicates, invalid encoding, and invalid opaque-token syntax.
+// Both session and browser-transaction cookies use this fail-closed parser.
 function cookieValue(request: Request, name: string): string | undefined {
-  const value = request.headers.cookie || '';
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`).exec(value);
-  return match ? decodeURIComponent(match[1]) : undefined;
+  const values = (request.headers.cookie || '').split(';')
+    .map(part => part.trim())
+    .filter(part => part === name || part.startsWith(`${name}=`));
+  if (!values.length) return undefined;
+  try {
+    if (values.length !== 1 || !values[0].startsWith(`${name}=`)) throw new Error();
+    const value = decodeURIComponent(values[0].slice(name.length + 1));
+    const pattern = name === 'zta_session'
+      ? /^zta1_[A-Za-z0-9_-]{43}$/ : /^ztat_[A-Za-z0-9_-]{43}$/;
+    if (!pattern.test(value)) throw new Error();
+    return value;
+  } catch {
+    throw new ZtaHandoffError('Authentication required');
+  }
 }
 
 function allowedOrigin(): string | undefined {
-  return process.env.DAPPGENIUS_ORIGIN || process.env.ZTA_ALLOWED_ORIGIN;
+  return process.env.ZTA_ALLOWED_ORIGIN || process.env.DAPPGENIUS_ORIGIN;
 }
 
-function requireOrigin(request: Request): void {
+export function requireOrigin(request: Request): void {
   const origin = request.header('Origin');
   const allowed = allowedOrigin();
   if (origin && (!allowed || origin !== allowed)) {
@@ -85,7 +95,9 @@ function errors(action: (request: Request, response: Response) => Promise<void>)
   };
 }
 
-router.use(cors({ origin: allowedOrigin(), credentials: true }));
+export const ztaBrowserCors = cors({ origin: allowedOrigin() || false, credentials: true });
+router.use(ztaBrowserCors);
+router.use((_request, response, next) => { response.set('Cache-Control', 'no-store'); next(); });
 router.post(
   '/handoff/start',
   errors(async (request, response) => {

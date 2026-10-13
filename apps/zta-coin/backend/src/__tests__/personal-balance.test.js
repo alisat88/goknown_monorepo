@@ -18,7 +18,7 @@ test('personal balance service provisions from authenticated identity only', asy
   assert.deepEqual(calls, [userId]);
 });
 
-test('personal balance route rejects missing and invalid sessions', async () => {
+test('personal balance route rejects missing and invalid sessions', async t => {
   const express = require('express');
   const http = require('node:http');
   const { createPersonalBalanceRouter } = require('../modules/personalBalance/personalBalance.routes');
@@ -26,20 +26,28 @@ test('personal balance route rejects missing and invalid sessions', async () => 
   app.use('/me/balance', createPersonalBalanceRouter(
     new ZtaPersonalBalanceService({ getOrCreate: async () => ({ accountId: 'unused', balance: '0.00000000' }) }),
     async token => {
-      if (token === 'zta1_valid') return { userId: '11111111-1111-4111-8111-111111111111' };
-      if (token === 'zta1_unavailable') throw new Error('Authentication unavailable');
+      if (token === 'zta1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA') return { userId: '11111111-1111-4111-8111-111111111111' };
+      if (token === 'zta1_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC') throw new Error('Authentication unavailable');
       throw new Error('Authentication required');
     },
   ));
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
   const base = `http://127.0.0.1:${server.address().port}/me/balance`;
   assert.equal((await fetch(base)).status, 401);
   assert.equal((await fetch(`${base}?user_id=22222222-2222-4222-8222-222222222222`, {
-    headers: { Cookie: 'zta_session=zta1_valid' },
+    headers: { Cookie: 'zta_session=zta1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' },
   })).status, 400);
-  assert.equal((await fetch(base, { headers: { Cookie: 'zta_session=zta1_forged' } })).status, 401);
-  assert.equal((await fetch(base, { headers: { Cookie: 'zta_session=zta1_unavailable' } })).status, 503);
-  assert.equal((await fetch(base, { headers: { Cookie: 'zta_session=zta1_valid' } })).status, 200);
-  await new Promise(resolve => server.close(resolve));
+  assert.equal((await fetch(base, { headers: { Cookie: 'zta_session=zta1_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' } })).status, 401);
+  assert.equal((await fetch(base, { headers: { Cookie: 'zta_session=zta1_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' } })).status, 503);
+  assert.equal((await fetch(base, { headers: { Cookie: 'zta_session=zta1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' } })).status, 200);
+  for (const value of ['%', '%GG', '%E0%A4%A', '%00', '', 'forged', 'zta1_short']) {
+    const response = await fetch(base, { headers: { Cookie: `zta_session=${value}` } });
+    assert.equal(response.status, 401, value);
+    assert.deepEqual(await response.json(), { error: 'Authentication required' });
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+  const duplicate = await fetch(base, { headers: { Cookie: `zta_session=zta1_${'A'.repeat(43)}; zta_session=zta1_${'A'.repeat(43)}` } });
+  assert.equal(duplicate.status, 401);
 });

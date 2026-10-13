@@ -1,5 +1,5 @@
 import React from "react";
-import { Switch } from "react-router-dom";
+import { Switch, Route as BrowserRoute } from "react-router-dom";
 
 import Auditlogs from "../pages/Auditlogs";
 import BuyTokens from "../pages/BuyTokens";
@@ -47,10 +47,12 @@ import Transaction from "../pages/Transaction";
 import Tutorials from "../pages/Tutorials";
 import { TwoFactorSMS } from "../pages/TwoFactorSMS";
 import Workflow from "../pages/Workflow";
+import ZtaAuthorize from "../pages/ZtaAuthorize";
 import Route from "./Route";
 
 const Routes: React.FC<React.PropsWithChildren<unknown>> = () => (
   <Switch>
+    <BrowserRoute path="/zta/authorize" exact component={ZtaAuthorize} />
     <Route path="/" exact component={SignIn} />
     <Route path="/signin" exact component={SignIn} />
     <Route path="/login" exact component={SignIn} />

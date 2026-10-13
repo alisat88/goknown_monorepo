@@ -14,11 +14,23 @@ import {
   X,
 } from "lucide-react";
 import "./styles.css";
+import { PersonalBalance } from "./PersonalBalancePanel";
+import { consumeCallback } from "./personalBalance";
 
 const API_URL =
   import.meta.env.VITE_ZTA_API_URL ?? "https://api.zta-coin.org";
 const DAPPGENIUS_DASHBOARD_URL =
   import.meta.env.VITE_DAPPGENIUS_DASHBOARD_URL ?? "https://dappgenius.dev";
+
+const personalConfig = {
+  apiBase: API_URL,
+  origin: window.location.origin,
+  clientId: import.meta.env.VITE_ZTA_HANDOFF_CLIENT_ID || "",
+  authorizeUrl: import.meta.env.VITE_DAPPGENIUS_AUTHORIZE_URL || "",
+};
+const callback = consumeCallback(personalConfig);
+// Keep callback failures handled until the panel consumes the result.
+void callback?.catch(() => undefined);
 
 const DEMO_USERS = [
   "Alisa",
@@ -577,6 +589,7 @@ function App() {
         </header>
 
         <section className="content" id="overview">
+          <PersonalBalance config={personalConfig} callback={callback} />
           <div className="metrics">
             <article className="metric-card">
               <div>

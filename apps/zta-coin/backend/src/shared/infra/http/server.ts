@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import http from 'http';
-import cors from 'cors';
+import { publicApiCors } from './corsPolicy';
 import { errors } from 'celebrate';
 import 'express-async-errors';
 import routes from './routes';
@@ -44,7 +44,7 @@ const app = express();
 /**
  * Cors Policy
  */
-app.use(cors());
+app.use(publicApiCors);
 
 // Enable gzip compression for all responses
 app.use(compression());
