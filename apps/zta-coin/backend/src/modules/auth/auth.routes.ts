@@ -5,13 +5,21 @@ import { ZtaAuthSessionStore } from './ZtaAuthSessionStore';
 import { ZtaHandoffError, ZtaHandoffService } from './ZtaHandoffService';
 
 const router = Router();
-const service = new ZtaHandoffService(new ZtaAuthSessionStore(), undefined, {
+export const ztaAuthService = new ZtaHandoffService(new ZtaAuthSessionStore(), undefined, {
   dappRedeemUrl: process.env.DAPPGENIUS_HANDOFF_REDEEM_URL,
   dappValidateUrl: process.env.DAPPGENIUS_HANDOFF_VALIDATE_URL,
   serviceToken: process.env.ZTA_HANDOFF_SERVICE_TOKEN,
   clientId: process.env.ZTA_HANDOFF_CLIENT_ID,
   redirectUri: process.env.ZTA_HANDOFF_REDIRECT_URI,
 });
+
+export function ztaSessionToken(request: Request): string | undefined {
+  return cookieToken(request);
+}
+
+export async function validateZtaSession(token: string) {
+  return ztaAuthService.validate(token);
+}
 
 function body(request: Request): Record<string, string> {
   const value = request.body;
@@ -87,7 +95,7 @@ router.post(
       value.client_id !== process.env.ZTA_HANDOFF_CLIENT_ID ||
       value.redirect_uri !== process.env.ZTA_HANDOFF_REDIRECT_URI
     ) throw new ZtaHandoffError('Invalid handoff request');
-    const transaction = await service.startTransaction();
+    const transaction = await ztaAuthService.startTransaction();
     response
       .cookie('zta_handoff_tx', transaction.transactionCookie, {
         httpOnly: true,
@@ -112,7 +120,7 @@ router.post(
     const value = body(request);
     const transactionCookie = cookieValue(request, 'zta_handoff_tx');
     if (!transactionCookie) throw new ZtaHandoffError('Invalid or expired handoff');
-    const result = await service.redeem({
+    const result = await ztaAuthService.redeem({
       code: value.code,
       clientId: value.client_id,
       redirectUri: value.redirect_uri,
@@ -139,7 +147,7 @@ router.get(
     requireOrigin(request);
     const token = cookieToken(request);
     if (!token) throw new ZtaHandoffError('Authentication required');
-    const identity = await service.validate(token);
+    const identity = await ztaAuthService.validate(token);
     response.json({ authenticated: true, expiresAt: identity.expiresAt });
   }),
 );
@@ -148,7 +156,7 @@ router.post(
   errors(async (request, response) => {
     requireOrigin(request);
     const token = cookieToken(request);
-    if (token) await service.logout(token);
+    if (token) await ztaAuthService.logout(token);
     response
       .clearCookie('zta_session', { httpOnly: true, secure: true, sameSite: 'lax', path: '/' })
       .status(204)
