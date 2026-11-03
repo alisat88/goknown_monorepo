@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 GoKnown LLC. All rights reserved.
+ *
+ * This software and documentation constitute an unpublished work and contain
+ * valuable trade secrets and proprietary information belonging to GoKnown LLC.
+ * None of this material may be copied, duplicated, or disclosed without the
+ * express written permission of GoKnown LLC.
+ */
 import FindGroupService from '@modules/organizations/services/FindGroupService';
 import CreateGroupService from '@modules/organizations/services/CreateGroupService';
 import ListAllGroupsService from '@modules/organizations/services/ListAllGroupsService';

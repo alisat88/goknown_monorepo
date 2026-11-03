@@ -1,4 +1,10 @@
 @echo off
+REM Copyright (C) 2026 GoKnown LLC. All rights reserved.
+REM
+REM This software and documentation constitute an unpublished work and contain
+REM valuable trade secrets and proprietary information belonging to GoKnown LLC.
+REM None of this material may be copied, duplicated, or disclosed without the
+REM express written permission of GoKnown LLC.
 setlocal enabledelayedexpansion
 
 REM Define variables

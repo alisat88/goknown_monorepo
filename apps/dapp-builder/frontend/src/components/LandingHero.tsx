@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 GoKnown LLC. All rights reserved.
+ *
+ * This software and documentation constitute an unpublished work and contain
+ * valuable trade secrets and proprietary information belonging to GoKnown LLC.
+ * None of this material may be copied, duplicated, or disclosed without the
+ * express written permission of GoKnown LLC.
+ */
 // LandingHero is not used as the app entry point — the builder loads directly.
 // Kept here in case a marketing/landing page is needed in a future version.
 
