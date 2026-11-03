@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 GoKnown LLC. All rights reserved.
+ *
+ * This software and documentation constitute an unpublished work and contain
+ * valuable trade secrets and proprietary information belonging to GoKnown LLC.
+ * None of this material may be copied, duplicated, or disclosed without the
+ * express written permission of GoKnown LLC.
+ */
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import { FiArrowLeft, FiLogIn, FiMail, FiLock, FiKey } from "react-icons/fi";
 import { Link, useHistory, useLocation } from "react-router-dom";
