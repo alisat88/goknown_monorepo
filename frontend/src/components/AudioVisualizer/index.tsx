@@ -8,11 +8,15 @@ import { Container } from "./styles";
 interface IProps {
   url: string;
   type?: string;
+  onReady?(): void;
+  onViewerError?(): void;
 }
 
 const AudioVisualizer: React.FC<React.PropsWithChildren<IProps>> = ({
   url,
   type,
+  onReady,
+  onViewerError,
   ...rest
 }) => {
   const [track, setTrack] = useState<HTMLAudioElement>();
@@ -35,6 +39,8 @@ const AudioVisualizer: React.FC<React.PropsWithChildren<IProps>> = ({
           {isIOS && <img src={knownCover} alt="image" />}
           <audio
             controls
+            onLoadedData={onReady}
+            onError={onViewerError}
             crossOrigin="anonymous"
             onPlay={() => (isIOS ? null : initializeVisualizer())}
             ref={mediaElementRef}

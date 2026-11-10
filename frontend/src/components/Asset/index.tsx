@@ -32,6 +32,8 @@ interface IProps {
   url: string;
   name: string;
   onClick?(): void;
+  onReady?(): void;
+  onViewerError?(): void;
   component?: "preview" | "thumbnail";
 }
 
@@ -41,6 +43,8 @@ const Asset: React.FC<React.PropsWithChildren<IProps>> = ({
   name,
   component = "thumbnail",
   onClick,
+  onReady,
+  onViewerError,
   ...rest
 }) => {
   const [loading, setLoading] = useState(true);
@@ -79,21 +83,54 @@ const Asset: React.FC<React.PropsWithChildren<IProps>> = ({
         return <ImageLightbox url={url} alt={name} />;
       case "video":
         return (
-          <video width="320" height="240" controls>
+          <video
+            width="320"
+            height="240"
+            controls
+            onLoadedData={onReady}
+            onError={onViewerError}
+          >
             <source src={url} type={type} />
           </video>
         );
       case "audio":
-        return <AudioVisualizer url={url} type={type} />;
+        return (
+          <AudioVisualizer
+            url={url}
+            type={type}
+            onReady={onReady}
+            onViewerError={onViewerError}
+          />
+        );
       case "document":
-        return <Pdf url={url} />;
+        return (
+          <Pdf url={url} onReady={onReady} onViewerError={onViewerError} />
+        );
       default:
         return <MdImage style={{ zIndex: 10 }} />;
     }
-  }, [name, type, url]);
+  }, [name, type, url, onReady, onViewerError]);
 
   return (
-    <Container isLoading={loading} className="Container" onClick={onClick}>
+    <Container
+      isLoading={loading}
+      className="Container"
+      onClick={onClick}
+      onLoadCapture={(event) => {
+        // Observe the actual rendered lightbox image, never a probe/preload.
+        if (
+          component === "preview" &&
+          EnumAssetsType[type] === "image" &&
+          event.target instanceof HTMLImageElement &&
+          event.target.getAttribute("src") === url &&
+          event.target.naturalWidth > 0
+        )
+          onReady?.();
+      }}
+      onErrorCapture={() => {
+        if (component === "preview") onViewerError?.();
+      }}
+    >
       <LoadingContent isLoading={loading}>
         <Loader color="grey" size={24} />
       </LoadingContent>
