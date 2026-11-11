@@ -1,6 +1,12 @@
+> Activity-ledger release: automatic/legacy mutating migrations are disabled. See [the reviewed release procedure](../docs/dappgenius-activity-ledger-release.md). Historical migration examples below are not approved release commands.
+
 # GoKnown - Docker Environment
 
 This directory contains the necessary configurations to run the GoKnown application (frontend and backend) using Docker.
+
+Backend startup builds and starts the service only; it never runs migrations.
+Provision a disposable database separately through the reviewed workflow in
+`../backend/README.md`.
 
 ## Files
 
@@ -99,7 +105,7 @@ Backend:
 cd backend
 cp .env.example .env
 yarn install
-yarn typeorm migration:run
+# Provision the disposable database through the reviewed release workflow.
 yarn dev:server
 ```
 

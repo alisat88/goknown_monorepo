@@ -1,3 +1,7 @@
+// Legacy mutating CLI paths must never use application credentials.
+if (process.argv.some(arg => ['migration:run', 'migration:revert', 'schema:sync', 'schema:drop'].includes(arg))) {
+  throw new Error('Use the verified release:ledger commands; legacy mutating TypeORM CLI is disabled.');
+}
 require('dotenv/config');
 
 // Debug: Log all DB environment variables
@@ -71,6 +75,7 @@ module.exports = [
     type: 'postgres',
     url: connectionUrl,
     synchronize: false,
+    migrationsRun: false,
     soft: true,
     entities: [
       './dist/modules/**/infra/typeorm/entities/*.js',

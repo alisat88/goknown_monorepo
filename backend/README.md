@@ -1,3 +1,5 @@
+> Activity-ledger release: automatic/legacy mutating migrations are disabled. See [the reviewed release procedure](../docs/dappgenius-activity-ledger-release.md). Historical migration examples below are not approved release commands.
+
 # GoKnown Backend
 
 This is the backend service for the GoKnown application, built with Node.js, TypeScript, and TypeORM.
@@ -45,11 +47,10 @@ This is the backend service for the GoKnown application, built with Node.js, Typ
    # Edit .env with your configuration
    ```
 
-3. **Run database migrations:**
+3. **Provision the local database:**
 
-   ```bash
-   yarn typeorm migration:run
-   ```
+   Application startup never runs migrations. Provision a disposable local
+   database through the reviewed migration-release workflow below.
 
 4. **Start development server:**
 
@@ -328,13 +329,26 @@ The API documentation is available at:
 - Swagger UI: http://localhost:3333/api-docs
 - OpenAPI JSON: http://localhost:3333/swagger.json
 
-## Database Migrations
+## Database migration releases
 
-### Run migrations:
+Web and worker startup always uses `migrationsRun: false` and never changes the
+schema. The legacy mutating TypeORM CLI (`migration:run`, `migration:revert`,
+`schema:sync`, and `schema:drop`) is blocked. Use a separate migration-owner
+login and a private, ordered plan for every reviewed release:
 
 ```bash
-yarn typeorm migration:run
+npm run build
+npm run release:migrations:verify -- /private/review/target.json /private/review/migrations.json
+npm run release:migrations:migrate -- /private/review/target.json /private/review/migrations.json CONFIRMATION_FROM_VERIFY
 ```
+
+The plan lists every compiled migration in order, including already-applied
+names. The command skips names already present in `public.migrations`, rejects
+unknown or omitted migrations, and binds the plan and compiled artifact to the
+explicit confirmation. It reuses the target identity, role, DNS/IP, TLS,
+advisory-lock, rollback, and credential-suppression checks from the ledger
+release. Keep `LEDGER_MIGRATION_DATABASE_URL` out of web and worker processes.
+The ledger-only command remains available for the Phase 1 additive migration.
 
 ### Generate new migration:
 
@@ -342,11 +356,9 @@ yarn typeorm migration:run
 yarn typeorm migration:generate -n MigrationName
 ```
 
-### Revert migration:
-
-```bash
-yarn typeorm migration:revert
-```
+Migration reverts and destructive schema commands are not supported by this
+release workflow. Use an approved additive forward migration or an isolated
+disaster-recovery procedure.
 
 ## Troubleshooting
 
