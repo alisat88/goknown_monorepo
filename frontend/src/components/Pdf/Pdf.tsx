@@ -7,9 +7,15 @@ import { Container, ContentButton } from "./styles";
 
 interface IProps {
   url: string;
+  onReady?(): void;
+  onViewerError?(): void;
 }
 
-const Pdf: React.FC<React.PropsWithChildren<IProps>> = ({ url }) => {
+const Pdf: React.FC<React.PropsWithChildren<IProps>> = ({
+  url,
+  onReady,
+  onViewerError,
+}) => {
   const [numPages, setNumPages] = useState(1);
   const [pageNumber, setPageNumber] = useState(1);
 
@@ -33,8 +39,16 @@ const Pdf: React.FC<React.PropsWithChildren<IProps>> = ({ url }) => {
 
   return (
     <Container>
-      <Document file={url} onLoadSuccess={onDocumentLoadSuccess}>
-        <Page pageNumber={pageNumber} />
+      <Document
+        file={url}
+        onLoadSuccess={onDocumentLoadSuccess}
+        onLoadError={onViewerError}
+      >
+        <Page
+          pageNumber={pageNumber}
+          onRenderSuccess={onReady}
+          onRenderError={onViewerError}
+        />
       </Document>
       <ContentButton>
         <Button disabled={pageNumber === 1} onClick={() => prevPage()}>

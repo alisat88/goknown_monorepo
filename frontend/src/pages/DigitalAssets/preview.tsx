@@ -9,6 +9,7 @@ import Button from "../../components/Button";
 import ButtonBack from "../../components/ButtonBack";
 import { useAuth } from "../../hooks/auth";
 import { useToast } from "../../hooks/toast";
+import useAssetAccessSession from "../../hooks/useAssetAccessSession";
 import api from "../../services/api";
 import {
   Container,
@@ -147,6 +148,16 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
   );
   const history = useHistory();
   const { id } = useParams<{ id: string }>();
+  const [readyKey, setReadyKey] = useState<string | null>(null);
+  const viewerKey = `${digitalAsset.sync_id}:${
+    digitalAsset.display_url || digitalAsset.asset_url
+  }`;
+  const onViewerReady = useCallback(() => setReadyKey(viewerKey), [viewerKey]);
+  const onViewerError = useCallback(() => setReadyKey(null), []);
+  useAssetAccessSession(
+    digitalAsset.sync_id,
+    !loading && digitalAsset.sync_id === id && readyKey === viewerKey
+  );
 
   const { addToast } = useToast();
   const { user } = useAuth();
@@ -165,6 +176,7 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
 
   useEffect(() => {
     setLoading(true);
+    setReadyKey(null);
     api
       .get<IDigitalAssetsItem>(`/me/digitalassets/${id}`)
       .then((response) =>
@@ -262,6 +274,8 @@ const DigitalAssetsPreview: React.FC<React.PropsWithChildren<unknown>> = () => {
               <ContentPreviewAssets>
                 <div>
                   <Asset
+                    onReady={onViewerReady}
+                    onViewerError={onViewerError}
                     component="preview"
                     url={digitalAsset.display_url || digitalAsset.asset_url}
                     name={digitalAsset.name}

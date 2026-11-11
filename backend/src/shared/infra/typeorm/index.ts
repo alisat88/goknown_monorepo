@@ -41,6 +41,7 @@ const config: ConnectionOptions = {
   type: 'postgres',
   url: connectionUrl,
   synchronize: false,
+  migrationsRun: false,
   logging: ['error', 'schema', 'warn'],
   entities: [
     StrictLoginChallenge,

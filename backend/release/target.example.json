@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "host": "REPLACE_WITH_REVIEWED_DIRECT_DB_HOST",
+  "port": 5432,
+  "database": "replace_database",
+  "databaseOid": 0,
+  "migrationRole": "dappgenius_migration_owner",
+  "runtimeRole": "dappgenius_runtime",
+  "addresses": [],
+  "tls": "verify-full",
+  "caFile": "/REPLACE_WITH_REVIEWED_CA_PATH"
+}

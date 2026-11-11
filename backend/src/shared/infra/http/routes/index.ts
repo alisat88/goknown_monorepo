@@ -28,7 +28,10 @@ import consensusRouter from '@modules/consensus/infra/http/routes/consensus.rout
 import paymentsRouter from "./payments.routes";
 import dappBuilderRouter from '@modules/dappbuilder/infra/http/routes/dappbuilder.routes';
 
+import activityRouter from '@modules/activityledger/activity.routes';
+
 const routes = Router();
+routes.use('/me/activity', activityRouter);
 
 // Separate, opt-in authentication foundation; legacy routes remain unchanged.
 routes.use('/strict-sessions', strictSessionsRouter);
