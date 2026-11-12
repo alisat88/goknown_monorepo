@@ -90,12 +90,16 @@ BEGIN
   END IF;
 END $$;
 -- Only ledger-local ACLs are adjusted. Existing application ACLs are preserved.
+-- The schema itself is private; runtime receives USAGE only below.
+REVOKE ALL ON SCHEMA activity_ledger FROM PUBLIC;
 REVOKE ALL ON activity_ledger.activity_events, activity_ledger.activity_access_sessions FROM PUBLIC;
 REVOKE ALL ON activity_ledger.activity_log_viewers FROM PUBLIC;
 REVOKE ALL ON FUNCTION activity_ledger.reject_activity_event_mutation() FROM PUBLIC;
+REVOKE ALL ON SCHEMA activity_ledger FROM :"runtime_role";
 REVOKE ALL ON activity_ledger.activity_events, activity_ledger.activity_access_sessions FROM :"runtime_role";
 REVOKE ALL ON activity_ledger.activity_log_viewers FROM :"runtime_role";
 REVOKE ALL ON FUNCTION activity_ledger.reject_activity_event_mutation() FROM :"runtime_role";
+GRANT USAGE ON SCHEMA activity_ledger TO :"runtime_role";
 GRANT SELECT, INSERT ON activity_ledger.activity_events TO :"runtime_role";
 GRANT SELECT, INSERT, UPDATE ON activity_ledger.activity_access_sessions TO :"runtime_role";
 -- The application provisions/revokes grants only after the platform-admin check.
@@ -118,6 +122,10 @@ BEGIN
       RAISE EXCEPTION 'Runtime has effective or assumable dangerous privileges; transaction rolled back';
     END IF;
   END LOOP;
+  IF NOT has_schema_privilege(runtime_name,'activity_ledger','USAGE')
+     OR has_schema_privilege(runtime_name,'activity_ledger','CREATE') THEN
+    RAISE EXCEPTION 'Ledger runtime schema privileges are unsafe or incomplete';
+  END IF;
   IF NOT has_table_privilege(runtime_name,'activity_ledger.activity_events','SELECT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_events','INSERT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','SELECT')

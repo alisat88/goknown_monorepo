@@ -108,6 +108,12 @@ suite('activity ledger on disposable PostgreSQL', () => {
     await expect(runtime.query(sql)).rejects.toMatchObject({ code: '42501' });
   });
   test('legacy application role cannot access the dedicated ledger schema', async () => {
+    const [runtimeAcl] = await owner.query(
+      `SELECT has_schema_privilege('activity_test_runtime','activity_ledger','USAGE') AS usage,
+              has_schema_privilege('activity_test_runtime','activity_ledger','CREATE') AS can_create`,
+    );
+    expect(runtimeAcl.usage).toBe(true);
+    expect(runtimeAcl.can_create).toBe(false);
     await expect(
       application.query('SELECT count(*) FROM activity_ledger.activity_events'),
     ).rejects.toMatchObject({ code: '42501' });

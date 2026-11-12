@@ -168,6 +168,15 @@ test('startup entrypoints do not run migrations or schema synchronization', () =
   assert.match(startup, /migrationsRun: false/);
   assert.match(startup, /synchronize: false/);
 });
+test('ledger permission SQL grants only schema usage to the runtime role', () => {
+  const sql = require('node:fs').readFileSync(
+    require('node:path').resolve(__dirname, '../release/ledger-permissions.sql'),
+    'utf8',
+  );
+  assert.match(sql, /REVOKE ALL ON SCHEMA activity_ledger FROM PUBLIC/);
+  assert.match(sql, /GRANT USAGE ON SCHEMA activity_ledger TO :"runtime_role"/);
+  assert.doesNotMatch(sql, /GRANT CREATE ON SCHEMA activity_ledger TO :"runtime_role"/);
+});
 test('legacy mutating CLI is blocked before dotenv or credentials are loaded', () => {
   const { spawnSync } = require('node:child_process');
   for (const command of [
