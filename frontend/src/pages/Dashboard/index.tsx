@@ -89,6 +89,7 @@ const Dashboard: React.FC = () => {
     {} as IDashboardItem
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activityLogAllowed, setActivityLogAllowed] = useState(false);
 
   const history = useHistory();
   const { pathname } = useLocation();
@@ -101,6 +102,7 @@ const Dashboard: React.FC = () => {
 
   const visibleApps = useMemo(() => {
     const apps = Defaultdls.filter((dl) => {
+      if (dl.permission === "activity_log") return activityLogAllowed;
       if (!dl.roles) return true;
       return dl.roles.includes(user.role);
     });
@@ -111,7 +113,7 @@ const Dashboard: React.FC = () => {
       apps.map((a) => a.name)
     );
     return apps;
-  }, [user.role, user.id, user.email]);
+  }, [activityLogAllowed, user.role, user.id, user.email]);
 
   const assetCount = dashboard?.adminAssets?.assets?.length || 0;
 
@@ -172,6 +174,17 @@ const Dashboard: React.FC = () => {
       )
       .finally(() => setLoading(false));
   }, [addToast]);
+
+  useEffect(() => {
+    if (user.role === "admin") {
+      setActivityLogAllowed(true);
+      return;
+    }
+    api
+      .get("/admin/activity-log/access")
+      .then(() => setActivityLogAllowed(true))
+      .catch(() => setActivityLogAllowed(false));
+  }, [user.role]);
 
   return (
     <Container>
