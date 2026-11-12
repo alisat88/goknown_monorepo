@@ -1,6 +1,7 @@
 import React from "react";
 import { Switch, Route as BrowserRoute } from "react-router-dom";
 
+import ActivityLog from "../pages/ActivityLog";
 import Auditlogs from "../pages/Auditlogs";
 import BuyTokens from "../pages/BuyTokens";
 import Changelog from "../pages/Changelog";
@@ -323,6 +324,7 @@ const Routes: React.FC<React.PropsWithChildren<unknown>> = () => (
 
     <Route path="/messenger" exact component={Messenger} isPrivate />
     <Route path="/auditlogs" exact component={Auditlogs} isPrivate />
+    <Route path="/activity-log" exact component={ActivityLog} isPrivate />
     <Route path="/users" exact component={InviteUser} isPrivate />
     {/* Laboratory is intentionally disabled; source code is preserved.
     <Route path="/labs" exact component={Laboratory} isPrivate />

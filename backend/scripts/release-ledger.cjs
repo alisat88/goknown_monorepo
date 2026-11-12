@@ -115,6 +115,8 @@ function confirmation(target, digest, migration = NAME) {
     .digest('hex');
 }
 async function inspect(client, target, expected) {
+  const ledgerIndex = expected.indexOf(NAME);
+  check(ledgerIndex >= 0, 'BUILD_REQUIRED');
   const {
     rows: [id],
   } = await client.query(`SELECT current_database() AS db, current_user AS role,
@@ -186,8 +188,12 @@ async function inspect(client, target, expected) {
     'UNREVIEWED_MIGRATION_HISTORY',
   );
   check(
-    expected.filter(n => n !== NAME).every(n => names.includes(n)),
+    expected.slice(0, ledgerIndex).every(n => names.includes(n)),
     'BASELINE_MIGRATIONS_MISSING',
+  );
+  check(
+    expected.slice(ledgerIndex + 1).every(n => !names.includes(n)),
+    'UNREVIEWED_NEWER_MIGRATIONS',
   );
   check(
     history.every(r => r.timestamp === r.name.slice(-13)),
@@ -269,7 +275,6 @@ async function release({
     check(migration, 'INVALID_MIGRATION_ARTIFACT');
     return migration.name;
   });
-  check(expected[expected.length - 1] === NAME, 'UNREVIEWED_NEWER_MIGRATIONS');
   const digest = crypto.createHash('sha256');
   for (const file of files)
     digest.update(file).update(fs.readFileSync(path.join(directory, file)));

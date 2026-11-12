@@ -28,6 +28,7 @@ export interface IDL {
   icon_url?: string;
   oldPage?: string;
   externalUrl?: string;
+  permission?: "activity_log";
   flag: string;
 }
 

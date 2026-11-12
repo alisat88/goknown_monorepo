@@ -29,9 +29,11 @@ import paymentsRouter from "./payments.routes";
 import dappBuilderRouter from '@modules/dappbuilder/infra/http/routes/dappbuilder.routes';
 
 import activityRouter from '@modules/activityledger/activity.routes';
+import activityAdminRouter from '@modules/activityledger/admin.routes';
 
 const routes = Router();
 routes.use('/me/activity', activityRouter);
+routes.use('/admin/activity-log', activityAdminRouter);
 
 // Separate, opt-in authentication foundation; legacy routes remain unchanged.
 routes.use('/strict-sessions', strictSessionsRouter);

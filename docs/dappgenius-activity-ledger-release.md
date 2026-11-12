@@ -96,6 +96,20 @@ The guard trusts the reviewed application artifact and authorized operator. Conf
 
 ## Migration owner and runtime roles
 
+### Activity Log viewer permission
+
+The Activity Log is globally visible only to platform administrators or users
+with an explicit row in `activity_log_viewers`. The additive migration
+`1792100000000-CreateActivityLogViewers` stores the user, granting administrator,
+and grant time. It does not change the user's role or grant any other admin
+capability. Only an existing platform administrator can provision or revoke a
+viewer through the authenticated Activity Log administration endpoint. Revoke
+the row to remove access; do not infer access from organization membership.
+
+The running application reads this table and uses its existing restricted
+runtime role. Include this migration in the reviewed ordered general migration
+plan; it is not run at backend startup and is not a production approval.
+
 A DBA must provision dedicated role identities in a separately approved operation. Illustrative identities (not a ready-to-run provisioning script):
 
 ```sql

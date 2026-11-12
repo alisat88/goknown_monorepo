@@ -71,11 +71,15 @@ BEGIN
 END $$;
 -- Only ledger-local ACLs are adjusted. Existing application ACLs are preserved.
 REVOKE ALL ON public.activity_events, public.activity_access_sessions FROM PUBLIC;
+REVOKE ALL ON public.activity_log_viewers FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.reject_activity_event_mutation() FROM PUBLIC;
 REVOKE ALL ON public.activity_events, public.activity_access_sessions FROM :"runtime_role";
+REVOKE ALL ON public.activity_log_viewers FROM :"runtime_role";
 REVOKE ALL ON FUNCTION public.reject_activity_event_mutation() FROM :"runtime_role";
 GRANT SELECT, INSERT ON public.activity_events TO :"runtime_role";
 GRANT SELECT, INSERT, UPDATE ON public.activity_access_sessions TO :"runtime_role";
+-- The application provisions/revokes grants only after the platform-admin check.
+GRANT SELECT, INSERT, DELETE ON public.activity_log_viewers TO :"runtime_role";
 -- Legacy AuditLogsRepository.create performs INSERT followed by a nodes UPDATE.
 GRANT UPDATE ON public.auditlogs TO :"runtime_role";
 DO $$
@@ -99,6 +103,7 @@ BEGIN
      OR NOT has_table_privilege(runtime_name,'public.activity_access_sessions','SELECT')
      OR NOT has_table_privilege(runtime_name,'public.activity_access_sessions','INSERT')
      OR NOT has_table_privilege(runtime_name,'public.activity_access_sessions','UPDATE')
+     OR NOT has_table_privilege(runtime_name,'public.activity_log_viewers','SELECT,INSERT,DELETE')
      OR NOT has_table_privilege(runtime_name,'public.auditlogs','UPDATE') THEN
     RAISE EXCEPTION 'Required runtime privileges missing';
   END IF;
