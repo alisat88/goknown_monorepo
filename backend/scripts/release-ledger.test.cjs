@@ -88,7 +88,7 @@ function fake({ mismatch = false, unsafe = false, history = [] } = {}) {
           ],
         };
       if (sql.includes('FROM pg_roles WHERE rolname'))
-        return { rows: [{ rolsuper: unsafe }, {}] };
+        return { rows: [{ rolsuper: unsafe }, {}, {}] };
       if (sql.includes('AS owner_member'))
         return {
           rows: [{ owner_member: false, can_create: false, db_owner: false }],

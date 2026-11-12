@@ -79,7 +79,7 @@ identity, role, history, advisory-lock, rollback, and sanitized-error controls.
 
 The secret manager must inject only `LEDGER_MIGRATION_DATABASE_URL` for this short-lived process. Do not place credentials in command arguments, tracked files, terminal history or logs. Remove ambient DATABASE_URL, PGOPTIONS and PGSERVICE. The script does not load dotenv, ormconfig or web providers. Owner credentials must never appear in web/worker environments. Runtime DATABASE_URL remains separate and unchanged in application semantics.
 
-Create a private, reviewed manifest from `backend/release/target.example.json`; its placeholder values intentionally cannot run. Record exact host/port/database, independently obtained database OID, owner/runtime role names, all approved resolved IP addresses, TLS mode and reviewed CA file. Keep it outside Git if deployment metadata is sensitive. Obtain identity through a separately authorized read-only operator process; never infer it solely from the secret URL. Have a second operator match it to the approved infrastructure inventory and backup record.
+Create a private, reviewed manifest from `backend/release/target.example.json`; its placeholder values intentionally cannot run. Record exact host/port/database, independently obtained database OID, `activity_ledger` schema, migration-owner/runtime/application role names, all approved resolved IP addresses, TLS mode and reviewed CA file. Keep it outside Git if deployment metadata is sensitive. Obtain identity through a separately authorized read-only operator process; never infer it solely from the secret URL. Have a second operator match it to the approved infrastructure inventory and backup record.
 
 The ledger guard:
 - Requires Node 22 and explicit matching migration-owner URL; rejects URL query overrides and missing password.
@@ -106,8 +106,9 @@ capability. Only an existing platform administrator can provision or revoke a
 viewer through the authenticated Activity Log administration endpoint. Revoke
 the row to remove access; do not infer access from organization membership.
 
-The running application reads this table and uses its existing restricted
-runtime role. Include this migration in the reviewed ordered general migration
+The running application reads this table through the dedicated
+`ACTIVITY_LEDGER_DATABASE_URL` connection and restricted ledger runtime role;
+the legacy `DATABASE_URL` connection remains unchanged. Include this migration in the reviewed ordered general migration
 plan; it is not run at backend startup and is not a production approval.
 
 A DBA must provision dedicated role identities in a separately approved operation. Illustrative identities (not a ready-to-run provisioning script):
@@ -131,7 +132,8 @@ Apply `backend/release/ledger-permissions.sql` after the ledger migration, using
 psql -X -v ON_ERROR_STOP=1 \
   -v expected_database=REVIEWED_DB -v expected_oid=REVIEWED_OID \
   -v expected_address=REVIEWED_SERVER_IP -v expected_port=REVIEWED_PORT \
-  -v migration_owner=REVIEWED_OWNER -v runtime_role=REVIEWED_RUNTIME \
+  -v ledger_schema=activity_ledger -v migration_owner=REVIEWED_OWNER \
+  -v runtime_role=REVIEWED_RUNTIME -v application_role=REVIEWED_APPLICATION \
   -f backend/release/ledger-permissions.sql
 ```
 

@@ -20,6 +20,9 @@ jest.mock('typeorm', () => ({
   getManager: jest.fn(),
   getRepository: jest.fn(),
 }));
+jest.mock('../activityLedgerDb', () => ({
+  getActivityLedgerManager: () => jest.requireMock('typeorm').getManager(),
+}));
 jest.mock('@modules/users/infra/http/middlewares/ensureAuthenticated', () => ({
   __esModule: true,
   default: (req: any, res: any, next: any) => {
@@ -76,12 +79,12 @@ suite('administrator activity log on disposable PostgreSQL', () => {
       [uuid(), 'admin-sync', 'admin', viewerId, 'viewer-sync', 'user'],
     );
     await connection.query(
-      'INSERT INTO activity_log_viewers (user_id) VALUES ($1)',
+      'INSERT INTO activity_ledger.activity_log_viewers (user_id) VALUES ($1)',
       [viewerId],
     );
     const session = uuid();
     await connection.query(
-      `INSERT INTO activity_access_sessions
+      `INSERT INTO activity_ledger.activity_access_sessions
        (id, request_id, actor_user_id, actor_sync_id, asset_id, asset_sync_id, source_node)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
@@ -100,7 +103,7 @@ suite('administrator activity log on disposable PostgreSQL', () => {
       ['asset.access_ended', '2026-01-02T00:00:00.000Z', 0],
     ] as const) {
       await connection.query(
-        `INSERT INTO activity_events
+        `INSERT INTO activity_ledger.activity_events
          (access_session_id, correlation_id, actor_user_id, actor_sync_id, asset_id, asset_sync_id,
           source_node, event_type, sequence, outcome, request_fingerprint, metadata, recorded_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13)`,
@@ -151,10 +154,7 @@ suite('administrator activity log on disposable PostgreSQL', () => {
   afterAll(async () => {
     if (connection) {
       await connection.query(
-        'DROP TABLE IF EXISTS activity_log_viewers, activity_events, activity_access_sessions, users CASCADE',
-      );
-      await connection.query(
-        'DROP FUNCTION IF EXISTS reject_activity_event_mutation()',
+      'DROP SCHEMA IF EXISTS activity_ledger CASCADE; DROP TABLE IF EXISTS users CASCADE',
       );
       await connection.close();
     }
@@ -205,10 +205,10 @@ suite('administrator activity log on disposable PostgreSQL', () => {
       ).status,
     ).toBe(403);
     await expect(
-      connection.query("UPDATE activity_events SET outcome='observed'"),
+      connection.query("UPDATE activity_ledger.activity_events SET outcome='observed'"),
     ).rejects.toMatchObject({ code: '42501' });
     const [{ count }] = await connection.query(
-      'SELECT count(*)::int AS count FROM activity_events',
+      'SELECT count(*)::int AS count FROM activity_ledger.activity_events',
     );
     expect(count).toBe(3);
   });

@@ -43,8 +43,9 @@ function fakeClient(history, identity = {}) {
   return {
     query: async sql => {
       if (sql.includes('current_database() AS db')) return { rows: [{ db: target.database, role: target.migrationRole, address: target.host, port: target.port, oid: target.databaseOid, recovery: false, ...identity }] };
-      if (sql.includes('FROM pg_roles WHERE rolname')) return { rows: [{ rolsuper: false, rolcreatedb: false, rolcreaterole: false, rolreplication: false, rolbypassrls: false }, { rolsuper: false, rolcreatedb: false, rolcreaterole: false, rolreplication: false, rolbypassrls: false }] };
+      if (sql.includes('FROM pg_roles WHERE rolname')) return { rows: [{ rolsuper: false, rolcreatedb: false, rolcreaterole: false, rolreplication: false, rolbypassrls: false }, { rolsuper: false, rolcreatedb: false, rolcreaterole: false, rolreplication: false, rolbypassrls: false }, { rolsuper: false, rolcreatedb: false, rolcreaterole: false, rolreplication: false, rolbypassrls: false }] };
       if (sql.includes('AS owner_member')) return { rows: [{ owner_member: false, can_create: false, db_owner: false }] };
+      if (sql.includes('ledger_schema_access')) return { rows: [{ ledger_schema_access: false, event_access: false, session_access: false, viewer_access: false }] };
       if (sql.includes('pg_extension')) return { rows: [{}], rowCount: 1 };
       if (sql.includes('FROM public.migrations')) return { rows: history };
       return { rows: [] };

@@ -10,6 +10,7 @@ const suite =
 suite('activity ledger on disposable PostgreSQL', () => {
   let owner: Connection;
   let runtime: Connection;
+  let application: Connection;
   let ledger: ActivityLedger;
   const actor = uuid(),
     other = uuid(),
@@ -50,26 +51,34 @@ suite('activity ledger on disposable PostgreSQL', () => {
       await runner.release();
     }
     await owner.query('CREATE ROLE activity_test_runtime LOGIN');
-    await owner.query('GRANT USAGE ON SCHEMA public TO activity_test_runtime');
+    await owner.query('CREATE ROLE activity_test_application LOGIN');
+    await owner.query('GRANT CREATE ON SCHEMA public TO activity_test_application');
+    await owner.query('GRANT USAGE ON SCHEMA activity_ledger TO activity_test_runtime');
     await owner.query(
-      'GRANT SELECT, INSERT ON activity_events TO activity_test_runtime',
+      'GRANT SELECT, INSERT ON activity_ledger.activity_events TO activity_test_runtime',
     );
     await owner.query(
-      'GRANT SELECT, INSERT, UPDATE ON activity_access_sessions TO activity_test_runtime',
+      'GRANT SELECT, INSERT, UPDATE ON activity_ledger.activity_access_sessions TO activity_test_runtime',
     );
     runtime = await createConnection({
       ...common,
       name: 'activity-test-runtime',
       username: 'activity_test_runtime',
     });
+    application = await createConnection({
+      ...common,
+      name: 'activity-test-application',
+      username: 'activity_test_application',
+    });
     ledger = new ActivityLedger(runtime.manager, authorize, 'test-node');
   });
   afterAll(async () => {
     if (runtime) await runtime.close();
+    if (application) await application.close();
     if (owner) {
       // Only this fixed disposable database; production down intentionally refuses.
       await owner.query(
-        'DROP TABLE IF EXISTS activity_events, activity_access_sessions; DROP FUNCTION IF EXISTS reject_activity_event_mutation(); REVOKE USAGE ON SCHEMA public FROM activity_test_runtime; DROP ROLE IF EXISTS activity_test_runtime',
+      'REVOKE USAGE ON SCHEMA activity_ledger FROM activity_test_runtime; DROP SCHEMA IF EXISTS activity_ledger CASCADE; REASSIGN OWNED BY activity_test_runtime, activity_test_application TO ledger_test; DROP OWNED BY activity_test_runtime, activity_test_application; DROP ROLE IF EXISTS activity_test_runtime; DROP ROLE IF EXISTS activity_test_application',
       );
       await owner.close();
     }
@@ -78,7 +87,7 @@ suite('activity ledger on disposable PostgreSQL', () => {
   test('restricted role can insert, with backend-resolved identities and DB timestamps', async () => {
     const event = await start();
     const [row] = await owner.query(
-      'SELECT * FROM activity_events WHERE id=$1',
+      'SELECT * FROM activity_ledger.activity_events WHERE id=$1',
       [event.id],
     );
     expect(row.actor_user_id).toBe(actor);
@@ -91,17 +100,22 @@ suite('activity ledger on disposable PostgreSQL', () => {
     });
   });
   test.each([
-    'UPDATE activity_events SET outcome=outcome',
-    'DELETE FROM activity_events',
-    'TRUNCATE activity_events',
-    'ALTER TABLE activity_events DISABLE TRIGGER ALL',
+    'UPDATE activity_ledger.activity_events SET outcome=outcome',
+    'DELETE FROM activity_ledger.activity_events',
+    'TRUNCATE activity_ledger.activity_events',
+    'ALTER TABLE activity_ledger.activity_events DISABLE TRIGGER ALL',
   ])('runtime rejects %s', async sql => {
     await expect(runtime.query(sql)).rejects.toMatchObject({ code: '42501' });
   });
+  test('legacy application role cannot access the dedicated ledger schema', async () => {
+    await expect(
+      application.query('SELECT count(*) FROM activity_ledger.activity_events'),
+    ).rejects.toMatchObject({ code: '42501' });
+  });
   test.each([
-    'UPDATE activity_events SET outcome=outcome',
-    'DELETE FROM activity_events',
-    'TRUNCATE activity_events',
+    'UPDATE activity_ledger.activity_events SET outcome=outcome',
+    'DELETE FROM activity_ledger.activity_events',
+    'TRUNCATE activity_ledger.activity_events',
   ])(
     'trigger also rejects owner DML %s',
     async sql =>
@@ -216,7 +230,7 @@ suite('activity ledger on disposable PostgreSQL', () => {
   test('stale session becomes incomplete with zero tail even when mutation fails', async () => {
     const event = await start();
     await owner.query(
-      "UPDATE activity_access_sessions SET last_observed_at=clock_timestamp()-interval '46 seconds' WHERE id=$1",
+      "UPDATE activity_ledger.activity_access_sessions SET last_observed_at=clock_timestamp()-interval '46 seconds' WHERE id=$1",
       [event.access_session_id],
     );
     await expect(
@@ -227,7 +241,7 @@ suite('activity ledger on disposable PostgreSQL', () => {
       }),
     ).rejects.toMatchObject({ statusCode: 409 });
     const events = await owner.query(
-      "SELECT * FROM activity_events WHERE access_session_id=$1 AND event_type='asset.access_ended'",
+      "SELECT * FROM activity_ledger.activity_events WHERE access_session_id=$1 AND event_type='asset.access_ended'",
       [event.access_session_id],
     );
     expect(events).toHaveLength(0);
@@ -235,16 +249,16 @@ suite('activity ledger on disposable PostgreSQL', () => {
   test('read-only history represents stale sessions without writing timeout events', async () => {
     const event = await start();
     await owner.query(
-      "UPDATE activity_access_sessions SET last_observed_at=clock_timestamp()-interval '46 seconds' WHERE id=$1",
+      "UPDATE activity_ledger.activity_access_sessions SET last_observed_at=clock_timestamp()-interval '46 seconds' WHERE id=$1",
       [event.access_session_id],
     );
     const before = await owner.query(
-      'SELECT count(*)::int AS count FROM activity_events',
+      'SELECT count(*)::int AS count FROM activity_ledger.activity_events',
     );
     const first = await ledger.list(actor, 2);
     const second = await ledger.list(actor, 2);
     const after = await owner.query(
-      'SELECT count(*)::int AS count FROM activity_events',
+      'SELECT count(*)::int AS count FROM activity_ledger.activity_events',
     );
     expect(after[0].count).toBe(before[0].count);
     expect(first.incomplete_sessions).toEqual(
@@ -287,17 +301,17 @@ suite('activity ledger on disposable PostgreSQL', () => {
     const event = await start();
     await expect(
       runtime.query(
-        `INSERT INTO activity_events (event_type, actor_user_id, actor_sync_id, asset_id, asset_sync_id,
+        `INSERT INTO activity_ledger.activity_events (event_type, actor_user_id, actor_sync_id, asset_id, asset_sync_id,
       source_node, access_session_id, correlation_id, sequence, outcome, request_fingerprint, metadata)
       SELECT event_type, actor_user_id, actor_sync_id, asset_id, asset_sync_id, source_node, uuid_generate_v4(), correlation_id,
-      sequence, outcome, request_fingerprint, metadata || '{"url":"forbidden"}'::jsonb FROM activity_events WHERE id=$1`,
+      sequence, outcome, request_fingerprint, metadata || '{"url":"forbidden"}'::jsonb FROM activity_ledger.activity_events WHERE id=$1`,
         [event.id],
       ),
     ).rejects.toMatchObject({ code: '23514' });
   });
   test('failed event insert rolls back projection and rejects without fake success', async () => {
     await owner.query(
-      'REVOKE INSERT ON activity_events FROM activity_test_runtime',
+      'REVOKE INSERT ON activity_ledger.activity_events FROM activity_test_runtime',
     );
     const key = uuid();
     try {
@@ -306,12 +320,12 @@ suite('activity ledger on disposable PostgreSQL', () => {
       });
     } finally {
       await owner.query(
-        'GRANT INSERT ON activity_events TO activity_test_runtime',
+        'GRANT INSERT ON activity_ledger.activity_events TO activity_test_runtime',
       );
     }
     expect(
       await owner.query(
-        'SELECT id FROM activity_access_sessions WHERE request_id=$1',
+        'SELECT id FROM activity_ledger.activity_access_sessions WHERE request_id=$1',
         [key],
       ),
     ).toHaveLength(0);

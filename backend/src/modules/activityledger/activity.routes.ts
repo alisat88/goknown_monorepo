@@ -1,12 +1,13 @@
 import rateLimit from 'express-rate-limit';
 import { Router, Request, Response, NextFunction } from 'express';
-import { getManager, getRepository } from 'typeorm';
+import { getRepository } from 'typeorm';
 import { container } from 'tsyringe';
 import ensureAuthenticated from '@modules/users/infra/http/middlewares/ensureAuthenticated';
 import FindDigitalAssetsService from '@modules/digitalassets/services/FindDigitalAssetsService';
 import User from '@modules/users/infra/typeorm/entities/User';
 import AppError from '@shared/errors/AppError';
 import { ActivityLedger, Identity } from './ActivityLedger';
+import { getActivityLedgerManager } from './activityLedgerDb';
 import { UUID, validateBody } from './policy';
 
 export async function authorizePreview(
@@ -44,9 +45,9 @@ router.use(
     message: { message: 'Activity observation rate exceeded' },
   }),
 );
-const ledger = () =>
+const ledger = async () =>
   new ActivityLedger(
-    getManager(),
+    await getActivityLedgerManager(),
     authorizePreview,
     process.env.ACTIVITY_LEDGER_SOURCE_NODE || 'local',
   );
@@ -67,7 +68,7 @@ router.post(
   handle(async (req, res) => {
     const body = validateBody(req.body, 'start');
     res.json(
-      await ledger().start(req.user.sync_id, req.params.asset, body.request_id),
+      await (await ledger()).start(req.user.sync_id, req.params.asset, body.request_id),
     );
   }),
 );
@@ -79,7 +80,7 @@ for (const action of ['heartbeat', 'end'] as const) {
         throw new AppError('Invalid session', 400);
       const body = validateBody(req.body, action);
       res.json(
-        await ledger().observe(
+        await (await ledger()).observe(
           req.user.sync_id,
           req.params.asset,
           req.params.session,
@@ -119,7 +120,7 @@ router.get(
       where: { sync_id: req.user.sync_id },
     });
     if (!user) throw new AppError('User not found', 403);
-    const history = await ledger().list(user.id, limit, before);
+    const history = await (await ledger()).list(user.id, limit, before);
     const { events } = history;
     const last = events[events.length - 1];
     res.json({
