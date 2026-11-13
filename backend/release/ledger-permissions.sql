@@ -104,8 +104,6 @@ GRANT SELECT, INSERT ON activity_ledger.activity_events TO :"runtime_role";
 GRANT SELECT, INSERT, UPDATE ON activity_ledger.activity_access_sessions TO :"runtime_role";
 -- The application provisions/revokes grants only after the platform-admin check.
 GRANT SELECT, INSERT, DELETE ON activity_ledger.activity_log_viewers TO :"runtime_role";
--- Legacy AuditLogsRepository.create performs INSERT followed by a nodes UPDATE.
-GRANT UPDATE ON public.auditlogs TO :"runtime_role";
 DO $$
 DECLARE
   runtime_name text := current_setting('ledger_release.runtime');
@@ -131,8 +129,7 @@ BEGIN
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','SELECT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','INSERT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','UPDATE')
-     OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','SELECT,INSERT,DELETE')
-     OR NOT has_table_privilege(runtime_name,'public.auditlogs','UPDATE') THEN
+     OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','SELECT,INSERT,DELETE') THEN
     RAISE EXCEPTION 'Required runtime privileges missing';
   END IF;
 END $$;

@@ -176,6 +176,8 @@ test('ledger permission SQL grants only schema usage to the runtime role', () =>
   assert.match(sql, /REVOKE ALL ON SCHEMA activity_ledger FROM PUBLIC/);
   assert.match(sql, /GRANT USAGE ON SCHEMA activity_ledger TO :"runtime_role"/);
   assert.doesNotMatch(sql, /GRANT CREATE ON SCHEMA activity_ledger TO :"runtime_role"/);
+  assert.doesNotMatch(sql, /GRANT UPDATE ON public\.auditlogs TO :"runtime_role"/);
+  assert.doesNotMatch(sql, /public\.auditlogs.*UPDATE/);
 });
 test('legacy mutating CLI is blocked before dotenv or credentials are loaded', () => {
   const { spawnSync } = require('node:child_process');
