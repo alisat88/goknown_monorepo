@@ -27,11 +27,18 @@ function config(target, credential, env = {}) {
   );
   check(
     identifier(target.database) &&
+      identifier(target.ledgerSchema || 'activity_ledger') &&
       identifier(target.migrationRole) &&
-      identifier(target.runtimeRole),
+      identifier(target.runtimeRole) &&
+      identifier(target.applicationRole || 'goknown_app'),
     'INVALID_IDENTIFIERS',
   );
   check(target.migrationRole !== target.runtimeRole, 'ROLES_MUST_DIFFER');
+  check(
+    (target.applicationRole || 'goknown_app') !== target.migrationRole &&
+      (target.applicationRole || 'goknown_app') !== target.runtimeRole,
+    'ROLES_MUST_DIFFER',
+  );
   check(
     Number.isInteger(target.databaseOid) && target.databaseOid > 0,
     'DATABASE_OID_REQUIRED',
@@ -77,6 +84,8 @@ function config(target, credential, env = {}) {
     target.tls !== 'verify-full' || typeof target.caFile === 'string',
     'CA_FILE_REQUIRED',
   );
+  const ledgerSchema = target.ledgerSchema || 'activity_ledger';
+  const applicationRole = target.applicationRole || 'goknown_app';
   return {
     user,
     password: decodeURIComponent(url.password),
@@ -86,7 +95,9 @@ function config(target, credential, env = {}) {
     query_timeout: 30000,
     application_name: 'dappgenius-ledger-release',
     options:
-      '-c search_path=public,pg_catalog -c statement_timeout=30000 -c lock_timeout=5000',
+      `-c search_path=public,${ledgerSchema},pg_catalog -c statement_timeout=30000 -c lock_timeout=5000`,
+    ledgerSchema,
+    applicationRole,
     ssl:
       target.tls === 'verify-full'
         ? {
@@ -115,6 +126,7 @@ function confirmation(target, digest, migration = NAME) {
     .digest('hex');
 }
 async function inspect(client, target, expected) {
+  const ledgerSchema = target.ledgerSchema || 'activity_ledger';
   const ledgerIndex = expected.indexOf(NAME);
   check(ledgerIndex >= 0, 'BUILD_REQUIRED');
   const {
@@ -136,11 +148,11 @@ async function inspect(client, target, expected) {
     await client.query(
       `SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
     FROM pg_roles WHERE rolname = ANY($1::text[])`,
-      [[target.migrationRole, target.runtimeRole]],
+      [[target.migrationRole, target.runtimeRole, target.applicationRole || 'goknown_app']],
     )
   ).rows;
   check(
-    roles.length === 2 &&
+    roles.length === 3 &&
       roles.every(
         r =>
           !r.rolsuper &&
@@ -203,11 +215,28 @@ async function inspect(client, target, expected) {
     await client.query(
       `SELECT c.relname, r.rolname AS owner FROM pg_class c
     JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner
-    WHERE n.nspname='public' AND c.relname = ANY($1::text[])`,
-      [['activity_events', 'activity_access_sessions']],
+    WHERE n.nspname=$1 AND c.relname = ANY($2::text[])`,
+      [ledgerSchema, ['activity_events', 'activity_access_sessions']],
     )
   ).rows;
   const applied = names.includes(NAME);
+  if (applied) {
+    const applicationRole = target.applicationRole || 'goknown_app';
+    const {
+      rows: [application],
+    } = await client.query(
+      `SELECT CASE WHEN to_regnamespace($2) IS NULL THEN false ELSE has_schema_privilege($1,$2,'USAGE,CREATE') END AS ledger_schema_access,
+        has_table_privilege($1,$3,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS event_access,
+        has_table_privilege($1,$4,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS session_access,
+        CASE WHEN to_regclass($5) IS NULL THEN false ELSE has_table_privilege($1,$5,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') END AS viewer_access`,
+      [applicationRole, ledgerSchema, `${ledgerSchema}.activity_events`, `${ledgerSchema}.activity_access_sessions`, `${ledgerSchema}.activity_log_viewers`],
+    );
+    check(
+      !application.ledger_schema_access && !application.event_access &&
+        !application.session_access && !application.viewer_access,
+      'APPLICATION_ROLE_CAN_ACCESS_LEDGER',
+    );
+  }
   check(
     applied
       ? objects.length === 2 &&
@@ -218,16 +247,19 @@ async function inspect(client, target, expected) {
   if (applied) {
     const trigger = await client.query(
       `SELECT 1 FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid
-      WHERE t.tgrelid='public.activity_events'::regclass AND t.tgname='activity_events_no_mutation'
+      WHERE t.tgrelid=$1::regclass AND t.tgname='activity_events_no_mutation'
       AND t.tgenabled IN ('O','A') AND t.tgtype=58 AND p.proname='reject_activity_event_mutation'
-      AND p.proowner=(SELECT oid FROM pg_roles WHERE rolname=$1)`,
-      [target.migrationRole],
+      AND p.proowner=(SELECT oid FROM pg_roles WHERE rolname=$2)`,
+      [`${ledgerSchema}.activity_events`, target.migrationRole],
     );
     check(trigger.rowCount === 1, 'LEDGER_TRIGGER_MISMATCH');
     const indexes =
       await client.query(`SELECT c.relname FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
-      WHERE i.indrelid IN ('public.activity_events'::regclass,'public.activity_access_sessions'::regclass)
-        AND i.indisvalid AND i.indisready`);
+      WHERE i.indrelid IN ($1::regclass,$2::regclass)
+        AND i.indisvalid AND i.indisready`, [
+        `${ledgerSchema}.activity_events`,
+        `${ledgerSchema}.activity_access_sessions`,
+      ]);
     const requiredIndexes = [
       'activity_access_sessions_pkey',
       'activity_access_sessions_actor_user_id_request_id_key',

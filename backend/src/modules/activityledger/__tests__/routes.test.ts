@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import express from 'express';
 import request from 'supertest';
 import { container } from 'tsyringe';
-import { getRepository } from 'typeorm';
+import { getManager, getRepository } from 'typeorm';
 import router, { authorizePreview } from '../activity.routes';
 import { ActivityLedger } from '../ActivityLedger';
 import AppError from '@shared/errors/AppError';
@@ -11,6 +11,9 @@ jest.mock('typeorm', () => ({
   ...jest.requireActual('typeorm'),
   getManager: jest.fn(),
   getRepository: jest.fn(),
+}));
+jest.mock('../activityLedgerDb', () => ({
+  getActivityLedgerManager: () => jest.requireMock('typeorm').getManager(),
 }));
 jest.mock('@modules/users/infra/http/middlewares/ensureAuthenticated', () => ({
   __esModule: true,

@@ -104,8 +104,8 @@ async function inspectGeneral(client, target, expected) {
   );
   const roles = queryRows(await client.query(`SELECT rolname, rolsuper, rolcreatedb, rolcreaterole,
     rolreplication, rolbypassrls FROM pg_roles WHERE rolname = ANY($1::text[])`,
-    [[target.migrationRole, target.runtimeRole]]));
-  check(roles.length === 2 && roles.every(role =>
+    [[target.migrationRole, target.runtimeRole, target.applicationRole || 'goknown_app']]));
+  check(roles.length === 3 && roles.every(role =>
     !role.rolsuper && !role.rolcreatedb && !role.rolcreaterole &&
     !role.rolreplication && !role.rolbypassrls), 'UNSAFE_ROLE_ATTRIBUTES');
   const [runtime] = queryRows(await client.query(`SELECT
@@ -114,6 +114,15 @@ async function inspectGeneral(client, target, expected) {
     pg_has_role($1,(SELECT datdba FROM pg_database WHERE datname=current_database()),'MEMBER') AS db_owner`,
     [target.runtimeRole, target.migrationRole]));
   check(!runtime.owner_member && !runtime.can_create && !runtime.db_owner, 'UNSAFE_RUNTIME_ROLE');
+  const applicationRole = target.applicationRole || 'goknown_app';
+  const [application] = queryRows(await client.query(`SELECT
+    CASE WHEN to_regnamespace($2) IS NULL THEN false ELSE has_schema_privilege($1,$2,'USAGE,CREATE') END AS ledger_schema_access,
+    CASE WHEN to_regclass($3) IS NULL THEN false ELSE has_table_privilege($1,$3,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') END AS event_access,
+    CASE WHEN to_regclass($4) IS NULL THEN false ELSE has_table_privilege($1,$4,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') END AS session_access,
+    CASE WHEN to_regclass($5) IS NULL THEN false ELSE has_table_privilege($1,$5,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') END AS viewer_access`,
+    [applicationRole, target.ledgerSchema || 'activity_ledger', `${target.ledgerSchema || 'activity_ledger'}.activity_events`, `${target.ledgerSchema || 'activity_ledger'}.activity_access_sessions`, `${target.ledgerSchema || 'activity_ledger'}.activity_log_viewers`]));
+  check(!application.ledger_schema_access && !application.event_access &&
+    !application.session_access && !application.viewer_access, 'APPLICATION_ROLE_CAN_ACCESS_LEDGER');
   const reachable = queryRows(await client.query(`SELECT r.rolname FROM pg_roles r
     WHERE pg_has_role($1,r.oid,'MEMBER') AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole
       OR r.rolreplication OR r.rolbypassrls OR has_schema_privilege(r.oid,'public','CREATE')

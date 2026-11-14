@@ -37,7 +37,7 @@ export class ActivityLedger {
     incomplete = false,
   ): Promise<any> {
     const [event] = await tx.query(
-      `INSERT INTO activity_events
+      `INSERT INTO activity_ledger.activity_events
       (event_type, recorded_at, actor_user_id, actor_sync_id, asset_id, asset_sync_id, source_node,
        access_session_id, correlation_id, sequence, outcome, request_fingerprint, metadata)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
@@ -70,7 +70,7 @@ export class ActivityLedger {
     return this.db.transaction(async tx => {
       // UNIQUE(actor, request) serializes concurrent start retries across instances.
       await tx.query(
-        `INSERT INTO activity_access_sessions
+        `INSERT INTO activity_ledger.activity_access_sessions
         (request_id, actor_user_id, actor_sync_id, asset_id, asset_sync_id, source_node)
         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (actor_user_id, request_id) DO NOTHING`,
         [
@@ -83,14 +83,14 @@ export class ActivityLedger {
         ],
       );
       const [session] = await tx.query(
-        'SELECT * FROM activity_access_sessions WHERE actor_user_id=$1 AND request_id=$2 FOR UPDATE',
+        'SELECT * FROM activity_ledger.activity_access_sessions WHERE actor_user_id=$1 AND request_id=$2 FOR UPDATE',
         [identity.actor_user_id, requestId],
       );
       if (session.asset_id !== identity.asset_id)
         throw new AppError('Conflicting activity retry', 409);
       const [existing] = await tx.query(
         `SELECT id, access_session_id, sequence, event_type, recorded_at, outcome, metadata
-        FROM activity_events WHERE access_session_id=$1 AND sequence=0`,
+        FROM activity_ledger.activity_events WHERE access_session_id=$1 AND sequence=0`,
         [session.id],
       );
       if (existing) return existing;
@@ -117,7 +117,7 @@ export class ActivityLedger {
     const identity = await this.authorize(actor, asset); // Existing preview authorization on EVERY write, including retries.
     const result = await this.db.transaction(async tx => {
       const [session] = await tx.query(
-        `SELECT * FROM activity_access_sessions
+        `SELECT * FROM activity_ledger.activity_access_sessions
         WHERE id=$1 AND actor_user_id=$2 AND asset_id=$3 FOR UPDATE`,
         [sessionId, identity.actor_user_id, identity.asset_id],
       );
@@ -125,7 +125,7 @@ export class ActivityLedger {
       const hash = fingerprint(action, input);
       const [existing] = await tx.query(
         `SELECT id, access_session_id, sequence, event_type, recorded_at, outcome, metadata, request_fingerprint
-        FROM activity_events WHERE access_session_id=$1 AND sequence=$2`,
+        FROM activity_ledger.activity_events WHERE access_session_id=$1 AND sequence=$2`,
         [sessionId, input.sequence],
       );
       if (existing) {
@@ -161,7 +161,7 @@ export class ActivityLedger {
           ['offline', 'error', 'sleep'].includes(input.reason),
       );
       await tx.query(
-        'UPDATE activity_access_sessions SET last_sequence=$2, last_observed_at=$3, ended=$4 WHERE id=$1',
+        'UPDATE activity_ledger.activity_access_sessions SET last_sequence=$2, last_observed_at=$3, ended=$4 WHERE id=$1',
         [sessionId, input.sequence, now, action === 'end'],
       );
       return event;
@@ -182,7 +182,7 @@ export class ActivityLedger {
     const stale = await this.db.query(
       `SELECT id, actor_user_id, actor_sync_id, asset_id, asset_sync_id,
         source_node, last_observed_at
-       FROM activity_access_sessions
+       FROM activity_ledger.activity_access_sessions
        WHERE actor_user_id=$1 AND NOT ended
          AND last_observed_at < clock_timestamp() - interval '45 seconds'
        ORDER BY id LIMIT 100`,
@@ -191,7 +191,7 @@ export class ActivityLedger {
     const events = await this.db.query(
         `SELECT id, schema_version, event_type, recorded_at, actor_user_id, actor_sync_id,
         asset_id, asset_sync_id, source_node, access_session_id, correlation_id, sequence, outcome, metadata
-        FROM activity_events WHERE actor_user_id=$1
+        FROM activity_ledger.activity_events WHERE actor_user_id=$1
         ${before ? 'AND (recorded_at, id) < ($3::timestamptz, $4::uuid)' : ''}
         ORDER BY recorded_at DESC, id DESC LIMIT $2`,
         before ? [actorId, limit, before.at, before.id] : [actorId, limit],

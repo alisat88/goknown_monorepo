@@ -9,6 +9,9 @@ jest.mock('typeorm', () => ({
   getManager: jest.fn(),
   getRepository: jest.fn(),
 }));
+jest.mock('../activityLedgerDb', () => ({
+  getActivityLedgerManager: () => jest.requireMock('typeorm').getManager(),
+}));
 jest.mock('@modules/users/infra/http/middlewares/ensureAuthenticated', () => ({
   __esModule: true,
   default: (req: any, res: any, next: any) => {

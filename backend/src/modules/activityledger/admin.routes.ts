@@ -1,8 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getManager, getRepository } from 'typeorm';
+import { getRepository } from 'typeorm';
 import ensureAuthenticated from '@modules/users/infra/http/middlewares/ensureAuthenticated';
 import User, { EnumRole } from '@modules/users/infra/typeorm/entities/User';
 import AppError from '@shared/errors/AppError';
+import { getActivityLedgerManager } from './activityLedgerDb';
 
 const MAX_PAGE_SIZE = 100;
 
@@ -50,8 +51,9 @@ async function ensureActivityViewer(
   try {
     const user = await currentUser(request);
     if (user.role === EnumRole.Admin) return next();
-    const [grant] = await getManager().query(
-      'SELECT 1 FROM activity_log_viewers WHERE user_id=$1',
+    const manager = await getActivityLedgerManager();
+    const [grant] = await manager.query(
+      'SELECT 1 FROM activity_ledger.activity_log_viewers WHERE user_id=$1',
       [user.id],
     );
     if (!grant) return next(new AppError('Access denied.', 403));
@@ -111,7 +113,8 @@ router.get('/', ensureActivityViewer, async (request, response, next) => {
     const limitParam = values.length + 1;
     const offsetParam = values.length + 2;
     values.push(limit, offset);
-    const rows = await getManager().query(
+    const manager = await getActivityLedgerManager();
+    const rows = await manager.query(
       `SELECT e.actor_sync_id AS user_id,
               e.asset_sync_id AS asset_id,
               e.event_type,
@@ -119,7 +122,7 @@ router.get('/', ensureActivityViewer, async (request, response, next) => {
               e.outcome,
               (e.metadata->>'estimated_active_ms')::integer AS estimated_active_ms,
               COUNT(*) OVER()::integer AS total_count
-         FROM activity_events e
+         FROM activity_ledger.activity_events e
          ${where}
         ORDER BY e.recorded_at DESC, e.id DESC
         LIMIT $${limitParam} OFFSET $${offsetParam}`,
@@ -157,8 +160,9 @@ router.post(
       });
       const grantor = await currentUser(request);
       if (!target) throw new AppError('User not found', 404);
-      await getManager().query(
-        `INSERT INTO activity_log_viewers (user_id, granted_by)
+      const manager = await getActivityLedgerManager();
+      await manager.query(
+        `INSERT INTO activity_ledger.activity_log_viewers (user_id, granted_by)
          VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
         [target.id, grantor.id],
       );
@@ -181,8 +185,9 @@ router.delete(
         where: { sync_id: syncId },
       });
       if (!target) throw new AppError('User not found', 404);
-      await getManager().query(
-        'DELETE FROM activity_log_viewers WHERE user_id=$1',
+      const manager = await getActivityLedgerManager();
+      await manager.query(
+        'DELETE FROM activity_ledger.activity_log_viewers WHERE user_id=$1',
         [target.id],
       );
       return response.status(204).send();
