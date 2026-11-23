@@ -179,6 +179,31 @@ test('ledger permission SQL grants only schema usage to the runtime role', () =>
   assert.doesNotMatch(sql, /GRANT UPDATE ON public\.auditlogs TO :"runtime_role"/);
   assert.doesNotMatch(sql, /public\.auditlogs.*UPDATE/);
 });
+test('ledger permission assertions check each required and forbidden privilege independently', () => {
+  const sql = require('node:fs').readFileSync(
+    require('node:path').resolve(__dirname, '../release/ledger-permissions.sql'),
+    'utf8',
+  );
+  const combined = sql
+    .split('\n')
+    .filter(line => /has_(?:table|schema|database|function|any_column)_privilege/.test(line))
+    .filter(line => /has_.*'(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|REFERENCES|TRIGGER),/.test(line));
+  assert.deepEqual(combined, []);
+  for (const privilege of ['SELECT', 'INSERT', 'DELETE']) {
+    assert.match(
+      sql,
+      new RegExp(`NOT has_table_privilege\\(runtime_name,'activity_ledger\\.activity_log_viewers','${privilege}'\\)`),
+    );
+  }
+  for (const privilege of ['UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER', 'REFERENCES']) {
+    assert.match(
+      sql,
+      new RegExp(`has_table_privilege\\(runtime_name,'activity_ledger\\.activity_events','${privilege}'\\)`),
+    );
+  }
+  assert.match(sql, /has_schema_privilege\(runtime_name,'public','CREATE'\)/);
+  assert.match(sql, /has_schema_privilege\(runtime_name,'activity_ledger','CREATE'\)/);
+});
 test('legacy mutating CLI is blocked before dotenv or credentials are loaded', () => {
   const { spawnSync } = require('node:child_process');
   for (const command of [

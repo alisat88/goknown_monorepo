@@ -79,13 +79,33 @@ BEGIN
   END IF;
   IF pg_has_role(runtime_name,owner_name,'MEMBER')
      OR pg_has_role(runtime_name,(SELECT datdba FROM pg_database WHERE datname=current_database()),'MEMBER')
+     OR has_database_privilege(runtime_name,current_database(),'CREATE')
      OR has_schema_privilege(runtime_name,'public','CREATE') THEN
     RAISE EXCEPTION 'Runtime can assume owner or create in public; separate DBA remediation required';
   END IF;
-  IF has_schema_privilege(application_name, current_setting('ledger_release.schema'), 'USAGE,CREATE')
-     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') THEN
+  IF has_schema_privilege(application_name, current_setting('ledger_release.schema'), 'USAGE')
+     OR has_schema_privilege(application_name, current_setting('ledger_release.schema'), 'CREATE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'SELECT')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'INSERT')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'UPDATE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'DELETE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'TRUNCATE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'REFERENCES')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_events', 'TRIGGER')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'SELECT')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'INSERT')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'UPDATE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'DELETE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'TRUNCATE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'REFERENCES')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_access_sessions', 'TRIGGER')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'SELECT')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'INSERT')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'UPDATE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'DELETE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'TRUNCATE')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'REFERENCES')
+     OR has_table_privilege(application_name, 'activity_ledger.activity_log_viewers', 'TRIGGER') THEN
     RAISE EXCEPTION 'Existing application role must not access activity ledger objects';
   END IF;
 END $$;
@@ -107,29 +127,68 @@ GRANT SELECT, INSERT, DELETE ON activity_ledger.activity_log_viewers TO :"runtim
 DO $$
 DECLARE
   runtime_name text := current_setting('ledger_release.runtime');
+  application_name text := current_setting('ledger_release.application');
   r record;
 BEGIN
   -- MEMBER covers roles the runtime could SET ROLE to, even with NOINHERIT.
   FOR r IN SELECT * FROM pg_roles WHERE pg_has_role(runtime_name,oid,'MEMBER') LOOP
     IF r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
        OR r.rolname IN ('pg_write_server_files','pg_execute_server_program','pg_read_server_files')
+       OR has_database_privilege(r.oid,current_database(),'CREATE')
        OR has_schema_privilege(r.oid,'public','CREATE')
-       OR has_table_privilege(r.oid,'activity_ledger.activity_events','UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES')
-       OR has_any_column_privilege(r.oid,'activity_ledger.activity_events','UPDATE,REFERENCES')
-       OR has_table_privilege(r.oid,'activity_ledger.activity_access_sessions','DELETE,TRUNCATE,TRIGGER,REFERENCES') THEN
+       OR has_schema_privilege(r.oid,'activity_ledger','CREATE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_events','UPDATE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_events','DELETE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_events','TRUNCATE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_events','TRIGGER')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_events','REFERENCES')
+       OR has_any_column_privilege(r.oid,'activity_ledger.activity_events','UPDATE')
+       OR has_any_column_privilege(r.oid,'activity_ledger.activity_events','REFERENCES')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_access_sessions','DELETE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_access_sessions','TRUNCATE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_access_sessions','TRIGGER')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_access_sessions','REFERENCES')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_log_viewers','UPDATE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_log_viewers','TRUNCATE')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_log_viewers','TRIGGER')
+       OR has_table_privilege(r.oid,'activity_ledger.activity_log_viewers','REFERENCES')
+       OR has_function_privilege(r.oid,'activity_ledger.reject_activity_event_mutation()','EXECUTE') THEN
       RAISE EXCEPTION 'Runtime has effective or assumable dangerous privileges; transaction rolled back';
     END IF;
   END LOOP;
   IF NOT has_schema_privilege(runtime_name,'activity_ledger','USAGE')
-     OR has_schema_privilege(runtime_name,'activity_ledger','CREATE') THEN
+     OR has_schema_privilege(runtime_name,'activity_ledger','CREATE')
+     OR has_database_privilege(runtime_name,current_database(),'CREATE')
+     OR has_schema_privilege(runtime_name,'public','CREATE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_events','UPDATE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_events','DELETE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_events','TRUNCATE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_events','TRIGGER')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_events','REFERENCES')
+     OR has_any_column_privilege(runtime_name,'activity_ledger.activity_events','UPDATE')
+     OR has_any_column_privilege(runtime_name,'activity_ledger.activity_events','REFERENCES')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','DELETE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','TRUNCATE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','TRIGGER')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','REFERENCES')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','UPDATE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','TRUNCATE')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','TRIGGER')
+     OR has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','REFERENCES')
+     OR has_function_privilege(runtime_name,'activity_ledger.reject_activity_event_mutation()','EXECUTE') THEN
     RAISE EXCEPTION 'Ledger runtime schema privileges are unsafe or incomplete';
+  END IF;
+  IF has_function_privilege(application_name,'activity_ledger.reject_activity_event_mutation()','EXECUTE') THEN
+    RAISE EXCEPTION 'Existing application role must not execute the ledger trigger function';
   END IF;
   IF NOT has_table_privilege(runtime_name,'activity_ledger.activity_events','SELECT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_events','INSERT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','SELECT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','INSERT')
      OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_access_sessions','UPDATE')
-     OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','SELECT,INSERT,DELETE') THEN
+     OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','SELECT')
+     OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','INSERT')
+     OR NOT has_table_privilege(runtime_name,'activity_ledger.activity_log_viewers','DELETE') THEN
     RAISE EXCEPTION 'Required runtime privileges missing';
   END IF;
 END $$;
