@@ -90,6 +90,17 @@ export default [
   {
     id: uuid(),
     sync_id: uuid(),
+    name: "Activity Log",
+    description: "Review authenticated asset preview activity.",
+    icon: auditlogs,
+    icon_url: auditlogs,
+    route: "/activity-log",
+    flag: "activity_log",
+    permission: "activity_log",
+  },
+  {
+    id: uuid(),
+    sync_id: uuid(),
     name: "User Manager",
     description:
       "Invite users, manage access, issue tokens, and handle account administration.",
